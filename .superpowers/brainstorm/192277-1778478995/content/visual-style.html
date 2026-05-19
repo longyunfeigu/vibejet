@@ -1,0 +1,141 @@
+<h2>Q5 / 视觉风格 · 同一个 workspace 三种渲法</h2>
+<p class="subtitle">回应 Q1-A "气质不像工具"。每张渲染的是同一个 (wanhua.gu / 05-11) workspace。点一张选。</p>
+
+<style>
+  .style-wrap { padding:12px; min-height:340px; }
+
+  /* Linear / Tool */
+  .s-linear { background:#0e0f12; color:#c8cdd6; font-family: -apple-system, "SF Pro", system-ui; }
+  .s-linear .top { font-size:10px; color:#6e7686; letter-spacing:.3px; }
+  .s-linear .crumb { display:flex; gap:6px; align-items:center; margin:4px 0 10px; font-size:11px; }
+  .s-linear .pill { background:#1c1f26; border:1px solid #2a2f3a; padding:2px 8px; border-radius:4px; font-size:10px; color:#aab3c0; }
+  .s-linear .pill.on { background:#3a4ff2; border-color:#3a4ff2; color:#fff; }
+  .s-linear .threecol { display:grid; grid-template-columns:1.2fr 1fr .8fr; gap:6px; }
+  .s-linear .panel { background:#15171c; border:1px solid #232830; border-radius:5px; padding:8px; font-size:10.5px; color:#c8cdd6; line-height:1.45; }
+  .s-linear .panel.boss { background:#1a1d23; border-color:#3a4ff2; }
+  .s-linear .lbl { font-size:9px; color:#5e6573; letter-spacing:.5px; text-transform:uppercase; margin-bottom:4px; }
+  .s-linear .sess { display:flex; gap:6px; padding:4px 0; border-top:1px solid #1c1f26; font-size:10px; font-family: ui-monospace, monospace; color:#aab3c0; }
+  .s-linear .tag { padding:0 5px; border-radius:2px; font-size:9px; font-weight:600; }
+  .s-linear .tag.chit { background:#4a3a14; color:#e0b558; }
+  .s-linear .tag.loop { background:#4a1414; color:#e57373; }
+  .s-linear .tag.val { background:#143a1a; color:#58e07e; }
+
+  /* Brutalist */
+  .s-brutal { background:#fafaf7; color:#000; font-family: ui-monospace, "JetBrains Mono", monospace; padding:14px; }
+  .s-brutal h5 { font-family: ui-monospace, monospace; margin:0 0 8px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #000; padding-bottom:4px; }
+  .s-brutal .crumb { display:flex; gap:0; font-size:10px; border:1.5px solid #000; margin-bottom:8px; }
+  .s-brutal .crumb > * { padding:3px 8px; border-right:1.5px solid #000; }
+  .s-brutal .crumb > .on { background:#000; color:#fff; }
+  .s-brutal .crumb > :last-child { border-right:0; margin-left:auto; }
+  .s-brutal .threecol { display:grid; grid-template-columns:1.2fr 1fr .8fr; gap:0; border:1.5px solid #000; }
+  .s-brutal .panel { padding:6px 8px; border-right:1.5px solid #000; font-size:10px; line-height:1.4; }
+  .s-brutal .panel:last-child { border-right:0; }
+  .s-brutal .panel.boss { background:#fff7c4; }
+  .s-brutal .lbl { font-size:9px; font-weight:700; letter-spacing:.5px; margin-bottom:3px; border-bottom:1px dotted #000; padding-bottom:2px; }
+  .s-brutal .sess { display:flex; gap:6px; padding:3px 0; border-bottom:1px dashed #000; font-size:10px; }
+  .s-brutal .tag { padding:0 4px; font-weight:700; }
+  .s-brutal .tag.chit { background:#000; color:#fff; }
+  .s-brutal .tag.loop { background:#c80000; color:#fff; }
+  .s-brutal .tag.val { background:#007a3a; color:#fff; }
+
+  /* Apple / Soft modern */
+  .s-soft { background:#f7f8fb; color:#1d1d1f; font-family: -apple-system, "SF Pro Display", system-ui; padding:14px; }
+  .s-soft h5 { font-size:13px; font-weight:600; margin:0 0 10px; color:#1d1d1f; }
+  .s-soft .crumb { display:flex; gap:6px; margin-bottom:10px; font-size:11px; }
+  .s-soft .pill { background:#fff; border:.5px solid #d8d8de; padding:3px 10px; border-radius:14px; font-size:10px; color:#5a5a60; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .s-soft .pill.on { background:linear-gradient(180deg, #007aff, #0064d4); color:#fff; border:0; }
+  .s-soft .threecol { display:grid; grid-template-columns:1.2fr 1fr .8fr; gap:8px; }
+  .s-soft .panel { background:#fff; border-radius:10px; padding:10px; font-size:11px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,.04); color:#1d1d1f; }
+  .s-soft .panel.boss { background:linear-gradient(180deg, #fffbea, #fff4d0); }
+  .s-soft .lbl { font-size:9px; color:#86868b; letter-spacing:.3px; text-transform:uppercase; margin-bottom:5px; font-weight:600; }
+  .s-soft .sess { display:flex; gap:7px; padding:6px 0; border-top:.5px solid #ececef; font-size:10.5px; color:#1d1d1f; }
+  .s-soft .tag { padding:1px 6px; border-radius:4px; font-size:9px; font-weight:600; }
+  .s-soft .tag.chit { background:#fff4d0; color:#9c7818; }
+  .s-soft .tag.loop { background:#ffdada; color:#a02020; }
+  .s-soft .tag.val { background:#d4f0d4; color:#1a6e1a; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="linear" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="style-wrap s-linear">
+        <div class="top">/workspace/wanhua.gu/2026-05-11</div>
+        <div class="crumb">
+          <span class="pill">← grid</span>
+          <span class="pill on">wanhua.gu</span>
+          <span class="pill">mei.li</span>
+          <span class="pill" style="margin-left:auto;">05-11 ↤ ↦</span>
+        </div>
+        <div class="threecol">
+          <div class="panel"><div class="lbl">personal</div>Layout D' 后端联调 — 今天偏探索，未形成成果。上午在 ingestion 端点的并发竞争上做了实验……</div>
+          <div class="panel"><div class="lbl">team · dup 95%</div>同 personal · 95% 重合</div>
+          <div class="panel boss"><div class="lbl">boss · 📋</div>Layout D' 后端联调：0 项有效产出。</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="lbl">sessions · value sorted</div>
+          <div class="sess"><span class="tag chit">CHT</span>10:20  ingestion 并发尝试  <span style="margin-left:auto; color:#5e6573;">15m</span></div>
+          <div class="sess"><span class="tag chit">CHT</span>14:20  schema 命名讨论  <span style="margin-left:auto; color:#5e6573;">15m</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>① Linear / Tool（暗色 + 强类型 + 紧凑）</h3>
+      <p>Linear / Raycast / Vercel admin 那一卦。蓝色 accent、深底、极少装饰。气质=工具，反"读物"。Layout D' 的报纸感被彻底替换。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="brutal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="style-wrap s-brutal">
+        <h5>WORKSPACE / WANHUA.GU / 2026-05-11</h5>
+        <div class="crumb">
+          <span>← GRID</span><span class="on">WGU</span><span>ML</span><span>05-11 ↤↦</span>
+        </div>
+        <div class="threecol">
+          <div class="panel"><div class="lbl">PERSONAL</div>Layout D' 后端联调 — 今天偏探索，未形成成果。上午 ingestion 并发实验……</div>
+          <div class="panel"><div class="lbl">TEAM · DUP 95%</div>同 personal · 95% 重合</div>
+          <div class="panel boss"><div class="lbl">BOSS · 📋</div>Layout D' 后端联调：0 项有效产出。</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div style="font-size:10px; font-weight:700; border-bottom:1px solid #000; padding-bottom:3px; margin-bottom:4px;">SESSIONS · VALUE SORTED</div>
+          <div class="sess"><span class="tag chit">CHT</span>10:20  INGESTION 并发尝试<span style="margin-left:auto;">15m</span></div>
+          <div class="sess"><span class="tag chit">CHT</span>14:20  SCHEMA 命名讨论<span style="margin-left:auto;">15m</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>② Brutalist（黑白红 + 等宽 + 硬边）</h3>
+      <p>Bloomberg / Datadog admin 那一卦。零阴影、硬黑边、等宽字体。极度"工程师感"，零矫饰。信息密度最高，视觉决心最强。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="soft" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="style-wrap s-soft">
+        <h5>Workspace · wanhua.gu · 2026-05-11</h5>
+        <div class="crumb">
+          <span class="pill">← Grid</span>
+          <span class="pill on">wanhua.gu</span>
+          <span class="pill">mei.li</span>
+          <span class="pill" style="margin-left:auto;">05-11</span>
+        </div>
+        <div class="threecol">
+          <div class="panel"><div class="lbl">Personal</div>Layout D' 后端联调 — 今天偏探索，未形成成果。上午 ingestion 并发实验……</div>
+          <div class="panel"><div class="lbl">Team · dup 95%</div>同 personal · 95% 重合</div>
+          <div class="panel boss"><div class="lbl">Boss · 📋</div>Layout D' 后端联调：0 项有效产出。</div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="lbl" style="color:#86868b;">Sessions · value sorted</div>
+          <div class="sess"><span class="tag chit">CHT</span>10:20  ingestion 并发尝试<span style="margin-left:auto; color:#86868b;">15m</span></div>
+          <div class="sess"><span class="tag chit">CHT</span>14:20  schema 命名讨论<span style="margin-left:auto; color:#86868b;">15m</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>③ Apple / Soft modern（亮色 + 圆角 + 阴影）</h3>
+      <p>Things / Notion / Apple HIG 那一卦。系统字体、柔阴影、圆角卡片、蓝渐变 accent。最"友好"，但仍非工具锐感。</p>
+    </div>
+  </div>
+
+</div>

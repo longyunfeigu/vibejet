@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "summary_kind": "evaluation-coordinator",
+  "run_id": "ln-620-global-20260519T074111Z",
+  "identifier": "codebase-audit",
+  "producer_skill": "ln-620",
+  "produced_at": "2026-05-19T07:41:11Z",
+  "payload": {
+    "status": "completed",
+    "final_result": "not_ship_ready_without_remediation",
+    "report_path": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/audit-report/ln-620--final-report.md",
+    "worker_count": 9,
+    "issues_total": 18,
+    "severity_counts": {
+      "critical": 3,
+      "high": 6,
+      "medium": 7,
+      "low": 2
+    },
+    "warnings": [
+      "MCP Ref and Context7 were required by contract but unavailable in this session; official docs/standards and current web fallback were used.",
+      "Dependency audit severity for entries without CLI CVSS was assigned conservatively based on exposed upload/form paths and advisory impact text."
+    ],
+    "cleanup_verified": true,
+    "artifact_path": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/checkpoints/final-state.json",
+    "metadata": {
+      "worker_issues_total_before_deduplication": 31,
+      "research_artifact": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/research/evidence-cards.json"
+    }
+  }
+}

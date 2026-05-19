@@ -1,0 +1,135 @@
+<h2>Q2 / 打开页面，第一眼最该看到什么？</h2>
+<p class="subtitle">现在用真实 seed 数据（8 天 · 2 成员 · 48 sessions / 48 reports）。每张图是"今天 + 7 天上下文"。点一张选。</p>
+
+<style>
+  .ia-card { background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:14px; min-height:280px; font-family: ui-sans-serif, system-ui, sans-serif; font-size:11px; }
+  .ia-card .top { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#999; margin-bottom:6px; }
+  .verdict-big { font-family: ui-serif, Georgia, serif; font-size:42px; font-weight:700; color:#b73838; line-height:1; margin:6px 0 8px; }
+  .verdict-sub { color:#666; line-height:1.4; margin-bottom:10px; }
+  .spark { display:flex; align-items:flex-end; gap:3px; height:30px; }
+  .spark > div { flex:1; background:#0a7a3b; min-height:2px; }
+  .spark > div.zero { background:#ddd; min-height:2px; }
+  .bar-h { display:flex; height:14px; border-radius:3px; overflow:hidden; font-size:9px; color:#fff; font-weight:600; }
+  .bar-h > div { display:flex; align-items:center; justify-content:center; }
+  .seg-loop{background:#b73838;} .seg-chit{background:#c89c3a;} .seg-val{background:#0a7a3b;} .seg-no{background:#999;}
+  .day-row { display:flex; align-items:center; gap:6px; font-size:10px; margin-bottom:3px; }
+  .day-row .label { width:48px; color:#888; font-variant-numeric:tabular-nums; }
+  .day-row .barbox { flex:1; height:10px; background:#f5f5f5; border-radius:2px; position:relative; overflow:hidden; }
+  .day-row .barbox > div { height:100%; }
+  .day-row .meta { width:62px; text-align:right; color:#999; font-variant-numeric:tabular-nums; }
+  .day-row .warn { color:#b73838; font-weight:600; }
+  .sess { display:flex; align-items:center; gap:5px; padding:3px 0; border-bottom:1px dotted #eee; font-size:10px; }
+  .sess .tag { padding:1px 5px; border-radius:2px; font-size:9px; color:#fff; font-weight:600; }
+  .tag-val { background:#0a7a3b; } .tag-chit { background:#c89c3a; } .tag-loop { background:#b73838; } .tag-no { background:#999; }
+  .news { font-family: ui-serif, Georgia, serif; line-height:1.45; font-size:10.5px; column-count:2; column-gap:10px; color:#333; }
+  .masthead { border-top:2px solid #222; border-bottom:1px solid #222; padding:4px 0; margin-bottom:6px; }
+</style>
+
+<div class="cards">
+
+  <!-- A · Verdict-first -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">A · 结论先行</div>
+        <div style="color:#888;">今天 2026-05-11</div>
+        <div class="verdict-big">0</div>
+        <div class="verdict-sub"><b>个有效产出。</b> 4 sessions 全是 chitchat，共 60min。</div>
+        <div style="font-size:10px; color:#888; margin-bottom:4px;">7 天 valuable 趋势</div>
+        <div class="spark">
+          <div style="height:20%"></div>
+          <div style="height:60%"></div>
+          <div style="height:40%"></div>
+          <div style="height:20%"></div>
+          <div style="height:20%"></div>
+          <div style="height:20%"></div>
+          <div class="zero"></div>
+        </div>
+        <div style="font-size:9px; color:#aaa; display:flex; justify-content:space-between; margin-top:2px;">
+          <span>05-05</span><span>05-11</span>
+        </div>
+        <div style="margin-top:14px; background:#f5f5f5; border-radius:3px; padding:5px 8px; font-size:10px; color:#888;">＋ 4 chitchat sessions（折叠）</div>
+        <div style="background:#f5f5f5; border-radius:3px; padding:5px 8px; font-size:10px; color:#888; margin-top:3px;">＋ daily reports（折叠）</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 结论先行（Verdict-first）</h3>
+      <p>大字直接给"今天怎么样"的判决。判断 / 反思 / 触动放最大；细节折叠等点开。</p>
+    </div>
+  </div>
+
+  <!-- B · Time-budget -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">B · 时间花哪儿了</div>
+        <div style="font-size:10px; color:#888;">今日 60min · 2 sessions/member · 0.8M tok</div>
+        <div class="bar-h" style="margin:4px 0 12px;">
+          <div class="seg-chit" style="flex:100">chitchat 100%</div>
+        </div>
+        <div style="font-size:10px; color:#888; margin-bottom:4px;">7 天时长分布（min · token）</div>
+        <div class="day-row"><span class="label">05-05</span><div class="barbox"><div class="seg-loop" style="width:100%"></div></div><span class="meta warn">305m ⚠</span></div>
+        <div class="day-row"><span class="label">05-06</span><div class="barbox"><div class="seg-val" style="width:59%"></div></div><span class="meta">180m</span></div>
+        <div class="day-row"><span class="label">05-07</span><div class="barbox"><div class="seg-chit" style="width:43%"></div></div><span class="meta">130m</span></div>
+        <div class="day-row"><span class="label">05-08</span><div class="barbox"><div class="seg-chit" style="width:36%"></div></div><span class="meta">110m</span></div>
+        <div class="day-row"><span class="label">05-09</span><div class="barbox"><div class="seg-chit" style="width:33%"></div></div><span class="meta">100m</span></div>
+        <div class="day-row"><span class="label">05-10</span><div class="barbox"><div class="seg-loop" style="width:97%"></div></div><span class="meta warn">295m ⚠</span></div>
+        <div class="day-row"><span class="label">05-11</span><div class="barbox"><div class="seg-chit" style="width:20%"></div></div><span class="meta">60m</span></div>
+        <div style="font-size:9.5px; color:#b73838; margin-top:6px;">⚠ 05-05 / 05-10 单天 161M token loop 黑洞</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 时间分布优先（Time-budget）</h3>
+      <p>第一眼是"我的时间被吃到哪去了"。loop 黑洞、token 烧水会触目惊心。横向 7 天 + 当日纵向。</p>
+    </div>
+  </div>
+
+  <!-- C · Value-first feed -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">C · 值得回看的 session</div>
+        <div style="font-size:10px; color:#888; margin-bottom:6px;">本周 9 项 valuable（按价值排序，跨成员混排）</div>
+        <div class="sess"><span class="tag tag-val">VAL</span><span>05-06 wgu · auth middleware rewrite</span><span style="margin-left:auto;color:#888;">45m</span></div>
+        <div class="sess"><span class="tag tag-val">VAL</span><span>05-06 wgu · session backfill script</span><span style="margin-left:auto;color:#888;">45m</span></div>
+        <div class="sess"><span class="tag tag-val">VAL</span><span>05-06 ml · calendar mini 7-day</span><span style="margin-left:auto;color:#888;">45m</span></div>
+        <div class="sess"><span class="tag tag-val">VAL</span><span>05-05 wgu · ingestion 幂等键</span><span style="margin-left:auto;color:#888;">45m</span></div>
+        <div class="sess"><span class="tag tag-val">VAL</span><span>05-07 ml · sidebar 上下文过滤</span><span style="margin-left:auto;color:#888;">45m</span></div>
+        <div class="sess" style="opacity:.45;"><span class="tag tag-loop">LOOP</span><span>05-10 wgu · alembic squash 卡死</span><span style="margin-left:auto;color:#888;">3h35</span></div>
+        <div class="sess" style="opacity:.45;"><span class="tag tag-loop">LOOP</span><span>05-05 wgu · ingestion 卡 schema</span><span style="margin-left:auto;color:#888;">3h35</span></div>
+        <div class="sess" style="opacity:.3;"><span class="tag tag-chit">CHT</span><span>... 26 项 chitchat 折叠</span><span style="margin-left:auto;color:#888;"></span></div>
+        <div style="font-size:9.5px; color:#888; margin-top:6px; border-top:1px solid #eee; padding-top:5px;">今天: 0 项 valuable，4 项 chitchat（按相关度沉底）</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 价值导向流（Value-first feed）</h3>
+      <p>整个页面是一个 session 列表，按"值得回看"排序：VAL 顶置 / LOOP 灰化 / CHT 沉底。"回看"是核心动作。</p>
+    </div>
+  </div>
+
+  <!-- D · Editorial -->
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="masthead" style="display:flex; justify-content:space-between; align-items:baseline;">
+          <span style="font-family: ui-serif, Georgia, serif; font-size:14px; font-weight:700;">Compound Daily</span>
+          <span style="font-size:9px; color:#888;">Mon · May 11 · personal</span>
+        </div>
+        <div style="font-family: ui-serif, Georgia, serif; font-size:16px; font-weight:700; line-height:1.15; margin:4px 0;">
+          Layout D' 后端联调：今日偏探索，未形成成果
+        </div>
+        <div style="font-size:9px; color:#888; margin-bottom:6px;">wanhua.gu · 2026-05-11</div>
+        <div class="news">
+          今天主要在排查 Compound Daily 后端联调中的一些边缘 case。上午 10:20 起的 session 围绕 ingestion 端点的并发竞争做了实验，但没有形成可合并的产出；下午 14:20 起的 session 进入对几个 schema 字段命名的讨论，同样偏探索性质。
+          整体看，今日只产出 chitchat 类型 session，无 valuable 推进。横向看，本周 valuable 数量从周一的 1 升至 周二的 3，再降回 1-2 区间，周末跌至 0&hellip; loop 主要集中在 05-05 / 05-10 两天的 alembic 与 ingestion schema 调试上&hellip;
+        </div>
+        <div style="font-size:9px; color:#aaa; margin-top:6px; padding-top:5px; border-top:1px dotted #ccc;">[个人版 / 团队版 / 老板版 三栏]</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D · 长文报纸优先（Editorial · 当前 Layout D'）</h3>
+      <p>把 daily report markdown 当主角铺开读。判断 / 数据 / sessions 围绕"今日叙事"展开。当前实现就是这个方向。</p>
+    </div>
+  </div>
+
+</div>

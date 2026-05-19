@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: user_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: userdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  app:
+    build: ./backend
+    container_name: user_api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE__URL: postgresql+asyncpg://user:password@postgres:5432/userdb
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      DEBUG: ${DEBUG:-false}
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  grpc:
+    build: ./backend
+    container_name: user_grpc
+    ports:
+      - "50051:50051"
+    environment:
+      DATABASE__URL: postgresql+asyncpg://user:password@postgres:5432/userdb
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      DEBUG: ${DEBUG:-false}
+      GRPC__ENABLED: "true"
+      GRPC__HOST: 0.0.0.0
+      GRPC__PORT: 50051
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    volumes:
+      - ./backend:/app
+    command: bash -c "bash scripts/gen_protos.sh && python grpc_main.py"
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

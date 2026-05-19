@@ -1,0 +1,103 @@
+<h2>Q2 / 打开页面，第一眼最该看到什么？</h2>
+<p class="subtitle">这是骨架的优先级问题。下面 4 个用今天真实数据画的（10 sessions / 0 valuable / 51% loop / 07:15 monster）。点一张选。</p>
+
+<style>
+  .ia-card { background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:14px; min-height:230px; }
+  .ia-card .top { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:#888; margin-bottom:8px; }
+  .ia-card .headline { font-family: ui-serif, Georgia, serif; line-height:1.2; }
+  .verdict { font-size:28px; font-weight:700; color:#b73838; margin:8px 0 12px; }
+  .verdict.green { color:#0a7a3b; }
+  .bar { display:flex; height:18px; border-radius:4px; overflow:hidden; margin:8px 0; font-size:10px; color:#fff; font-weight:600; }
+  .bar > div { display:flex; align-items:center; justify-content:center; }
+  .seg-loop  { background:#b73838; }
+  .seg-chit  { background:#c89c3a; }
+  .seg-val   { background:#0a7a3b; }
+  .seg-no    { background:#888; }
+  .sess-row { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px dashed #eee; font-size:12px; }
+  .sess-row .tag { padding:1px 6px; border-radius:3px; font-size:10px; color:#fff; }
+  .tag.loop { background:#b73838; } .tag.chit { background:#c89c3a; } .tag.val { background:#0a7a3b; } .tag.no { background:#888; }
+  .news { font-family: ui-serif, Georgia, serif; line-height:1.4; font-size:12px; column-count:2; column-gap:12px; }
+</style>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">A · 一句话结论先行</div>
+        <div class="headline" style="font-size:14px; color:#888;">今天</div>
+        <div class="verdict">0 个有效产出</div>
+        <p style="font-size:12px; color:#444; margin:0;">在 7 小时活跃时间里，3.6 小时困在 loop（07:15 黑洞），其余 6 个 session 是闲聊。</p>
+        <div style="margin-top:14px; font-size:11px; color:#888;">细节折叠在下方</div>
+        <div style="height:10px;"></div>
+        <div style="background:#f5f5f5; border-radius:4px; padding:6px 8px; font-size:11px; color:#888;">＋ 展开 sessions</div>
+        <div style="background:#f5f5f5; border-radius:4px; padding:6px 8px; font-size:11px; color:#888; margin-top:4px;">＋ 展开 reports</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 结论先行（Verdict-first）</h3>
+      <p>页面顶端一句话告诉你"今天怎么样"。判断 / 反思 / 触动放最大，事实数据折叠。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">B · 时间花哪儿了</div>
+        <div style="font-size:11px; color:#888;">今日 7h 22m 活跃</div>
+        <div class="bar">
+          <div class="seg-loop" style="flex:51">loop 51%</div>
+          <div class="seg-chit" style="flex:38">chitchat 38%</div>
+          <div class="seg-no" style="flex:8">no_out 8%</div>
+          <div class="seg-val" style="flex:3">v</div>
+        </div>
+        <div style="font-size:11px; color:#666; margin-top:4px;">⚠ 07:15 单 session 吃掉 3h 36m</div>
+        <div style="margin-top:14px; height:60px; background:linear-gradient(90deg,#eee 0 12%,#fdd 12% 65%,#eee 65% 80%,#dfd 80% 84%,#eee 84%);  border-radius:4px; position:relative;">
+          <div style="position:absolute; top:-14px; left:35%; font-size:9px; color:#b73838;">▼ 07:15 loop</div>
+        </div>
+        <div style="font-size:9px; color:#999; margin-top:2px;">timeline · 0:00 ─────────────────── 24:00</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 时间分布优先（Time-budget）</h3>
+      <p>第一眼是"我今天的时间被吃到哪了"——一条 bar + 一条 timeline。看到 loop 黑洞触目惊心。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">C · 值得回看的 session</div>
+        <div style="font-size:11px; color:#888;">今日 10 sessions / 按价值排序</div>
+        <div class="sess-row"><span class="tag val">VAL</span><span>10:05 重构 X service</span><span style="margin-left:auto; color:#888;">45m</span></div>
+        <div class="sess-row" style="opacity:.5;"><span class="tag loop">LOOP</span><span>07:15 卡在 Y</span><span style="margin-left:auto; color:#888;">3h36m</span></div>
+        <div class="sess-row" style="opacity:.5;"><span class="tag chit">CHT</span><span>09:20 闲聊</span><span style="margin-left:auto; color:#888;">20m</span></div>
+        <div class="sess-row" style="opacity:.5;"><span class="tag chit">CHT</span><span>11:00 闲聊</span><span style="margin-left:auto; color:#888;">15m</span></div>
+        <div class="sess-row" style="opacity:.4;"><span class="tag no">NO</span><span>14:30 输出失败</span><span style="margin-left:auto; color:#888;">5m</span></div>
+        <div style="font-size:10px; color:#aaa; margin-top:8px;">＋ 还有 5 个 chitchat（折叠）</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 价值导向 session 流（Value-first feed）</h3>
+      <p>页面就是一个 session 列表，按"值得回看"排序——valuable 最显眼、chitchat/loop 灰化。"回看"是核心动作。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="ia-card">
+        <div class="top">D · 完整 daily 报纸</div>
+        <div class="headline" style="font-size:18px; font-weight:700;">May 11 · personal</div>
+        <div style="font-size:10px; color:#888; margin-bottom:8px;">wanhua.gu · 2026-05-11</div>
+        <div class="news">
+          今天主要在重构 X service，10:05 开始的 session 拿出了可合并的 PR，约 45 分钟完成。其余 sessions 多数为探索性的 prompt 调试与 quick chat&hellip; 早上 07:15 进入一个长 loop，反复尝试某种 schema migration 未果，消耗约 3.6 小时。下午调整方向后&hellip; 个人版与团队版重合度约 95%&hellip;
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D · 长文报纸优先（Editorial / 当前方向）</h3>
+      <p>就是 Layout D' 的核心：把 daily report markdown 当主角铺开读。当前实现就是这个方向。</p>
+    </div>
+  </div>
+
+</div>

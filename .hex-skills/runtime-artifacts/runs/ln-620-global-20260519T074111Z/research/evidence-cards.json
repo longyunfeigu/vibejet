@@ -1,0 +1,86 @@
+{
+  "run_id": "ln-620-global-20260519T074111Z",
+  "status": "completed_minimal",
+  "produced_at": "2026-05-19T07:41:11Z",
+  "tool_status": {
+    "official_docs_or_standards": "completed",
+    "mcp_ref": "unavailable_no_resources",
+    "context7": "unavailable_no_resources",
+    "web_best_practice": "completed"
+  },
+  "cards": [
+    {
+      "topic": "FastAPI endpoint authorization",
+      "source_type": "official_docs",
+      "source_ref": "FastAPI security/dependencies docs",
+      "claim": "FastAPI supports security dependencies and dependency injection for route-level authentication/authorization, so public mutable or paid endpoints should enforce a security dependency before business logic runs.",
+      "verdict": "applies",
+      "impact": "Unauthenticated conversation, file, and paid LLM routes are actionable security-boundary issues.",
+      "actionability": "Add auth dependency/router-level dependency and object-level authorization checks.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "Object-level authorization",
+      "source_type": "standard",
+      "source_ref": "OWASP API Security Top 10 2023 API1 Broken Object Level Authorization",
+      "claim": "APIs that expose object identifiers must verify the caller is authorized for the object before read, update, delete, or URL minting actions.",
+      "verdict": "applies",
+      "impact": "File detail, signed URL, delete, and conversation endpoints use object ids without caller ownership checks.",
+      "actionability": "Pass current principal through DTO/service/repository filters and enforce owner checks.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "CI working directory",
+      "source_type": "official_docs",
+      "source_ref": "GitHub Actions defaults.run working-directory docs",
+      "claim": "GitHub Actions run steps execute in the repository workspace unless a step/job default working-directory is set.",
+      "verdict": "applies",
+      "impact": "The workflow runs uv from the repo root while pyproject.toml and uv.lock live in backend/.",
+      "actionability": "Set defaults.run.working-directory: backend or prefix uv commands with cd backend.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "Python vulnerability scanning",
+      "source_type": "official_docs",
+      "source_ref": "pip-audit documentation / OSV output",
+      "claim": "pip-audit reports known vulnerabilities from Python package metadata and is appropriate for CI vulnerability gates.",
+      "verdict": "applies",
+      "impact": "pip-audit found 10 vulnerabilities in 5 packages, including FastAPI/python-multipart/Starlette DoS issues on upload/form parsing paths.",
+      "actionability": "Upgrade vulnerable packages and add a CI pip-audit gate against locked requirements.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "Weak hash usage",
+      "source_type": "official_docs",
+      "source_ref": "Python hashlib docs",
+      "claim": "hashlib exposes usedforsecurity to distinguish non-security MD5 use; MD5 should not be ambiguous in security-sensitive contexts.",
+      "verdict": "applies",
+      "impact": "Storage providers compute ETags with hashlib.md5 without marking non-security use or documenting integrity-only semantics.",
+      "actionability": "Use provider ETags, SHA-256 for application integrity, or hashlib.md5(..., usedforsecurity=False) only when compatibility requires MD5.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "Structured logs and correlation",
+      "source_type": "standard",
+      "source_ref": "OWASP Logging Cheat Sheet",
+      "claim": "Logs should include correlation identifiers and avoid silently discarding security- or operations-relevant errors.",
+      "verdict": "applies",
+      "impact": "Request IDs exist, but several metrics and messaging error paths swallow exceptions with pass.",
+      "actionability": "Log suppressed commit/metrics failures with request/correlation or component identifiers and expose counters.",
+      "confidence_tier": "tier_1"
+    },
+    {
+      "topic": "Readiness probes",
+      "source_type": "official_docs",
+      "source_ref": "Kubernetes probes documentation",
+      "claim": "Liveness and readiness have distinct purposes; readiness should represent whether the app can receive traffic.",
+      "verdict": "applies",
+      "impact": "The Docker healthcheck targets /health legacy liveness while /health/ready already checks dependencies.",
+      "actionability": "Point container health/readiness checks at /health/ready where dependency readiness matters.",
+      "confidence_tier": "tier_1"
+    }
+  ],
+  "warnings": [
+    "MCP Ref and Context7 were required by the coordinator contract but no MCP resources/templates were configured in this session; official docs and current web fallback were used."
+  ]
+}

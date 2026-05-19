@@ -1,0 +1,35 @@
+{
+  "run_id": "ln-620-global-20260519T074111Z",
+  "phase_order": [
+    "PHASE_0_CONFIG",
+    "PHASE_1_DISCOVERY",
+    "PHASE_2_RESEARCH",
+    "PHASE_3_DELEGATE",
+    "PHASE_4_AGGREGATE",
+    "PHASE_5_REPORT",
+    "PHASE_6_SELF_CHECK"
+  ],
+  "phase_data": {
+    "PHASE_0_CONFIG": {"status": "completed", "required_research": true},
+    "PHASE_1_DISCOVERY": {"status": "completed", "project_type": "FastAPI backend service"},
+    "PHASE_2_RESEARCH": {"status": "completed_minimal", "artifact": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/research/evidence-cards.json"},
+    "PHASE_3_DELEGATE": {"status": "completed", "workers": ["ln-621", "ln-622", "ln-623", "ln-624", "ln-625", "ln-626", "ln-627", "ln-628", "ln-629"]},
+    "PHASE_4_AGGREGATE": {"status": "completed", "deduplicated_issues": 18},
+    "PHASE_5_REPORT": {"status": "completed", "report_path": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/audit-report/ln-620--final-report.md"},
+    "PHASE_6_SELF_CHECK": {"status": "completed", "cleanup_verified": true}
+  },
+  "worker_results": {
+    "worker_count": 9,
+    "summaries_path": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/evaluation-worker"
+  },
+  "aggregation_summary": {
+    "worker_issues_total": 31,
+    "deduplicated_issues_total": 18,
+    "severity_counts": {"critical": 3, "high": 6, "medium": 7, "low": 2}
+  },
+  "report_written": true,
+  "cleanup_verified": true,
+  "summary_recorded": true,
+  "self_check_passed": true,
+  "final_result": "not_ship_ready_without_remediation"
+}

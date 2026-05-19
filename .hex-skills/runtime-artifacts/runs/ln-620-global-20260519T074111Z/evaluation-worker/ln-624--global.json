@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "summary_kind": "evaluation-worker",
+  "run_id": "ln-620-global-20260519T074111Z",
+  "identifier": "global",
+  "producer_skill": "ln-624",
+  "produced_at": "2026-05-19T07:41:11Z",
+  "payload": {
+    "worker": "ln-624",
+    "status": "completed",
+    "operation": "auditing",
+    "warnings": [],
+    "audit": {
+      "category": "Code Maintainability Hotspots",
+      "report_path": ".hex-skills/runtime-artifacts/runs/ln-620-global-20260519T074111Z/audit-report/ln-624--global.md",
+      "score": 6.5,
+      "issues_total": 5,
+      "severity_counts": {"critical": 0, "high": 2, "medium": 3, "low": 0}
+    }
+  }
+}
