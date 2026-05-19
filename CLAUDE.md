@@ -25,7 +25,9 @@ vibejet/
 - REST API: `backend/main.py`
 - gRPC: `backend/grpc_main.py`
 - Backend tests: `backend/tests/`
-- Frontend dev: `frontend/src/App.tsx`
+- Frontend dev: `frontend/src/main.tsx`
+- Frontend routes: `frontend/src/routes/` (TanStack Router file-based)
+- Frontend features: `frontend/src/features/`
 - Frontend build: `frontend/dist/`
 
 ## Backend Architecture
@@ -72,7 +74,7 @@ API → Application → Domain ← Infrastructure
 | 项目 | 工具 | 启动命令 | 配置文件 |
 |------|------|----------|----------|
 | 后端 | uv + `backend/.venv/` | `cd backend && uv run python main.py` | `backend/.env` |
-| 前端 | npm + Vite | `cd frontend && npm run dev` | `frontend/.env` |
+| 前端 | pnpm + Vite | `cd frontend && pnpm dev` | `frontend/.env` |
 | 测试 | uv + pytest | `cd backend && uv run pytest tests/ -v` | - |
 
 - 后端 `.env`: `SECRET_KEY`, `DATABASE__URL`, `DEBUG`
@@ -206,10 +208,19 @@ AI 在 plan mode 探索代码后回答 8 问 + 填写约束清单：
 
 ### Adding a Frontend Feature
 
-1. Confirm editable frontend source exists in this repo before planning code changes.
-2. If source exists elsewhere, switch to the correct workspace instead of fabricating `frontend/src/*` changes here.
-3. If the task is verification-only, use `story-verify-fix` for bring-up, integration checks, and visual alignment.
-4. If design refs exist, store them under `docs/designs/{epic-id}/` and reference them from the Story or plan.
+Stack: Vite 8 + React 19 + TS 6 (strict) + MUI v9 + TanStack Router/Query + RHF + Zod + Vitest. Full guidelines in `.agents/skills/frontend-dev-guidelines/SKILL.md`.
+
+1. Create `frontend/src/features/<name>/` with subdirs: `api/`, `components/`, `hooks/`, `types/` (and `helpers/` if needed)
+2. Wrap backend endpoint in `api/<name>Api.ts` using `apiClient` from `@/lib/apiClient`
+3. Create `useSuspenseQuery` wrapper in `hooks/use<Name>.ts`
+4. UI component in `components/<Name>Card.tsx` consumes the hook (no early-return loading; rely on outer `<SuspenseLoader>`)
+5. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute` + `lazy` + `<SuspenseLoader>`
+6. Run `pnpm dev` once to regenerate `src/routeTree.gen.ts` (tracked file, do not hand-edit)
+
+Reference impl: `frontend/src/features/health/` + `frontend/src/routes/health/`.
+
+If the task is verification-only, use `story-verify-fix` for bring-up / integration / visual alignment.
+If design refs exist, store them under `docs/designs/{epic-id}/` and reference them from the Story or plan.
 
 ### Adding External Service Integration
 
@@ -458,12 +469,17 @@ Use the `review` skill
 - Database: `backend/infrastructure/database.py`
 
 ### Frontend
-- Dev entrypoint: `frontend/src/App.tsx`
-- API service: `frontend/src/services/api.ts`
-- Shared components: `frontend/src/components/`
-- Pages: `frontend/src/pages/`
-- Vite config (proxy): `frontend/vite.config.ts`
+- Dev entrypoint: `frontend/src/main.tsx`
+- Routes (file-based): `frontend/src/routes/` (e.g. `routes/index.tsx`, `routes/health/index.tsx`)
+- Features: `frontend/src/features/` (each: `api/`, `components/`, `hooks/`, `types/`)
+- Shared UI components: `frontend/src/components/ui/`, `frontend/src/components/layout/`
+- Reusable infra: `frontend/src/components/SuspenseLoader/`, `frontend/src/hooks/useMuiSnackbar.ts`
+- API client: `frontend/src/lib/apiClient.ts` (axios, `baseURL = VITE_API_URL`)
+- Auth hook (placeholder): `frontend/src/hooks/useAuth.ts`
+- Path aliases: `@/` → `src/`, `~types/`, `~components/`, `~features/` (configured in `tsconfig.app.json` + `vite.config.ts` + `vitest.config.ts`)
+- Vite config: `frontend/vite.config.ts` (proxies `/api/*` to `VITE_API_URL`)
 - Environment: `frontend/.env` (`VITE_API_URL`)
+- Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`
 
 ### Workflow
 - Plan template: `docs/plans/TEMPLATE.md`
