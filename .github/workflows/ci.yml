@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --extra dev --locked
 
+      - name: Audit dependencies
+        run: uv run pip-audit -r requirements.txt
+
       - name: Detect changed Python files
         id: changed-py
         shell: bash
@@ -44,9 +47,19 @@ jobs:
           fi
 
           if [[ -z "${BASE_SHA}" || "${BASE_SHA}" == "0000000000000000000000000000000000000000" ]]; then
-            PY_FILES="$(git -C "${GITHUB_WORKSPACE}" ls-files 'backend/*.py' | sed -e 's|^backend/||' -e '/^alembic\/versions\//d' -e '/^grpc_app\/generated\//d')"
+            PY_FILES="$(
+              git -C "${GITHUB_WORKSPACE}" ls-files 'backend/*.py' \
+                | sed -e 's|^backend/||' \
+                      -e '/^alembic\/versions\//d' \
+                      -e '/^grpc_app\/generated\//d'
+            )"
           else
-            PY_FILES="$(git -C "${GITHUB_WORKSPACE}" diff --name-only "${BASE_SHA}" HEAD -- 'backend/*.py' | sed -e 's|^backend/||' -e '/^alembic\/versions\//d' -e '/^grpc_app\/generated\//d')"
+            PY_FILES="$(
+              git -C "${GITHUB_WORKSPACE}" diff --name-only "${BASE_SHA}" HEAD -- 'backend/*.py' \
+                | sed -e 's|^backend/||' \
+                      -e '/^alembic\/versions\//d' \
+                      -e '/^grpc_app\/generated\//d'
+            )"
           fi
 
           {
