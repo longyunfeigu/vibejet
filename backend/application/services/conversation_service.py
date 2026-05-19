@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Callable, Optional, Tuple
 
 from application.dto import (
@@ -19,6 +18,7 @@ from application.dto import (
     UpdateAgentConfigDTO,
     UpdateConversationDTO,
 )
+from application.utils.time import utcnow
 from domain.common.unit_of_work import AbstractUnitOfWork
 from domain.conversation.entity import AgentConfig, Conversation
 from domain.conversation.exceptions import (
@@ -26,10 +26,6 @@ from domain.conversation.exceptions import (
     AgentConfigNotFoundException,
     ConversationNotFoundException,
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class ConversationApplicationService:
@@ -41,7 +37,7 @@ class ConversationApplicationService:
     # ── Conversation CRUD ──────────────────────────────────────────
 
     async def create_conversation(self, dto: CreateConversationDTO) -> ConversationDTO:
-        now = _utcnow()
+        now = utcnow()
         conv = Conversation(
             id=None,
             title=dto.title,
@@ -139,7 +135,7 @@ class ConversationApplicationService:
     # ── Agent Config CRUD ──────────────────────────────────────────
 
     async def create_agent_config(self, dto: CreateAgentConfigDTO) -> AgentConfigDTO:
-        now = _utcnow()
+        now = utcnow()
         async with self._uow_factory() as uow:
             existing = await uow.agent_config_repository.get_by_name(dto.name)
             if existing is not None:

@@ -1,22 +1,24 @@
 """Aliyun OSS storage provider implementation."""
 
 import hashlib
-from typing import AsyncIterator, Optional, Any
 from datetime import datetime
-import anyio
 from functools import partial
+from typing import Any, AsyncIterator, Optional
+
+import anyio
 
 from core.logging_config import get_logger
+
 from ..base import AdvancedStorageProvider
 from ..config import StorageConfig
-from ..models import UploadResult, StorageObject, StorageMetadata, PresignedRequest
 from ..exceptions import (
-    StorageError,
+    ConfigurationError,
     NotFoundError,
     PermissionDeniedError,
+    StorageError,
     TransientError,
-    ConfigurationError,
 )
+from ..models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
 
 logger = get_logger(__name__)
 
@@ -171,16 +173,6 @@ class OSSProvider(AdvancedStorageProvider):
 
         except Exception as e:
             self._handle_exception(e, f"list objects {prefix}")
-
-    async def _list_objects_iterator(self, prefix: str) -> AsyncIterator:
-        """Deprecated internal iterator (kept for compatibility)."""
-        import oss2
-
-        objs = await anyio.to_thread.run_sync(
-            lambda: list(oss2.ObjectIterator(self.bucket, prefix=prefix))
-        )
-        for obj in objs:
-            yield obj
 
     async def get_metadata(self, key: str) -> StorageMetadata:
         """Get file metadata from OSS."""

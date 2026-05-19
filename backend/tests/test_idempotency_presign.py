@@ -7,9 +7,9 @@ from httpx import AsyncClient
 from api.dependencies import get_file_asset_service, get_idempotency_service
 from api.routes.storage import router as storage_router
 from application.dto import FileAssetSummaryDTO
+from application.ports.idempotency import IdempotencyRecord, IdempotencyStore
 from application.ports.storage import PresignedURL
 from application.services.idempotency_service import IdempotencyService
-from application.ports.idempotency import IdempotencyRecord, IdempotencyStore
 from core.exceptions import register_exception_handlers
 
 
@@ -54,6 +54,10 @@ class FakeFileAssetService:
     def __init__(self) -> None:
         self.presign_calls = 0
         self.generate_calls = 0
+        self.upload_calls = 0
+        self.uploaded_bytes = b""
+        self.uploaded_filename = ""
+        self.uploaded_content_type = None
 
     async def presign_upload(
         self,
@@ -98,6 +102,33 @@ class FakeFileAssetService:
             method=method,
             expires_in=600,
         )
+
+    async def relay_upload_stream(
+        self,
+        *,
+        user_id,
+        file_stream,
+        filename: str,
+        kind: str,
+        content_type,
+    ):
+        _ = (user_id, kind)
+        self.upload_calls += 1
+        chunks = []
+        async for chunk in file_stream:
+            chunks.append(chunk)
+        self.uploaded_bytes = b"".join(chunks)
+        self.uploaded_filename = filename
+        self.uploaded_content_type = content_type
+        return {
+            "key": f"uploads/{filename}",
+            "etag": "test-etag",
+            "size": len(self.uploaded_bytes),
+            "content_type": content_type,
+            "url": "https://example.test/files/upload.txt",
+            "file_id": 123,
+            "file_status": "active",
+        }
 
 
 def make_test_app(fake_service: FakeFileAssetService) -> FastAPI:
@@ -169,3 +200,23 @@ async def test_presign_upload_idempotency_key_reused_with_different_payload() ->
     assert r1.status_code == 200
     assert r2.status_code == 422
     assert r2.json()["code"] == 10003
+
+
+@pytest.mark.asyncio
+async def test_relay_upload_accepts_multipart_file() -> None:
+    fake = FakeFileAssetService()
+    app = make_test_app(fake)
+
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/storage/upload",
+            params={"kind": "uploads"},
+            files={"file": ("upload.txt", b"hello multipart", "text/plain")},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["size"] == len(b"hello multipart")
+    assert fake.upload_calls == 1
+    assert fake.uploaded_bytes == b"hello multipart"
+    assert fake.uploaded_filename == "upload.txt"
+    assert fake.uploaded_content_type == "text/plain"

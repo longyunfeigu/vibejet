@@ -6,39 +6,27 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from os.path import splitext
 from typing import Any, AsyncIterator, Callable, Optional, Tuple
 
-from domain.file_asset import FileAsset
-from domain.common.unit_of_work import AbstractUnitOfWork
-from domain.common.exceptions import (
-    FileAssetNotFoundException,
-    FileAssetAlreadyDeletedException,
-    DomainValidationException,
-)
-from application.dto import (
-    FileAssetDTO,
-    FileAssetSummaryDTO,
-    StorageUploadResponseDTO,
-)
-from application.ports.storage import StoragePort
-from application.ports.storage import PresignedURL, StorageInfo
+from application.dto import FileAssetDTO, FileAssetSummaryDTO, StorageUploadResponseDTO
+from application.ports.storage import PresignedURL, StorageInfo, StoragePort
 from application.utils.storage import build_storage_key, guess_content_type
+from application.utils.time import utcnow
 from core.config import settings
 from core.logging_config import get_logger
 from domain.common.exceptions import (
-    UnsupportedMimeTypeException,
+    DomainValidationException,
+    FileAssetAlreadyDeletedException,
+    FileAssetNotFoundException,
     FileTooLargeException,
     InvalidFileNameException,
+    UnsupportedMimeTypeException,
 )
-from os.path import splitext
-
+from domain.common.unit_of_work import AbstractUnitOfWork
+from domain.file_asset import FileAsset
 
 logger = get_logger(__name__)
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def _sanitize_filename_for_header(filename: Optional[str], *, fallback: str) -> str:
@@ -119,7 +107,7 @@ class FileAssetApplicationService:
         kind: Optional[str],
         metadata: Optional[dict[str, Any]] = None,
     ) -> FileAssetSummaryDTO:
-        now = _utcnow()
+        now = utcnow()
         asset = FileAsset(
             id=None,
             owner_id=owner_id,
@@ -557,7 +545,7 @@ class FileAssetApplicationService:
             # 需要含已软删的记录：unique_key_hash 唯一约束下，重传同 key 必须命中老记录复活，否则会 IntegrityError
             asset = await repo.get_by_key(key, include_deleted=True)
             if asset is None:
-                now = _utcnow()
+                now = utcnow()
                 asset = FileAsset(
                     id=None,
                     owner_id=owner_id,

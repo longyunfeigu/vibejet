@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from typing import AsyncIterator, Callable
 
 from application.dto import ChatRequestDTO, MessageDTO_Agent, RunDTO
 from application.ports.llm import LLMMessage, LLMPort, LLMResponse
+from application.utils.time import utcnow
+from core.logging_config import get_logger
 from domain.common.unit_of_work import AbstractUnitOfWork
 from domain.conversation.entity import Message, Run
 from domain.conversation.exceptions import (
@@ -19,13 +20,8 @@ from domain.conversation.exceptions import (
     ConversationNotFoundException,
     LLMProviderException,
 )
-from core.logging_config import get_logger
 
 logger = get_logger(__name__)
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class ChatApplicationService:
@@ -65,7 +61,7 @@ class ChatApplicationService:
                 raise ConversationArchivedException(conversation_id)
 
             model = dto.model or conv.model
-            now = _utcnow()
+            now = utcnow()
 
             # Create user message
             user_msg = Message(
@@ -164,7 +160,7 @@ class ChatApplicationService:
                 content=full_content,
                 run_id=run_id,
                 token_count=completion_tokens,
-                created_at=_utcnow(),
+                created_at=utcnow(),
             )
             assistant_msg = await uow.message_repository.create(assistant_msg)
 
@@ -213,7 +209,7 @@ class ChatApplicationService:
                 raise ConversationArchivedException(conversation_id)
 
             model = dto.model or conv.model
-            now = _utcnow()
+            now = utcnow()
 
             user_msg = Message(
                 id=None,
@@ -271,7 +267,7 @@ class ChatApplicationService:
                 content=response.content,
                 run_id=run_id,
                 token_count=response.completion_tokens,
-                created_at=_utcnow(),
+                created_at=utcnow(),
             )
             assistant_msg = await uow.message_repository.create(assistant_msg)
 
