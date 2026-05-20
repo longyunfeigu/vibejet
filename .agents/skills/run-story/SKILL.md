@@ -25,7 +25,7 @@ description: Single-entry Story orchestration for this repo. Use when the user w
 
 如果还没有 Story，应先走：
 - `feature` — 给已有项目加功能，从想法到 Epic/Story 生成，再路由到实现
-- `prd-generator-ears` — 从零写 PRD（全新项目）
+- `product-requirements` — 从零写 PRD（全新项目）
 - `architecture` — 架构设计
 - `epic-story-generator` — 从 PRD 全量拆解 Epic/Story
 
@@ -44,7 +44,7 @@ description: Single-entry Story orchestration for this repo. Use when the user w
 ## 输入
 
 优先识别以下输入：
-- Story 路径，例如 `docs/epics/epic-003.md#story-3.2`
+- Story 路径，例如 `docs/tasks/epics/epic-003.md#story-3.2`
 - 或 Story 描述
 - 可选参考实现来源
 - 可选前端 / 后端启动命令
@@ -104,7 +104,7 @@ description: Single-entry Story orchestration for this repo. Use when the user w
 
 如果命中：
 - 优先要求在 plan 中补对应 delta section
-- 如已有 `docs/api-design.md` / `docs/data-model.md`，再决定是否同步更新
+- 如已有 `docs/project/api_spec.md` / `docs/project/database_schema.md`，再决定是否同步更新
 
 重要边界：
 - 当独立设计文档不存在时，只能说“需要补 delta”
@@ -212,7 +212,7 @@ run-story
 ## 触发示例
 
 ```text
-使用 run-story，处理 docs/epics/epic-003.md#story-3.2
+使用 run-story，处理 docs/tasks/epics/epic-003.md#story-3.2
 ```
 
 ```text

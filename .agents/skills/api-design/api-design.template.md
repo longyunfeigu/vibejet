@@ -4,8 +4,8 @@
 > **更新日期**: YYYY-MM-DD
 > **文档状态**: [草稿/评审中/已发布]
 > **作者**: [作者姓名]
-> **架构文档来源**: [docs/architecture.md 或"无"]
-> **PRD 来源**: [docs/prd.md 或"无"]
+> **架构文档来源**: [docs/project/architecture.md 或"无"]
+> **PRD 来源**: [docs/project/requirements.md 或"无"]
 
 ---
 

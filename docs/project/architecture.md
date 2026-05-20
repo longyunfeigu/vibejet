@@ -94,6 +94,6 @@ a port in `application/ports/` and implement it in `infrastructure/`.
   and planning templates.
 - Product PRDs, epics, routing datasets, launch articles, and app-specific examples should live
   in downstream application repositories.
-- Temporary implementation plans can be created under `docs/plans/`, but they should be removed or
+- Temporary implementation plans can be created under `docs/tasks/plans/`, but they should be removed or
   archived once they are no longer useful as reusable guidance.
 - If a generated doc describes a concrete app, do not treat it as part of the base library baseline.

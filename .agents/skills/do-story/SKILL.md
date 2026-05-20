@@ -18,12 +18,12 @@ allowed-tools: ["Bash(${SKILL_DIR}/scripts/setup-do-story.py:*)"]
    - 现有代码库的目录结构、命名和实现模式
 
 2. **设计文档约束**：只有文档存在时才可对照校验
-   - `docs/architecture.md`
-   - `docs/api-design.md`
-   - `docs/data-model.md`
+   - `docs/project/architecture.md`
+   - `docs/project/api_spec.md`
+   - `docs/project/database_schema.md`
    - Epic `source_documents.*`
 
-如果 `docs/api-design.md` 或 `docs/data-model.md` 不存在：
+如果 `docs/project/api_spec.md` 或 `docs/project/database_schema.md` 不存在：
 - 不要声称“实现违背了 API / 数据模型文档”
 - 只能判断“这次 Story 是否引入了新的接口契约 / schema / migration 变化”
 - 如果答案是是，则应把该变化升级为一个需要补充的 delta 文档，而不是假装存在基线
@@ -32,13 +32,13 @@ allowed-tools: ["Bash(${SKILL_DIR}/scripts/setup-do-story.py:*)"]
 
 ### 1. Single Story Mode
 ```
-/do-story docs/epics/epic-001.md#story-1.2
+/do-story docs/tasks/epics/epic-001.md#story-1.2
 ```
 实现指定的单个 Story。
 
 ### 2. Epic Mode (Multi-Story)
 ```
-/do-story docs/epics/epic-001.md
+/do-story docs/tasks/epics/epic-001.md
 ```
 解析 Epic 文件中所有 Stories，允许用户选择要实现的 Stories，然后顺序执行。
 
@@ -74,17 +74,17 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "<epic-path>[#story-id]"
 
 ```bash
 # 第一步: 扫描 Stories
-python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/epics/epic-001.md" --scan
+python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/tasks/epics/epic-001.md" --scan
 
 # 第二步: 初始化选定的 Stories
-python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/epics/epic-001.md" --stories "1.1,1.2,1.3"
+python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/tasks/epics/epic-001.md" --stories "1.1,1.2,1.3"
 ```
 
 这会创建 `.claude/do-story.{task_id}.local.md`，包含:
 - Story 内容和验收标准
-- 从 docs/architecture.md 提取的架构约束
-- 从 docs/api-design.md 提取的 API 契约（如存在）
-- 从 docs/data-model.md 提取的数据模型（如存在）
+- 从 docs/project/architecture.md 提取的架构约束
+- 从 docs/project/api_spec.md 提取的 API 契约（如存在）
+- 从 docs/project/database_schema.md 提取的数据模型（如存在）
 - DDD/Hexagonal 合规规则
 - Epic 模式下的多 Story 状态跟踪
 
@@ -107,7 +107,7 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/epics/epic-001.md" --stor
 **适用条件**: Story 涉及前端 UI 实现（页面/组件）AND 满足以下任一条件：
 - Design Constraints 中包含 `Prototype Structures` section
 - Story 文件中包含「设计参考」表格（`### 设计参考`）
-- `docs/designs/` 下存在与当前 Story 对应的设计图
+- `docs/reference/research/designs/` 下存在与当前 Story 对应的设计图
 
 **纯后端 Story**: 跳过此 section，直接进入 Phase 2。
 
@@ -117,25 +117,25 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/epics/epic-001.md" --stor
 
 ##### 路径 A: 设计参考图（图片文件 / URL）
 
-**触发条件**: Story 文件中包含「设计参考」表格，或 `docs/designs/` 下有对应图片。
+**触发条件**: Story 文件中包含「设计参考」表格，或 `docs/reference/research/designs/` 下有对应图片。
 
 **设计图定位优先级**:
 1. Story 文件里的 `### 设计参考` 表格
-2. `docs/designs/{epic-id}/` 下以当前 `{story-id}` 开头的图片文件
+2. `docs/reference/research/designs/{epic-id}/` 下以当前 `{story-id}` 开头的图片文件
 3. 用户在当前对话中显式给出的图片路径或 URL
 
 **推荐命名**:
-- `docs/designs/{epic-id}/{story-id}-{page}.png`
-- `docs/designs/{epic-id}/{story-id}-{page}-{state}.png`
+- `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png`
+- `docs/reference/research/designs/{epic-id}/{story-id}-{page}-{state}.png`
 
 例如：
-- `docs/designs/epic-003/3.2-dashboard.png`
-- `docs/designs/epic-003/3.2-dashboard-empty.png`
-- `docs/designs/epic-003/3.2-dashboard-mobile.png`
+- `docs/reference/research/designs/epic-003/3.2-dashboard.png`
+- `docs/reference/research/designs/epic-003/3.2-dashboard-empty.png`
+- `docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png`
 
 **Step A1: 收集设计参考图**
 - 检查 Story 文件中的 `### 设计参考` 表格，提取所有参考图路径/URL
-- 如果 Story 无表格，检查 `docs/designs/{epic-id}/` 目录下是否有匹配当前 Story ID 的图片
+- 如果 Story 无表格，检查 `docs/reference/research/designs/{epic-id}/` 目录下是否有匹配当前 Story ID 的图片
 - 对于图片文件路径：用 Read 工具直接读取（Claude 可读取 PNG/JPG 等图片）
 - 对于 URL 链接：用 `mcp__playwright__browser_navigate` 打开后 `mcp__playwright__browser_take_screenshot` 截图
 - 如果上述两种自动发现都失败，但用户明确要求按设计稿还原，则必须要求用户手动指定图片路径或 URL，不要猜测
@@ -147,8 +147,8 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/epics/epic-001.md" --stor
 
 | 页面/状态 | 参考图 | 类型 | 说明 |
 |-----------|--------|------|------|
-| 主页面 | docs/designs/epic-003/3.2-dashboard.png | image | 桌面端 |
-| 空状态 | docs/designs/epic-003/3.2-dashboard-empty.png | image | 空列表 |
+| 主页面 | docs/reference/research/designs/epic-003/3.2-dashboard.png | image | 桌面端 |
+| 空状态 | docs/reference/research/designs/epic-003/3.2-dashboard-empty.png | image | 空列表 |
 | 移动端 | https://... | url | 375px 宽度 |
 ```
 
@@ -293,8 +293,8 @@ phase_name: "Design"
 | 条件 | Flow | 行为 |
 |------|------|------|
 | 8 问全”是” | **Flow A** | 轻量设计，不进 plan mode，直接在状态文件中输出设计 |
-| 1-3 个”否” | **Flow B** | **进入 plan mode**，按 `docs/plans/TEMPLATE.md` 写 plan |
-| 4+ 个”否” | **Flow C** | **进入 plan mode**，按 `docs/plans/TEMPLATE.md` 写完整 plan |
+| 1-3 个”否” | **Flow B** | **进入 plan mode**，按 `docs/tasks/plans/TEMPLATE.md` 写 plan |
+| 4+ 个”否” | **Flow C** | **进入 plan mode**，按 `docs/tasks/plans/TEMPLATE.md` 写完整 plan |
 
 **强制升级条件**（碰到任一条 → 至少 Flow B）：改 DB migration、改公共 API 契约、改权限/认证/安全、引入外部系统或异步任务、复杂状态机/幂等/事务一致性、需求不清楚、影响多个 bounded context。
 
@@ -323,15 +323,15 @@ phase_name: "Design"
 
 1. **调用 `EnterPlanMode`**
 2. **在 plan mode 中深入探索代码**：利用 plan mode 的只读约束，充分读取相关文件、追溯依赖链、分析现有模式
-3. **先读取 `docs/plans/TEMPLATE.md`**，获取完整模板结构
-4. **严格按模板结构写 plan 文件**到 `docs/plans/{date}-{story-id}-{slug}.md`
+3. **先读取 `docs/tasks/plans/TEMPLATE.md`**，获取完整模板结构
+4. **严格按模板结构写 plan 文件**到 `docs/tasks/plans/{date}-{story-id}-{slug}.md`
 5. **在 plan 末尾附加 AC → 测试映射表**（BLOCKING，见下方格式）
 6. **调用 `ExitPlanMode`** 等待用户审批
 7. 用户审批通过后，进入 Phase 4
 
 **Plan 文件结构强制要求（BLOCKING — 缺少必填节则不能 ExitPlanMode）**：
 
-必须使用 `docs/plans/TEMPLATE.md` 中的 section 标题和结构，**不允许用自由格式替代**。
+必须使用 `docs/tasks/plans/TEMPLATE.md` 中的 section 标题和结构，**不允许用自由格式替代**。
 
 | Section | Flow A | Flow B | Flow C | 说明 |
 |---------|--------|--------|--------|------|
@@ -353,7 +353,7 @@ phase_name: "Design"
 | `## AC → 测试映射表` | — | 必填 | 必填 | 见下方格式 |
 
 **自检清单（ExitPlanMode 前必须确认）**：
-- [ ] plan 文件路径格式正确：`docs/plans/{date}-{story-id}-{slug}.md`
+- [ ] plan 文件路径格式正确：`docs/tasks/plans/{date}-{story-id}-{slug}.md`
 - [ ] §0 Triage 八问已回答，Flow 分级已标明
 - [ ] §0 Scope Challenge 四问已回答（不是跳过）
 - [ ] §7 What already exists 列出了可复用代码（不是空的）
@@ -393,7 +393,7 @@ phase_name: "Design"
 在 plan 中评估 API / 数据模型变化时：
 - **有文档时**：可以判断”是否与现有设计说明不一致”
 - **无文档时**：只能判断”是否产生了新的 contract / schema delta，需要补充说明”
-- **无文档时禁止输出**：”违反 docs/api-design.md” 或 “违反 docs/data-model.md” 这类结论
+- **无文档时禁止输出**：”违反 docs/project/api_spec.md” 或 “违反 docs/project/database_schema.md” 这类结论
 
 **完成后**: 更新状态文件
 ```yaml
@@ -486,7 +486,7 @@ checkpoints:
 #### 前端 Story：组件实现 + 视觉验证
 
 **Step A: 组件实现**
-1. 按 ui-spec 创建组件（复用 prototype HTML 结构和样式）
+1. 按 docs/project/design_guidelines.md 创建组件（复用 prototype HTML 结构和样式）
 2. Hook + Service 层数据接入
 3. commit
 
@@ -559,8 +559,8 @@ checkpoints:
    - 实际的 Domain 实体和方法
 
 2. **对比设计文档**：
-   - 如果存在 API 契约文档，读取 `docs/api-design.md`（或 source_documents.api_design 路径）
-   - 如果存在数据模型文档，读取 `docs/data-model.md`（或 source_documents.data_model 路径）
+   - 如果存在 API 契约文档，读取 `docs/project/api_spec.md`（或 source_documents.api_design 路径）
+   - 如果存在数据模型文档，读取 `docs/project/database_schema.md`（或 source_documents.data_model 路径）
    - 逐项对比，识别以下差异类型：
 
    | 差异类型 | 示例 |
@@ -574,12 +574,12 @@ checkpoints:
    ```markdown
    ### 📋 Design Doc 差异报告
 
-   #### API Design (docs/api-design.md)
+   #### API Design (docs/project/api_spec.md)
    | 变更 | 位置 | 设计文档 | 实际实现 | 原因 |
    |------|------|----------|----------|------|
    | 新增 | POST /api/v1/xxx | - | 新增 query 参数 `status` | 业务需要按状态过滤 |
 
-   #### Data Model (docs/data-model.md)
+   #### Data Model (docs/project/database_schema.md)
    | 变更 | 表/字段 | 设计文档 | 实际实现 | 原因 |
    |------|---------|----------|----------|------|
    | 新增 | sessions.retry_count | - | Integer, default=0 | 重试逻辑需要 |
@@ -651,13 +651,13 @@ phase_name: "Complete"
 <from state file>
 
 ## Design Constraints
-### Architecture (from docs/architecture.md)
+### Architecture (from docs/project/architecture.md)
 <层次规则、依赖方向>
 
-### API Contract (optional, from docs/api-design.md)
+### API Contract (optional, from docs/project/api_spec.md)
 <如存在，放相关端点定义；否则写 N/A>
 
-### Data Model (optional, from docs/data-model.md)
+### Data Model (optional, from docs/project/database_schema.md)
 <如存在，放相关表结构；否则写 N/A>
 
 ### DDD Compliance Rules [BLOCKING]
@@ -731,7 +731,7 @@ phase_name: "<next phase name>"
 ---
 active: true
 mode: "epic"                      # "story" | "epic"
-epic_file: "docs/epics/epic-001.md"
+epic_file: "docs/tasks/epics/epic-001.md"
 epic_title: "User Authentication System"
 
 selected_stories:

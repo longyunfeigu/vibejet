@@ -79,7 +79,7 @@ do-story / story-reference-impl
 ### 3.4 可恢复
 
 `run-story` 应优先复用现有状态文件和 plan，而不是每次从头开始：
-- `docs/plans/*.md`
+- `docs/tasks/plans/*.md`
 - `.claude/do-story.*.local.md`
 - `story-status`（如团队启用）
 
@@ -142,7 +142,7 @@ do-story / story-reference-impl
   - 必要时更新 `data-model`
 
 注意：
-- 当 `docs/api-design.md` / `docs/data-model.md` 不存在时，只能说“需要补 delta”，不能说“违反了文档”
+- 当 `docs/project/api_spec.md` / `docs/project/database_schema.md` 不存在时，只能说“需要补 delta”，不能说“违反了文档”
 
 ### Step 4: 实现后进入 verify
 

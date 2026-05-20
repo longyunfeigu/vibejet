@@ -21,7 +21,7 @@
 - Story / Epic 文档
 - DDD 分层约束
 - `story-reference-impl` 这种“先研究后实现”的设计型 workflow
-- `docs/review-checklist-python-fastapi.md` 这种审查型 checklist
+- `docs/reference/guides/review-checklist-python-fastapi.md` 这种审查型 checklist
 
 但还缺“实现之后如何自动证明真的工作”的执行闭环。
 
@@ -373,7 +373,7 @@ story-verify-fix
 1. 先用 `story-reference-impl` 做复杂 Story 的研究与设计
 2. 完成实现
 3. 用 `story-verify-fix` 做 Story 级验证与自动修复
-4. 最后用 `docs/review-checklist-python-fastapi.md` 做结构化 review
+4. 最后用 `docs/reference/guides/review-checklist-python-fastapi.md` 做结构化 review
 
 即：
 
@@ -475,7 +475,7 @@ story-verify-fix
 
 如果进入实现阶段，建议下一步不是直接写 `SKILL.md`，而是先做下面两个产物：
 
-1. 一个 `docs/story-verify-fix-playbook.md`  
+1. 一个 `docs/reference/guides/story-verify-fix-playbook.md`  
    写具体命令、环境变量、服务启动和验证入口约定。
 
 2. 一个第一版 `story-verify-fix/SKILL.md`  

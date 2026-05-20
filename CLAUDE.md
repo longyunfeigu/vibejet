@@ -14,9 +14,10 @@ vibejet/
 ├── frontend/          # React + TypeScript 前端 (Vite)
 │   ├── src/           # 前端源码
 │   └── .env           # 前端环境变量 (VITE_API_URL 等)
-├── docs/              # Architecture, plans, verification docs, designs
-│   ├── plans/         # Feature execution plans
-│   └── designs/       # UI design references (prototypes + screenshots)
+├── docs/              # Project facts, reusable references, and task assets
+│   ├── project/       # Architecture, requirements, API, schema, infrastructure
+│   ├── reference/     # ADRs, guides, manuals, research notes
+│   └── tasks/         # Epics, kanban, and implementation plans
 ├── .agents/skills/    # Repo-local AI workflow skills
 └── docker-compose.yml
 ```
@@ -83,7 +84,7 @@ API → Application → Domain ← Infrastructure
 
 ## AI Workflow Entry Points
 
-See `docs/ai-workflow.md` for the repo-level end-to-end workflow and skill selection guide.
+See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflow and skill selection guide.
 
 Use the repo-local skills instead of ad-hoc prompting when they match the task:
 
@@ -98,15 +99,15 @@ Use the repo-local skills instead of ad-hoc prompting when they match the task:
 - `story-verify-fix`
   - Post-implementation verification, front/back bring-up, integration checks, visual alignment
 - `review`
-  - Pre-landing code review using `docs/review-checklist-python-fastapi.md`
+  - Pre-landing code review using `docs/reference/guides/review-checklist-python-fastapi.md`
 - `diff-aware-qa`
   - Second-layer regression QA driven by the current diff, focused on affected pages and adjacent surfaces
 
 ## Plan 文件规范
 
-进入 plan mode 实现 Story 时，plan 文件同步写到 `docs/plans/{date}-{story-id}-{slug}.md`。
+进入 plan mode 实现 Story 时，plan 文件同步写到 `docs/tasks/plans/{date}-{story-id}-{slug}.md`。
 
-Plan 采用 **Triage + 3 层渐进式结构**（模板见 `docs/plans/TEMPLATE.md`）：
+Plan 采用 **Triage + 3 层渐进式结构**（模板见 `docs/tasks/plans/TEMPLATE.md`）：
 
 ### Triage 分级器（Plan §0）
 
@@ -166,29 +167,29 @@ AI 在 plan mode 探索代码后回答 8 问 + 填写约束清单：
 | | Flow A | Flow B | Flow C |
 |---|---|---|---|
 | Plan 深度 | 第 1 层 | 第 1+2 层 | 全部 3 层 |
-| api-design | 不更新 | 改接口时按需增量更新 | 仅在需要稳定接口契约说明时更新 |
-| data-model | 不更新 | 改 DB 时按需增量更新 | 仅在需要稳定模型 / migration 说明时更新 |
+| api_spec | 不更新 | 改接口时按需增量更新 | 仅在需要稳定接口契约说明时更新 |
+| database_schema | 不更新 | 改 DB 时按需增量更新 | 仅在需要稳定模型 / migration 说明时更新 |
 | ADR | 不需要 | 有架构影响时补 | 必须补 |
 
 ## 架构文档策略
 
 | 类型 | 文件 | 维护时机 |
 |------|------|---------|
-| 永久基线 | `docs/architecture.md`（1 份 repo 级） | 有架构影响时更新 |
+| 永久基线 | `docs/project/architecture.md`（1 份 repo 级） | 有架构影响时更新 |
 | 永久基线 | `CLAUDE.md` + `AGENTS.md` | 规则变更时更新 |
-| 永久基线 | `docs/*.md`（`api.md` / `application.md` / `domain.md` / `infrastructure.md` 等） | 对应层结构变化时更新 |
-| 执行基线 | `docs/plans/TEMPLATE.md` | Plan 结构变更时更新 |
-| 审查基线 | `docs/review-checklist-python-fastapi.md` | review 规则变更时更新 |
-| 执行计划 | `docs/plans/{date}-{story-id}-{slug}.md` | 每次 feature 实现时 |
-| 设计参考 | `docs/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
-| 按需生成 | `docs/api-design.md` | 由 `api-design` skill 在接口契约变化时增量更新 |
-| 按需生成 | `docs/data-model.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
-| 按需生成 | 下游应用 PRD | 由 `prd-generator-ears` 在具体产品仓库中生成后维护；不作为 vibejet 基础库常驻文档 |
+| 永久基线 | `docs/project/*.md` | 对应项目事实或设计契约变化时更新 |
+| 执行基线 | `docs/tasks/plans/TEMPLATE.md` | Plan 结构变更时更新 |
+| 审查基线 | `docs/reference/guides/review-checklist-python-fastapi.md` | review 规则变更时更新 |
+| 执行计划 | `docs/tasks/plans/{date}-{story-id}-{slug}.md` | 每次 feature 实现时 |
+| 设计参考 | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
+| 按需生成 | `docs/project/api_spec.md` | 由 `api-design` skill 在接口契约变化时增量更新 |
+| 按需生成 | `docs/project/database_schema.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
+| 按需生成 | 下游应用 PRD | 由 `product-requirements` 在具体产品仓库中生成后维护；不作为 vibejet 基础库常驻文档 |
 
 触发判断在 Plan §0 Triage 的影响判定中完成。
 
 重要边界：
-- 当 `docs/api-design.md` 或 `docs/data-model.md` 不存在时，AI 不能声称“实现违反了这些文档”
+- 当 `docs/project/api_spec.md` 或 `docs/project/database_schema.md` 不存在时，AI 不能声称“实现违反了这些文档”
 - 这时只能判断“本次变更是否引入新的 API contract / schema / migration delta，需要补设计说明”
 - 始终可以校验的，只有 repo 硬约束、Story 验收标准和现有代码模式
 
@@ -220,7 +221,7 @@ Stack: Vite 8 + React 19 + TS 6 (strict) + MUI v9 + TanStack Router/Query + RHF 
 Reference impl: `frontend/src/features/health/` + `frontend/src/routes/health/`.
 
 If the task is verification-only, use `story-verify-fix` for bring-up / integration / visual alignment.
-If design refs exist, store them under `docs/designs/{epic-id}/` and reference them from the Story or plan.
+If design refs exist, store them under `docs/reference/research/designs/{epic-id}/` and reference them from the Story or plan.
 
 ### Adding External Service Integration
 
@@ -285,7 +286,7 @@ Ask before implementation:
 |------|----------|----------|
 | **Simple** | Single file, <20 lines, local impact | Execute directly with minimal explanation |
 | **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `do-story` or a concise execution plan, then implement |
-| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Use `docs/plans/TEMPLATE.md` and the appropriate skill workflow |
+| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Use `docs/tasks/plans/TEMPLATE.md` and the appropriate skill workflow |
 
 #### Mandatory Gates for Complex Work
 
@@ -296,7 +297,7 @@ Before writing code for architecture-heavy or high-risk work:
    - If the task needs external reference, use `story-reference-impl`
    - If reusable solution exists → prefer reuse over custom implementation
 
-2. Write or update a plan in `docs/plans/{date}-{story-id}-{slug}.md` using `docs/plans/TEMPLATE.md`
+2. Write or update a plan in `docs/tasks/plans/{date}-{story-id}-{slug}.md` using `docs/tasks/plans/TEMPLATE.md`
 
 3. Explicitly call out:
    - Reuse opportunities
@@ -313,7 +314,7 @@ When task meets "Complex" criteria or user says "进入X模式":
 | Phase | Action |
 |-------|--------|
 | **RESEARCH** | Investigate code and gather context |
-| **PLAN** | Use `docs/plans/TEMPLATE.md` or `story-reference-impl` |
+| **PLAN** | Use `docs/tasks/plans/TEMPLATE.md` or `story-reference-impl` |
 | **EXECUTE** | Implement per plan |
 | **VERIFY** | Run `story-verify-fix` or minimal targeted verification |
 | **REVIEW** | Run `review` on the resulting diff |
@@ -398,7 +399,7 @@ After changes:
 1. Count files modified → if ≥ 2, trigger review
 2. Count lines changed → if ≥ 50, trigger review
 3. Check if new .py/.tsx created → if yes, trigger review
-4. If any trigger met → MUST use the repo-local `review` skill or apply `docs/review-checklist-python-fastapi.md`
+4. If any trigger met → MUST use the repo-local `review` skill or apply `docs/reference/guides/review-checklist-python-fastapi.md`
 5. If NO triggers met → respond directly
 ```
 
@@ -482,9 +483,9 @@ Use the `review` skill
 - Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`
 
 ### Workflow
-- Plan template: `docs/plans/TEMPLATE.md`
-- Review checklist: `docs/review-checklist-python-fastapi.md`
-- Verify-fix design: `docs/story-verify-fix-design.md`
+- Plan template: `docs/tasks/plans/TEMPLATE.md`
+- Review checklist: `docs/reference/guides/review-checklist-python-fastapi.md`
+- Verify-fix design: `docs/reference/guides/story-verify-fix-design.md`
 - Skills: `.agents/skills/`
 
 ## Tooling Note

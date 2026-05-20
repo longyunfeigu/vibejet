@@ -5,11 +5,11 @@ status: "draft"  # draft | in_progress | completed | archived
 priority: "P0"  # P0 (MVP) | P1 (High) | P2 (Medium) | P3 (Low)
 owner: "[负责人]"
 source_documents:
-  prd: "docs/prd.md"
-  architecture: "docs/architecture.md"
-  api_design: "docs/api-design.md"
-  data_model: "docs/data-model.md"
-  # ui_spec: "docs/ui-spec.md"  # optional, for frontend Epics
+  prd: "docs/project/requirements.md"
+  architecture: "docs/project/architecture.md"
+  api_design: "docs/project/api_spec.md"
+  data_model: "docs/project/database_schema.md"
+  # ui_spec: "docs/project/design_guidelines.md"  # optional, for frontend Epics
 ---
 
 # Epic [序号]: [名称]
@@ -39,9 +39,9 @@ source_documents:
 - [ ] [页面元素存在性，含选择器] `验证: Browser [选择器] 存在`
 - [ ] [交互行为：操作 → 预期 DOM/URL 变化] `验证: Browser [操作] → [断言]`
 - [ ] [状态展示：空态/加载/错误的具体 DOM 表现] `验证: Browser [条件] → [元素状态]`
-- [ ] [设计稿对齐：与 designs/{epic-id}/{文件名} 结构一致] `验证: Browser 截图比对`
+- [ ] [设计稿对齐：与 docs/reference/research/designs/{epic-id}/{文件名} 结构一致] `验证: Browser 截图比对`
 
-**参考**: api-design.md §X, data-model.md §Y, designs/{epic-id}/{文件名}（如适用）
+**参考**: docs/project/api_spec.md §X, docs/project/database_schema.md §Y, docs/reference/research/designs/{epic-id}/{文件名}（如适用）
 **依赖**: Story X.Z / 无
 
 ---
@@ -61,7 +61,7 @@ source_documents:
 - [ ] [交互行为 → 预期变化] `验证: Browser [操作] → [断言]`
 - [ ] [状态展示：具体 DOM 表现] `验证: Browser [条件] → [元素状态]`
 
-**参考**: api-design.md §X, data-model.md §Y, designs/{epic-id}/{文件名}（如适用）
+**参考**: docs/project/api_spec.md §X, docs/project/database_schema.md §Y, docs/reference/research/designs/{epic-id}/{文件名}（如适用）
 **依赖**: Story X.Z / 无
 
 ---
@@ -79,7 +79,7 @@ graph LR
 
 ## 参考文档
 
-- PRD: [docs/prd.md](../prd.md) §X
-- Architecture: [docs/architecture.md](../architecture.md) §Y
-- API Design: [docs/api-design.md](../api-design.md) §Z（如适用）
-- Data Model: [docs/data-model.md](../data-model.md) §W（如适用）
+- PRD: [docs/project/requirements.md](../../project/requirements.md) §X
+- Architecture: [docs/project/architecture.md](../../project/architecture.md) §Y
+- API Design: [docs/project/api_spec.md](../../project/api_spec.md) §Z（如适用）
+- Data Model: [docs/project/database_schema.md](../../project/database_schema.md) §W（如适用）

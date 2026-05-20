@@ -100,11 +100,11 @@ def parse_epic_source_documents(epic_path: str, project_dir: str) -> dict:
 
     # key 映射: YAML key → doc name
     key_map = {
-        "ui_spec": "ui-spec",
-        "api_design": "api-design",
-        "data_model": "data-model",
+        "ui_spec": "design_guidelines",
+        "api_design": "api_spec",
+        "data_model": "database_schema",
         "architecture": "architecture",
-        "prd": "prd",
+        "prd": "requirements",
     }
 
     result = {}
@@ -190,7 +190,7 @@ def extract_md_section(content: str, section_number: int, keyword: str) -> str:
 
 
 def extract_ui_spec_summary(content: str, path: str, project_dir: str = None) -> str:
-    """从 ui-spec.md 提取关键 section：§7, §1, §2, §3"""
+    """从 docs/project/design_guidelines.md 提取关键 section：§7, §1, §2, §3"""
     display_path = os.path.relpath(path, project_dir) if project_dir else path
     summary = f"[Full file: {display_path}]\n\n"
 
@@ -318,28 +318,19 @@ def list_prototype_files(proto_dir: str, project_dir: str) -> str:
 def read_design_docs(
     project_dir: str, epic_path: str = None, source_documents: dict = None
 ) -> dict:
-    """读取设计文档摘要 — 优先使用 Epic YAML source_documents，fallback 到目录搜索"""
+    """读取设计文档摘要 — 优先使用 Epic YAML source_documents，然后读取 docs/project/"""
     docs = {}
     source_documents = source_documents or {}
 
-    # 文档搜索目录：epic 文件的父级目录 > docs/（fallback 用）
-    search_dirs = []
-    if epic_path:
-        epics_dir = os.path.dirname(os.path.abspath(epic_path))
-        # Only treat parent as doc root if the file is inside an 'epics/' directory
-        if os.path.basename(epics_dir).lower() == "epics":
-            parent_dir = os.path.dirname(epics_dir)
-            search_dirs.append(parent_dir)
-        else:
-            search_dirs.append(epics_dir)
-    search_dirs.append(os.path.join(project_dir, "docs"))
+    project_docs_dir = os.path.join(project_dir, "docs", "project")
+    research_dir = os.path.join(project_dir, "docs", "reference", "research")
 
     doc_files = {
         "architecture": "architecture.md",
-        "api-design": "api-design.md",
-        "data-model": "data-model.md",
-        "prd": "prd.md",
-        "ui-spec": "ui-spec.md",
+        "api_spec": "api_spec.md",
+        "database_schema": "database_schema.md",
+        "requirements": "requirements.md",
+        "design_guidelines": "design_guidelines.md",
     }
 
     for name, filename in doc_files.items():
@@ -348,26 +339,20 @@ def read_design_docs(
         if path and os.path.exists(path):
             pass  # use this path
         else:
-            # Fallback: 目录搜索
-            path = None
-            for search_dir in search_dirs:
-                candidate = os.path.join(search_dir, filename)
-                if os.path.exists(candidate):
-                    path = candidate
-                    break
+            path = os.path.join(project_docs_dir, filename)
 
         if path and os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
-            if name == "ui-spec":
+            if name == "design_guidelines":
                 docs[name] = extract_ui_spec_summary(content, path, project_dir)
             else:
                 docs[name] = content[:3000] if len(content) > 3000 else content
 
     # 发现原型 HTML 目录并生成文件列表
     proto_dir = None
-    for search_dir in search_dirs:
-        candidate = os.path.join(search_dir, "ui-prototype")
+    for dirname in ("ui-prototype", "prototypes"):
+        candidate = os.path.join(research_dir, dirname)
         if os.path.isdir(candidate):
             proto_dir = candidate
             break
@@ -417,17 +402,17 @@ epic_ref: "{epic_ref}"
 
 ## Design Constraints
 
-### Architecture (from docs/architecture.md)
-{docs.get('architecture', 'Not found - please create docs/architecture.md')[:1500]}
+### Architecture (from docs/project/architecture.md)
+{docs.get('architecture', 'Not found - please create docs/project/architecture.md')[:1500]}
 
-### API Contract (optional, from docs/api-design.md)
-{docs.get('api-design', 'N/A - update only when this Story changes the API contract')[:1500]}
+### API Contract (optional, from docs/project/api_spec.md)
+{docs.get('api_spec', 'N/A - update only when this Story changes the API contract')[:1500]}
 
-### Data Model (optional, from docs/data-model.md)
-{docs.get('data-model', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
+### Data Model (optional, from docs/project/database_schema.md)
+{docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
-### UI Spec (from ui-spec.md)
-{docs.get('ui-spec', 'Not found')}
+### UI Spec (from docs/project/design_guidelines.md)
+{docs.get('design_guidelines', 'Not found')}
 
 ### Prototype Files
 {docs.get('_prototype_files', 'Not found')}
@@ -522,17 +507,17 @@ checkpoints: []
 
 ## Design Constraints
 
-### Architecture (from docs/architecture.md)
-{docs.get('architecture', 'Not found - please create docs/architecture.md')[:1500]}
+### Architecture (from docs/project/architecture.md)
+{docs.get('architecture', 'Not found - please create docs/project/architecture.md')[:1500]}
 
-### API Contract (optional, from docs/api-design.md)
-{docs.get('api-design', 'N/A - update only when this Story changes the API contract')[:1500]}
+### API Contract (optional, from docs/project/api_spec.md)
+{docs.get('api_spec', 'N/A - update only when this Story changes the API contract')[:1500]}
 
-### Data Model (optional, from docs/data-model.md)
-{docs.get('data-model', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
+### Data Model (optional, from docs/project/database_schema.md)
+{docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
-### UI Spec (from ui-spec.md)
-{docs.get('ui-spec', 'Not found')}
+### UI Spec (from docs/project/design_guidelines.md)
+{docs.get('design_guidelines', 'Not found')}
 
 ### Prototype Files
 {docs.get('_prototype_files', 'Not found')}
@@ -666,7 +651,7 @@ def main():
     parser = argparse.ArgumentParser(description="Initialize do-story workflow state")
     parser.add_argument(
         "epic_path",
-        help="Epic file path with optional #story-id (e.g., docs/epics/epic-001.md or docs/epics/epic-001.md#1.2)",
+        help="Epic file path with optional #story-id (e.g., docs/tasks/epics/epic-001.md or docs/tasks/epics/epic-001.md#1.2)",
     )
     parser.add_argument(
         "--scan",

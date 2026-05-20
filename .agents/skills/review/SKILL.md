@@ -1,6 +1,6 @@
 ---
 name: review
-description: 对当前分支、工作区或指定文件做 pre-landing code review。优先发现 DDD 分层违规、权限边界缺失、并发/事务风险、trust boundary 问题和缺失测试。默认基于 diff 做两轮审查，并使用 docs/review-checklist-python-fastapi.md 输出 findings-first 结果。
+description: 对当前分支、工作区或指定文件做 pre-landing code review。优先发现 DDD 分层违规、权限边界缺失、并发/事务风险、trust boundary 问题和缺失测试。默认基于 diff 做两轮审查，并使用 docs/reference/guides/review-checklist-python-fastapi.md 输出 findings-first 结果。
 ---
 
 # review
@@ -36,7 +36,7 @@ description: 对当前分支、工作区或指定文件做 pre-landing code revi
 
 开始 review 前必须读取：
 
-- `docs/review-checklist-python-fastapi.md`
+- `docs/reference/guides/review-checklist-python-fastapi.md`
 
 如果该文档缺失或无法读取，应停止并直接报告，不要假装按标准审查。
 
@@ -189,7 +189,7 @@ Review: No issues found.
 - 没有先读完整 diff 就开始逐文件评价
 - 只做了 Pass 1 就跳过 Pass 2
 - 输出里先写了一大段"总体不错"的概述，问题藏在最后
-- `docs/review-checklist-python-fastapi.md` 没有被读取就开始审查
+- `docs/reference/guides/review-checklist-python-fastapi.md` 没有被读取就开始审查
 - Blocking 问题被标成了 Non-blocking（降级逃避）
 - 发现 DDD 分层违规但没有标记为 blocking
 - 审查涉及数据库操作但没有检查事务边界

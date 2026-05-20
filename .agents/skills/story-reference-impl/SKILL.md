@@ -37,10 +37,10 @@ description: 从 Story 文件或 Story 描述启动“参考实现研究 → DDD
 - 用户特别关注的问题：并发、缓存、事件流、权限、回放、幂等、性能等
 
 如果信息不完整，优先从以下位置补全：
-- `docs/epics/`
-- `docs/architecture.md`
-- `docs/api-design.md`（如存在，且本次涉及接口契约）
-- `docs/data-model.md`（如存在，且本次涉及数据模型 / migration）
+- `docs/tasks/epics/`
+- `docs/project/architecture.md`
+- `docs/project/api_spec.md`（如存在，且本次涉及接口契约）
+- `docs/project/database_schema.md`（如存在，且本次涉及数据模型 / migration）
 - 现有代码中的相似模块
 
 只有在无法安全推断时，才向用户提出最少的问题。
@@ -226,7 +226,7 @@ Review 重点：
 - 异常处理是否统一
 - 边界条件和失败路径是否遗漏
 - 测试是否覆盖关键路径
-- 优先套用 `docs/review-checklist-python-fastapi.md` 做结构化审查
+- 优先套用 `docs/reference/guides/review-checklist-python-fastapi.md` 做结构化审查
 
 如果没有发现问题，也要明确说明剩余风险和测试空白。
 
@@ -235,13 +235,13 @@ Review 重点：
 适合让用户这样触发：
 
 ```text
-使用 story-reference-impl，处理 docs/epics/epic-003.md#story-3.2
+使用 story-reference-impl，处理 docs/tasks/epics/epic-003.md#story-3.2
 参考项目是 https://github.com/All-Hands-AI/OpenHands
 我重点关注流式事件传递、断线重连和历史回放
 ```
 
 ```text
-使用 story-reference-impl，处理 docs/epics/epic-002.md#story-2.4
+使用 story-reference-impl，处理 docs/tasks/epics/epic-002.md#story-2.4
 我还没确定参考哪个开源项目，先帮我选型
 ```
 

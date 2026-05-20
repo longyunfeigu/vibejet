@@ -292,7 +292,7 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 
 如果当前 Story 已通过验证，建议再进入仓库的 review 流程，并优先套用：
 
-- `docs/review-checklist-python-fastapi.md`
+- `docs/reference/guides/review-checklist-python-fastapi.md`
 
 ## Stop Conditions
 
@@ -352,13 +352,13 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 后端 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/epics/epic-03-agent-execution.md#story-3.2，只启动后端并验证验收标准。
+使用 story-verify-fix，处理 docs/tasks/epics/epic-03-agent-execution.md#story-3.2，只启动后端并验证验收标准。
 ```
 
 前后端联调 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/epics/epic-03-agent-execution.md#story-3.5。
+使用 story-verify-fix，处理 docs/tasks/epics/epic-03-agent-execution.md#story-3.5。
 后端启动命令是 uvicorn main:app --reload --port 8000
 前端启动命令是 npm run dev -- --port 3000
 需要做前后端联调验证。
@@ -367,7 +367,7 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 带设计图对齐检查的 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/epics/epic-04-console.md#story-4.1。
+使用 story-verify-fix，处理 docs/tasks/epics/epic-04-console.md#story-4.1。
 启动前后端，并验证页面与 Story 中的设计参考图是否对齐。
 最多自动修复 2 轮。
 ```

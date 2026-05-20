@@ -50,7 +50,7 @@ run-story
 当你在下游应用里还没有明确 Story，只是有一个产品想法或较大的需求时：
 
 ```text
-prd-generator-ears
+product-requirements
 -> architecture
 -> epic-story-generator
 ```
@@ -126,7 +126,7 @@ prd-generator-ears
 - `review`
   - 做结构化代码审查
   - 优先找 blocking 问题、回归风险、缺失测试
-  - 基于 `docs/review-checklist-python-fastapi.md`
+  - 基于 `docs/reference/guides/review-checklist-python-fastapi.md`
 
 - `diff-aware-qa`
   - 做第二层回归 QA
@@ -157,7 +157,7 @@ prd-generator-ears
 
 ### 重要边界
 
-如果 `docs/api-design.md` 或 `docs/data-model.md` 不存在：
+如果 `docs/project/api_spec.md` 或 `docs/project/database_schema.md` 不存在：
 
 - AI 不能说“实现违反了这些文档”
 - 只能判断“本次改动是否引入了新的 contract / schema delta，需要补说明”
@@ -169,7 +169,7 @@ prd-generator-ears
 
 ## 4. Plan 应该怎么用
 
-Plan 模板见 [TEMPLATE.md](plans/TEMPLATE.md)。
+Plan 模板见 [TEMPLATE.md](../../tasks/plans/TEMPLATE.md)。
 
 ### Flow A / B / C
 
@@ -192,36 +192,36 @@ Plan 模板见 [TEMPLATE.md](plans/TEMPLATE.md)。
 
 - `§8.1 API Contract Delta`
   - 当改接口时填写
-  - 如果没有独立 `docs/api-design.md`，这里就是本次 Story 的接口基线
+  - 如果没有独立 `docs/project/api_spec.md`，这里就是本次 Story 的接口基线
 
 - `§8.2 设计参考`
   - 当前端 Story 有设计稿时填写
 
 - `§10.1 Schema / Migration Delta`
   - 当改表结构或 migration 时填写
-  - 如果没有独立 `docs/data-model.md`，这里就是本次 Story 的模型变化基线
+  - 如果没有独立 `docs/project/database_schema.md`，这里就是本次 Story 的模型变化基线
 
 ## 5. 前端设计图怎么接入
 
 `do-story` 对 UI 设计图的发现顺序是：
 
 1. Story 文件里的 `### 设计参考` 表格
-2. `docs/designs/{epic-id}/` 下以 `{story-id}` 开头的图片
+2. `docs/reference/research/designs/{epic-id}/` 下以 `{story-id}` 开头的图片
 3. 当前对话里用户显式提供的路径或 URL
 
 推荐命名：
 
 ```text
-docs/designs/{epic-id}/{story-id}-{page}.png
-docs/designs/{epic-id}/{story-id}-{page}-{state}.png
+docs/reference/research/designs/{epic-id}/{story-id}-{page}.png
+docs/reference/research/designs/{epic-id}/{story-id}-{page}-{state}.png
 ```
 
 例如：
 
 ```text
-docs/designs/epic-003/3.2-dashboard.png
-docs/designs/epic-003/3.2-dashboard-empty.png
-docs/designs/epic-003/3.2-dashboard-mobile.png
+docs/reference/research/designs/epic-003/3.2-dashboard.png
+docs/reference/research/designs/epic-003/3.2-dashboard-empty.png
+docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 ```
 
 如果自动发现失败，但你又要求“按设计稿还原”，那就需要手动给路径或 URL，不要让 AI 猜。
@@ -295,7 +295,7 @@ docs/designs/epic-003/3.2-dashboard-mobile.png
 | 你现在手上的任务 | 用什么 |
 |------------------|--------|
 | 已有 Story，想按默认链路一路做完 | `run-story` |
-| 只有产品想法，还没拆 Story | `prd-generator-ears -> architecture -> epic-story-generator` |
+| 只有产品想法，还没拆 Story | `product-requirements -> architecture -> epic-story-generator` |
 | 普通 Story 实现 | `do-story` |
 | 复杂 Story，需要参考开源 | `story-reference-impl` |
 | 实现完成后验证当前 Story | `story-verify-fix` |
@@ -310,7 +310,7 @@ docs/designs/epic-003/3.2-dashboard-mobile.png
 
 ```text
 需求未成型:
-  prd-generator-ears
+  product-requirements
   -> architecture
   -> epic-story-generator
 

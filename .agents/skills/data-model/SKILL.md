@@ -27,11 +27,11 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 
 按以下顺序收集上下文：
 1. 当前 Story / Plan / 验收标准
-2. 现有架构文档：`docs/architecture.md`
-3. 已存在的数据模型文档：`docs/data-model.md` 或 Epic `source_documents.data_model`
+2. 现有架构文档：`docs/project/architecture.md`
+3. 已存在的数据模型文档：`docs/project/database_schema.md` 或 Epic `source_documents.data_model`
 4. 当前代码中的 domain entity、ORM model、migration、repository、测试
 
-如果现有 `docs/data-model.md` 不存在，不要默认要求创建完整文档。
+如果现有 `docs/project/database_schema.md` 不存在，不要默认要求创建完整文档。
 先判断这次改动是否真的需要一个模型增量说明。
 
 ## Workflow
@@ -91,7 +91,7 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 ### Phase 3: 写回文档
 
 写回规则：
-- 如果 `docs/data-model.md` 已存在：优先做增量更新，不重写整份文档
+- 如果 `docs/project/database_schema.md` 已存在：优先做增量更新，不重写整份文档
 - 如果不存在，但本次变更确实需要沉淀模型说明：创建一个简洁版本，只包含当前相关模块
 - 除非用户明确要求，不生成“大而全”的全库 ER 文档
 
@@ -101,7 +101,7 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 - 是否需要更新数据模型文档
 - 本次 model delta 是什么
 - 影响哪些实现、migration 和测试
-- 是否需要写回 `docs/data-model.md`
+- 是否需要写回 `docs/project/database_schema.md`
 
 只有用户明确要求“完整数据模型设计文档”时，才扩展为完整章节。
 

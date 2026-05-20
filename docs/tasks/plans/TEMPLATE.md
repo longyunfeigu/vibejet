@@ -48,8 +48,8 @@
 
 ### 本次必须产出
 - [x] Plan
-- [ ] 更新 api-design.md
-- [ ] 更新 data-model.md
+- [ ] 更新 docs/project/api_spec.md
+- [ ] 更新 docs/project/database_schema.md
 - [ ] 补 ADR
 
 ### 升级触发条件
@@ -112,7 +112,7 @@
 - 为什么这样做：
 
 ## 8.1 API Contract Delta
-> 仅当 Triage 判定“是否改 API 契约 = 是”时填写；没有独立 `docs/api-design.md` 时，本节就是当前 Plan 的接口契约基线
+> 仅当 Triage 判定“是否改 API 契约 = 是”时填写；没有独立 `docs/project/api_spec.md` 时，本节就是当前 Plan 的接口契约基线
 
 ### 受影响消费者
 - Web / Frontend:
@@ -133,7 +133,7 @@
 ### 测试与联调影响
 - 需要新增/修改的 API 测试：
 - 需要同步修改的前端调用：
-- 是否需要补 `docs/api-design.md` 增量说明：是/否
+- 是否需要补 `docs/project/api_spec.md` 增量说明：是/否
 
 ## 8.2 设计参考
 > 仅当前端 Story 且有设计稿时填写；优先让 `do-story` 可自动发现
@@ -141,12 +141,12 @@
 ### 设计参考表
 | 页面/状态 | 参考图路径或 URL | 类型 | 说明 |
 |-----------|------------------|------|------|
-| List / Empty / Loading / Success / Error | `docs/designs/{epic-id}/{story-id}-{page}.png` | image / figma / url | ... |
+| List / Empty / Loading / Success / Error | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | image / figma / url | ... |
 
 ### 说明
 - 优先使用相对仓库根目录的路径
 - 如同一页面有多个状态，请逐行列出
-- 如不填写，默认按 `docs/designs/{epic-id}/` 下以 `{story-id}` 开头的文件自动发现
+- 如不填写，默认按 `docs/reference/research/designs/{epic-id}/` 下以 `{story-id}` 开头的文件自动发现
 
 ## 9. 核心流程
 > 涉及状态流转/异步/外部调用/权限/多步骤时加此节
@@ -193,7 +193,7 @@ flowchart TD
 - 兼容性处理：
 
 ## 10.1 Schema / Migration Delta
-> 仅当 Triage 判定“是否改 DB schema = 是”时填写；没有独立 `docs/data-model.md` 时，本节就是当前 Plan 的模型变化基线
+> 仅当 Triage 判定“是否改 DB schema = 是”时填写；没有独立 `docs/project/database_schema.md` 时，本节就是当前 Plan 的模型变化基线
 
 ### 对象变化
 | Change | Table / Object | Before | After | Notes |
@@ -210,7 +210,7 @@ flowchart TD
 - 数据兼容性 / 回填策略：
 - 回滚方式：
 - 需要新增/修改的 integration test：
-- 是否需要补 `docs/data-model.md` 增量说明：是/否
+- 是否需要补 `docs/project/database_schema.md` 增量说明：是/否
 
 <!-- ═══ 执行（所有 Flow） ═══ -->
 

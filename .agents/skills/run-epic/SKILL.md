@@ -31,25 +31,25 @@ description: 从 Epic 文件自动编排所有 Story 的顺序执行。解析 Ep
 
 ```bash
 # 顺序执行整个 epic
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md
 
 # 最多 2 个 story 并行（无依赖的 story 同时跑）
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md -j2
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md -j2
 
 # 只生成 Makefile，不执行（检查依赖图是否正确）
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md --dry-run
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md --dry-run
 
 # 从 story 1.3 开始（1.1, 1.2 标记为已完成并跳过）
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md --from 1.3
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md --from 1.3
 
 # 只跑到 story 1.4（含其依赖链）
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md --target 1.4
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md --target 1.4
 
 # 查看完成状态
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md --status
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md --status
 
 # 重置某个 story（清除完成标记，下次重跑）
-./scripts/run-epic.sh docs/epics/epic-1-infrastructure.md --reset 1.2
+./scripts/run-epic.sh docs/tasks/epics/epic-1-infrastructure.md --reset 1.2
 ```
 
 ## Workflow

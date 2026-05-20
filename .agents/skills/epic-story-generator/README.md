@@ -18,8 +18,8 @@ Skill 自动检测上游文档、提取约束、引导 Epic/Story 拆分。
 
 ## 前置条件
 
-- **必需**: `docs/prd.md`, `docs/architecture.md`
-- **推荐**: `docs/api-design.md`, `docs/data-model.md`
+- **必需**: `docs/project/requirements.md`, `docs/project/architecture.md`
+- **推荐**: `docs/project/api_spec.md`, `docs/project/database_schema.md`
 
 ## 工作流程
 
@@ -43,14 +43,14 @@ Phase 5: 生成验证 → 填充模板 + 完整性检查
 - [ ] [异常场景条件]
 - [ ] [边界条件]
 
-**参考**: api-design.md §X, data-model.md §Y
+**参考**: docs/project/api_spec.md §X, docs/project/database_schema.md §Y
 **依赖**: Story X.Z / 无
 ```
 
 ## 输出结构
 
 ```
-docs/epics/
+docs/tasks/epics/
 ├── epic-01-user-auth.md
 ├── epic-02-content-management.md
 └── epic-03-search-system.md
@@ -65,7 +65,7 @@ docs/epics/
 ## 与其他 Skill 的协作
 
 ```
-prd-generator-ears → architecture → api-design → data-model
+product-requirements → architecture → api-design → data-model
                                                       ↓
                                           epic-story-generator
                                                       ↓
