@@ -49,12 +49,24 @@ Phase 5: 生成验证 → 填充模板 + 完整性检查
 
 ## 输出结构
 
+按每个 Epic 的 Story 数自动选择平铺或展开：
+
 ```
-docs/tasks/epics/
-├── epic-01-user-auth.md
-├── epic-02-content-management.md
-└── epic-03-search-system.md
+docs/tasks/
+├── kanban_board.md                            # 全局索引：Next 编号 + Story 状态表
+└── epics/
+    ├── epic-1-search-system.md                # <3 Story → 平铺单文件
+    ├── epic-2-content-management.md           # <3 Story → 平铺
+    └── epic-3-user-auth/                      # ≥3 Story → 展开为目录
+        ├── epic.md
+        └── stories/
+            ├── us001-phone-register.md
+            ├── us002-phone-login.md
+            └── us003-password-reset.md
 ```
+
+- **kanban_board.md** 由 skill 在首次运行时从 `kanban_board.template.md` 复制生成，记录 `Next Epic Number` / `Next Story Number` 和全局 Story 状态。do-story 完成 Story 时回写 `Done`。
+- **平铺 vs 展开**：阈值是该 Epic 的 Story 数 `<3` 还是 `≥3`，由 Phase 5 自动判定。
 
 ## 设计理念
 
@@ -74,5 +86,5 @@ product-requirements → architecture → api-design → data-model
 
 ---
 
-**Skill 版本**: v2.0
-**最后更新**: 2026-03-13
+**Skill 版本**: v2.1
+**最后更新**: 2026-05-20
