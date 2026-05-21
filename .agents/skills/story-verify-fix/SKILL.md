@@ -141,7 +141,7 @@ description: 从 Story 文件或 Story 描述启动“环境启动 → Story 验
 ```
 
 如果 AC 没有 `验证:` 标注：
-- **新 Story**（由 epic-story-generator 生成）：视为 **blocking 问题**，停止验证并要求补充 `验证:` 标注
+- **新 Story**（由 vj-epic-story 生成）：视为 **blocking 问题**，停止验证并要求补充 `验证:` 标注
 - **存量 Story**（无 `验证:` 标注的历史 AC）：根据 AC 内容推断验证方式，但在报告中标记为 `⚠️ 推断` 并建议回填
 
 #### Step 2: 逐条执行验证

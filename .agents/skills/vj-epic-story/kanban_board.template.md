@@ -1,6 +1,6 @@
 <!--
   Kanban Board — 全局索引文件
-  - 由 epic-story-generator skill 自动维护
+  - 由 vj-epic-story skill 自动维护
   - 由 do-story 在 Story 完成时回写状态
   - 字段格式严格,grep 可解析,不要手工破坏表格列对齐
 -->
@@ -35,7 +35,7 @@
 ## Story Index
 
 > do-story 完成 Story 时把对应行的"状态"列改为 `Done`。
-> 新 Story 由 epic-story-generator 在 Phase 5 追加到表尾。
+> 新 Story 由 vj-epic-story 在 Phase 5 追加到表尾。
 
 | US 编号 | Epic | 标题 | 状态 | Owner | 文件 |
 |---------|------|------|------|-------|------|

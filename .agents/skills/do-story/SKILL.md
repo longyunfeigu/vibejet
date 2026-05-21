@@ -52,7 +52,7 @@ Use AskUserQuestion:
 ```
 本次 Story 是否命中了需要先补设计文档的变更?
 - 否，直接进入实现 (推荐)
-- 是，涉及较大架构影响，先运行 /architecture
+- 是，涉及较大架构影响，先运行 /vj-architecture
 - 是，接口契约变化明显，先运行 /api-design
 - 是，数据模型 / migration 变化明显，先运行 /data-model
 ```

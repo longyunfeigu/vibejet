@@ -142,7 +142,7 @@
                 ]
             }
         },
-        "feature": {
+        "vj-feature": {
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",

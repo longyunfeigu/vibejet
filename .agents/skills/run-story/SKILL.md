@@ -24,10 +24,10 @@ description: Single-entry Story orchestration for this repo. Use when the user w
 - 任务不是 Story 交付，而是单独做 PRD / 架构 / review / QA
 
 如果还没有 Story，应先走：
-- `feature` — 给已有项目加功能，从想法到 Epic/Story 生成，再路由到实现
-- `product-requirements` — 从零写 PRD（全新项目）
-- `architecture` — 架构设计
-- `epic-story-generator` — 从 PRD 全量拆解 Epic/Story
+- `vj-feature` — 给已有项目加功能，从想法到 Epic/Story 生成，再路由到实现
+- `vj-product-requirements` — 从零写 PRD（全新项目）
+- `vj-architecture` — 架构设计
+- `vj-epic-story` — 从 PRD 全量拆解 Epic/Story
 
 ## 内部路由关系
 

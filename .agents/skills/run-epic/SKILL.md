@@ -16,7 +16,7 @@ description: 从 Epic 文件自动编排所有 Story 的顺序执行。解析 Ep
 ## 不适用场景
 
 - 只跑单个 Story → 用 `run-story`
-- 还没有 Epic 文件 → 先用 `epic-story-generator`
+- 还没有 Epic 文件 → 先用 `vj-epic-story`
 
 ## 工作原理
 
@@ -88,5 +88,5 @@ description: 从 Epic 文件自动编排所有 Story 的顺序执行。解析 Ep
 ## 与其他 skill 的关系
 
 - 内部调用 `run-story` 执行每个 story
-- 上游：`epic-story-generator` 生成 Epic 文件
+- 上游：`vj-epic-story` 生成 Epic 文件
 - 平级：`run-story` 处理单个 story

@@ -2,13 +2,13 @@
 
 Use this rubric for `review` mode and Phase 4 in `create` / `update` modes.
 
-Score the PRD out of 100. A PRD below 75 must not proceed to `architecture`. Fix or clarify the blocking areas first.
+Score the PRD out of 100. A PRD below 75 must not proceed to `vj-architecture`. Fix or clarify the blocking areas first.
 
 ## Gate Rules
 
-- `>= 85`: Ready for `architecture`.
+- `>= 85`: Ready for `vj-architecture`.
 - `75-84`: Conditionally ready only if no critical blockers remain; list follow-up risks.
-- `< 75`: Not ready for `architecture`; return to clarification or rewrite.
+- `< 75`: Not ready for `vj-architecture`; return to clarification or rewrite.
 
 Critical blockers override the score. If any critical blocker exists, the PRD is not ready even if the score is 75 or higher.
 

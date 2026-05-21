@@ -88,7 +88,7 @@ See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflo
 
 Use the repo-local skills instead of ad-hoc prompting when they match the task:
 
-- `feature`
+- `vj-feature`
   - 给已有项目追加功能：从功能想法出发，对话澄清需求，生成/追加 Epic+Story，可选同步 PRD，路由到实现
 - `run-story`
   - Preferred single-entry Story workflow: route implementation, verify, review, and risk-based QA
@@ -184,7 +184,7 @@ AI 在 plan mode 探索代码后回答 8 问 + 填写约束清单：
 | 设计参考 | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
 | 按需生成 | `docs/project/api_spec.md` | 由 `api-design` skill 在接口契约变化时增量更新 |
 | 按需生成 | `docs/project/database_schema.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
-| 按需生成 | 下游应用 PRD | 由 `product-requirements` 在具体产品仓库中生成后维护；不作为 vibejet 基础库常驻文档 |
+| 按需生成 | 下游应用 PRD | 由 `vj-product-requirements` 在具体产品仓库中生成后维护；不作为 vibejet 基础库常驻文档 |
 
 触发判断在 Plan §0 Triage 的影响判定中完成。
 

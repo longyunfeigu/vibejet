@@ -1,5 +1,5 @@
 ---
-name: product-requirements
+name: vj-product-requirements
 description: Turn a fuzzy product idea into a structured PRD using EARS syntax, or review/update an existing PRD. Use when the user has a feature or product concept that still needs clarification, product framing, scope challenge, role definitions, epics, testable requirements, architecture handoff, and Story breakdown notes.
 ---
 
@@ -13,7 +13,7 @@ description: Turn a fuzzy product idea into a structured PRD using EARS syntax, 
 
 - 用户只有产品想法，还没有明确 PRD
 - 需求边界不清，需要先澄清用户、问题、核心价值
-- 需要产出一份后续可接 `architecture -> epic-story-generator` 的 PRD
+- 需要产出一份后续可接 `vj-architecture -> vj-epic-story` 的 PRD
 
 不适用：
 - 已经有成熟 PRD，只是想拆 Story
@@ -210,8 +210,8 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 生成草案后，读取 `references/quality_rubric.md` 并执行质量门：
 - 先跑 mechanical checks。
 - 按 100 分 rubric 打分。
-- 低于 75 分时，不进入 `architecture`；先修复或继续澄清。
-- 有 critical blocker 时，即使总分 >= 75 也不能进入 `architecture`。
+- 低于 75 分时，不进入 `vj-architecture`；先修复或继续澄清。
+- 有 critical blocker 时，即使总分 >= 75 也不能进入 `vj-architecture`。
 - `review` 模式使用同一 rubric 输出审查报告，不默认改文件。
 
 ## 输出要求
@@ -246,7 +246,7 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 
 #### Architecture Handoff 写法
 
-用于交接给 `architecture`，只记录架构设计必须接住的产品事实：
+用于交接给 `vj-architecture`，只记录架构设计必须接住的产品事实：
 - 非功能约束：性能、安全、合规、可用性、审计、数据保留
 - 数据和权限边界：敏感数据、角色访问范围、跨租户/跨组织边界
 - 外部依赖：第三方平台、人工流程、上游/下游系统
@@ -257,7 +257,7 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 
 #### Epic Decomposition Notes 写法
 
-用于交接给 `epic-story-generator`，只记录拆 Story 需要的产品边界：
+用于交接给 `vj-epic-story`，只记录拆 Story 需要的产品边界：
 - 建议的 Epic 顺序和 MVP 优先级
 - Epic 之间的依赖关系
 - 不应拆散的端到端用户能力
@@ -269,10 +269,10 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 ### `review` 输出
 
 `review` 模式输出审查报告，不默认写文件：
-- Score / Gate：按 `references/quality_rubric.md` 给出总分和是否可进入 `architecture`
+- Score / Gate：按 `references/quality_rubric.md` 给出总分和是否可进入 `vj-architecture`
 - Findings：按严重程度列 PRD 问题、歧义、缺口
 - Missing Decisions：缺失但必须由用户决定的产品问题
-- Handoff Readiness：是否足够交给 `architecture` 和 `epic-story-generator`
+- Handoff Readiness：是否足够交给 `vj-architecture` 和 `vj-epic-story`
 - Suggested Edits：建议修改点；只有用户要求时才落到 `docs/project/requirements.md`
 
 ## 后置步骤：Codex 审查
@@ -286,9 +286,9 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 
 - `codex-review`
   - PRD 生成完毕后自动触发，做独立审查闭环
-- `architecture`
+- `vj-architecture`
   - PRD 明确产品目标与约束后，再进入技术架构
-- `epic-story-generator`
+- `vj-epic-story`
   - PRD 稳定后，再拆成 Epic / Story
 - `run-story`
   - 不是本 skill 的下游；`run-story` 处理的是已存在 Story 的交付
@@ -296,25 +296,25 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 ## 示例触发
 
 ```text
-使用 product-requirements，帮我把这个产品想法整理成 PRD
+使用 vj-product-requirements，帮我把这个产品想法整理成 PRD
 ```
 
 ```text
-我想做一个个人财务记账 App，使用 product-requirements
+我想做一个个人财务记账 App，使用 vj-product-requirements
 ```
 
 ```text
-使用 product-requirements，先 challenge 一下这个需求，再输出 EARS 格式 PRD
+使用 vj-product-requirements，先 challenge 一下这个需求，再输出 EARS 格式 PRD
 ```
 
 ```text
-使用 product-requirements，research_mode=deep，先做竞品调研再出 PRD
+使用 vj-product-requirements，research_mode=deep，先做竞品调研再出 PRD
 ```
 
 ```text
-使用 product-requirements，mode=review，审查 docs/project/requirements.md
+使用 vj-product-requirements，mode=review，审查 docs/project/requirements.md
 ```
 
 ```text
-使用 product-requirements，mode=update，把邀请协作功能补进现有 PRD
+使用 vj-product-requirements，mode=update，把邀请协作功能补进现有 PRD
 ```

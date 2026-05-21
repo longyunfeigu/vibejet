@@ -50,9 +50,9 @@ run-story
 当你在下游应用里还没有明确 Story，只是有一个产品想法或较大的需求时：
 
 ```text
-product-requirements
--> architecture
--> epic-story-generator
+vj-product-requirements
+-> vj-architecture
+-> vj-epic-story
 ```
 
 产出物通常是下游应用自己的需求、架构增量和 Story/Epic 文档。`vibejet` 基础库不长期保留具体产品 PRD 或业务 Epic。
@@ -295,7 +295,7 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 | 你现在手上的任务 | 用什么 |
 |------------------|--------|
 | 已有 Story，想按默认链路一路做完 | `run-story` |
-| 只有产品想法，还没拆 Story | `product-requirements -> architecture -> epic-story-generator` |
+| 只有产品想法，还没拆 Story | `vj-product-requirements -> vj-architecture -> vj-epic-story` |
 | 普通 Story 实现 | `do-story` |
 | 复杂 Story，需要参考开源 | `story-reference-impl` |
 | 实现完成后验证当前 Story | `story-verify-fix` |
@@ -310,9 +310,9 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 
 ```text
 需求未成型:
-  product-requirements
-  -> architecture
-  -> epic-story-generator
+  vj-product-requirements
+  -> vj-architecture
+  -> vj-epic-story
 
 开始做 Story:
   run-story
