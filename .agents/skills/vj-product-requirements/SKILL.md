@@ -154,9 +154,11 @@ description: Turn a fuzzy product idea into a structured PRD using EARS syntax, 
 - Architecture Handoff 只写产品约束、风险和开放问题，不写技术选型或实现方案
 - Epic Decomposition Notes 只写拆解边界、优先级、依赖和不可拆散的能力，不替代 Story 生成
 
-### Phase 2.5: Synthesis Summary
+### Phase 2.5: Synthesis Summary 🔴 CHECKPOINT
 
 PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进入 Phase 3 写 EARS 需求。这是文档落地前最后一次修正 scope 的机会，比 Phase 4 质量门更早、更便宜。
+
+🛑 STOP：未拿到用户对三桶总结的确认或修正前，不写 EARS 需求、不落 `docs/project/requirements.md`。
 
 三桶分类：
 
@@ -205,14 +207,27 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 - 每条需求都能被测试验证
 - 避免"系统应支持""系统应允许"这类空泛表述，除非补足上下文
 
-### Phase 4: PRD Quality Gate
+### Phase 4: PRD Quality Gate 🔴 CHECKPOINT
 
 生成草案后，读取 `references/quality_rubric.md` 并执行质量门：
 - 先跑 mechanical checks。
 - 按 100 分 rubric 打分。
-- 低于 75 分时，不进入 `vj-architecture`；先修复或继续澄清。
-- 有 critical blocker 时，即使总分 >= 75 也不能进入 `vj-architecture`。
+- 🛑 STOP：低于 75 分时，不进入 `vj-architecture`；先修复或继续澄清。
+- 🛑 STOP：有 critical blocker 时，即使总分 >= 75 也不能进入 `vj-architecture`。
 - `review` 模式使用同一 rubric 输出审查报告，不默认改文件。
+
+### 失败模式与兜底
+
+Workflow 假设用户配合、调研可行、路径可写。下面是真实会卡住的场景；命中即按此分支处理，不要硬推正向流程。
+
+| 触发条件 | 一线修复 | 仍失败兜底 |
+|----------|----------|------------|
+| 用户对澄清问题反复给模糊或回避的答案 | 把当前不确定项记为 `[未验证假设]`，换一个更具体的单选问法再问一次 | 标注 PRD 为 draft，未定项全部进"待验证假设"清单，gate 标记未就绪，不放行 `vj-architecture` |
+| Phase 0.5 调研 WebSearch 报错或无有效结果 | 降级 `research_mode=none`，继续 Phase 1 | 标注"调研未完成"，相关结论一律标 `[推断]`，不得当作 `[调研]` 证据 |
+| 对话中途用户不断扩 scope | 回到 Phase 0 Non-Goals，重新确认本次边界 | 拆成 V1 与后续版本，新增诉求显式写入"非目标 / 可延后"，本轮只收敛 V1 |
+| 发现这其实是技术任务或已有成熟 PRD | 停止套本 skill，提示改用 `vj-architecture` 或直接 `vj-epic-story` 拆 Story | 用户坚持要 PRD 则按 `update` 模式只补缺口，不重写 |
+| `docs/project/` 写盘路径不存在或不可写 | 先创建目录再写 | 先把 PRD 全文输出到对话，请用户确认最终落盘路径 |
+| `review` 模式找不到目标 PRD 文件 | 向用户要文件路径 | 用户直接贴 PRD 内容则就地评审，不写文件 |
 
 ## 输出要求
 
@@ -292,6 +307,21 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
   - PRD 稳定后，再拆成 Epic / Story
 - `run-story`
   - 不是本 skill 的下游；`run-story` 处理的是已存在 Story 的交付
+
+## 红线与反模式
+
+开写前、落盘前各扫一遍。命中任一条 = 停下修正，不要带着问题往下走。
+
+- ❌ 一上来就套模板开写 PRD —— 必须先做 Phase 0 问题挑战和 Phase 1 澄清
+- ❌ 跳过 Phase 2.5 用户确认直接写 EARS —— 三桶总结没确认不写需求
+- ❌ 在 PRD / Architecture Handoff 写技术方案（数据库表、API 路径、框架、部署拓扑）—— 那是 architecture 阶段的事
+- ❌ 按前端 / 后端 / 数据库分层拆 Epic —— Epic 按用户目标和业务能力分组
+- ❌ 把调研发现或模型推断直接当成需求 —— 必须区分 `[用户]` / `[调研]` / `[推断]`
+- ❌ 把"用户觉得有用"当作已验证需求 —— 证据弱就标 `[未验证假设]`
+- ❌ EARS 里用"友好 / 快 / 智能 / 易用"等无度量词 —— 要可测试、可验收
+- ❌ 总分 < 75 或有 critical blocker 还放行 `vj-architecture` —— 硬门，先修
+- ❌ `review` 模式默认改文件 —— 只输出审查报告，用户明确要求才落盘
+- ❌ `update` 模式重写整份 PRD —— 只对变更影响范围补问，保留已有决策、编号和非目标
 
 ## 示例触发
 

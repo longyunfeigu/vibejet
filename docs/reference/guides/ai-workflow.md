@@ -53,6 +53,7 @@ run-story
 vj-product-requirements
 -> vj-architecture
 -> vj-epic-story
+-> vj-ui-mock（前端项目：先 Phase A 出全局设计基座，再按 Epic 出每屏 v0 提示词）
 ```
 
 产出物通常是下游应用自己的需求、架构增量和 Story/Epic 文档。`vibejet` 基础库不长期保留具体产品 PRD 或业务 Epic。
@@ -157,10 +158,11 @@ vj-product-requirements
 
 ### 重要边界
 
-如果 `docs/project/api_spec.md` 或 `docs/project/database_schema.md` 不存在：
+如果对应的 `docs/project/api/{module}.md` 或 `docs/project/data/{module}.md` 不存在：
 
 - AI 不能说“实现违反了这些文档”
 - 只能判断“本次改动是否引入了新的 contract / schema delta，需要补说明”
+- 命中 delta 时同步创建或更新模块文档；旧 `api_spec.md` / `database_schema.md` 仅作为兼容读取 fallback
 
 始终可校验的是：
 - repo 硬约束
@@ -192,18 +194,24 @@ Plan 模板见 [TEMPLATE.md](../../tasks/plans/TEMPLATE.md)。
 
 - `§8.1 API Contract Delta`
   - 当改接口时填写
-  - 如果没有独立 `docs/project/api_spec.md`，这里就是本次 Story 的接口基线
+  - 同步写入 `docs/project/api/{module}.md`；全局约定变化才改 `docs/project/api/conventions.md`
 
 - `§8.2 设计参考`
   - 当前端 Story 有设计稿时填写
 
 - `§10.1 Schema / Migration Delta`
   - 当改表结构或 migration 时填写
-  - 如果没有独立 `docs/project/database_schema.md`，这里就是本次 Story 的模型变化基线
+  - 同步写入 `docs/project/data/{module}.md`，并更新 `docs/project/data/overview.md`
 
 ## 5. 前端设计图怎么接入
 
-`do-story` 对 UI 设计图的发现顺序是：
+设计图的**生产**用 `vj-ui-mock`：
+
+- Phase A 产出全局设计基座 `docs/project/design_guidelines.md`（信息架构 / 导航骨架 / 设计系统 / 三态约定）
+- Phase B 按 Epic/Story 产出每屏 v0/Lovable 提示词，落盘到 `docs/reference/research/designs/{epic-id}/{story-id}-{page}.prompt.md`，并回填 Story 的 `### 设计参考`
+- 你把提示词粘进 v0/Lovable 出图后，将截图保存为同目录 `{story-id}-{page}.png`
+
+下面是 `do-story` 对 UI 设计图的**发现**顺序：
 
 1. Story 文件里的 `### 设计参考` 表格
 2. `docs/reference/research/designs/{epic-id}/` 下以 `{story-id}` 开头的图片
@@ -296,6 +304,7 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 |------------------|--------|
 | 已有 Story，想按默认链路一路做完 | `run-story` |
 | 只有产品想法，还没拆 Story | `vj-product-requirements -> vj-architecture -> vj-epic-story` |
+| 已有 Epic/Story，要出前端设计基座与每屏提示词 | `vj-ui-mock` |
 | 普通 Story 实现 | `do-story` |
 | 复杂 Story，需要参考开源 | `story-reference-impl` |
 | 实现完成后验证当前 Story | `story-verify-fix` |
@@ -313,6 +322,7 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
   vj-product-requirements
   -> vj-architecture
   -> vj-epic-story
+  -> vj-ui-mock（前端项目，可选）
 
 开始做 Story:
   run-story

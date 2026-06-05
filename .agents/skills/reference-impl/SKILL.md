@@ -309,8 +309,8 @@ class {InterfaceName}(Protocol):
 必读文件:
 - CLAUDE.md → 分层规则、依赖方向
 - docs/project/architecture.md → 架构决策（如存在）
-- docs/project/api_spec.md → API 规范（如存在）
-- docs/project/database_schema.md → 数据模型（如存在）
+- docs/project/api/conventions.md + docs/project/api/{module}.md → API 规范（如存在；旧 api_spec.md 仅 fallback）
+- docs/project/data/overview.md + docs/project/data/{module}.md → 数据模型（如存在；旧 database_schema.md 仅 fallback）
 
 提取约束:
 - 依赖方向: API → Application → Domain ← Infrastructure

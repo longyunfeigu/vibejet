@@ -19,11 +19,13 @@ allowed-tools: ["Bash(${SKILL_DIR}/scripts/setup-do-story.py:*)"]
 
 2. **设计文档约束**：只有文档存在时才可对照校验
    - `docs/project/architecture.md`
-   - `docs/project/api_spec.md`
-   - `docs/project/database_schema.md`
+   - `docs/project/api/conventions.md` + `docs/project/api/{module}.md`
+   - `docs/project/data/overview.md` + `docs/project/data/{module}.md`
    - Epic `source_documents.*`
 
-如果 `docs/project/api_spec.md` 或 `docs/project/database_schema.md` 不存在：
+旧 `docs/project/api_spec.md` / `docs/project/database_schema.md` 仅作为兼容读取 fallback。
+
+如果对应模块文档不存在：
 - 不要声称“实现违背了 API / 数据模型文档”
 - 只能判断“这次 Story 是否引入了新的接口契约 / schema / migration 变化”
 - 如果答案是是，则应把该变化升级为一个需要补充的 delta 文档，而不是假装存在基线
@@ -83,8 +85,8 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/tasks/epics/epic-001.md" 
 这会创建 `.claude/do-story.{task_id}.local.md`，包含:
 - Story 内容和验收标准
 - 从 docs/project/architecture.md 提取的架构约束
-- 从 docs/project/api_spec.md 提取的 API 契约（如存在）
-- 从 docs/project/database_schema.md 提取的数据模型（如存在）
+- 从 docs/project/api/*.md 提取的 API 契约（如存在；否则兼容读取 api_spec.md）
+- 从 docs/project/data/*.md 提取的数据模型（如存在；否则兼容读取 database_schema.md）
 - DDD/Hexagonal 合规规则
 - Epic 模式下的多 Story 状态跟踪
 
@@ -393,7 +395,7 @@ phase_name: "Design"
 在 plan 中评估 API / 数据模型变化时：
 - **有文档时**：可以判断”是否与现有设计说明不一致”
 - **无文档时**：只能判断”是否产生了新的 contract / schema delta，需要补充说明”
-- **无文档时禁止输出**：”违反 docs/project/api_spec.md” 或 “违反 docs/project/database_schema.md” 这类结论
+- **无文档时禁止输出**：”违反 docs/project/api/{module}.md” 或 “违反 docs/project/data/{module}.md” 这类结论
 
 **完成后**: 更新状态文件
 ```yaml
@@ -559,8 +561,8 @@ checkpoints:
    - 实际的 Domain 实体和方法
 
 2. **对比设计文档**：
-   - 如果存在 API 契约文档，读取 `docs/project/api_spec.md`（或 source_documents.api_design 路径）
-   - 如果存在数据模型文档，读取 `docs/project/database_schema.md`（或 source_documents.data_model 路径）
+   - 如果存在 API 契约文档，读取 `docs/project/api/conventions.md` + 相关 `docs/project/api/{module}.md`（或 source_documents.api_design 路径；旧 api_spec.md 仅 fallback）
+   - 如果存在数据模型文档，读取 `docs/project/data/overview.md` + 相关 `docs/project/data/{module}.md`（或 source_documents.data_model 路径；旧 database_schema.md 仅 fallback）
    - 逐项对比，识别以下差异类型：
 
    | 差异类型 | 示例 |
@@ -574,12 +576,12 @@ checkpoints:
    ```markdown
    ### 📋 Design Doc 差异报告
 
-   #### API Design (docs/project/api_spec.md)
+   #### API Design (docs/project/api/{module}.md)
    | 变更 | 位置 | 设计文档 | 实际实现 | 原因 |
    |------|------|----------|----------|------|
    | 新增 | POST /api/v1/xxx | - | 新增 query 参数 `status` | 业务需要按状态过滤 |
 
-   #### Data Model (docs/project/database_schema.md)
+   #### Data Model (docs/project/data/{module}.md)
    | 变更 | 表/字段 | 设计文档 | 实际实现 | 原因 |
    |------|---------|----------|----------|------|
    | 新增 | sessions.retry_count | - | Integer, default=0 | 重试逻辑需要 |
@@ -596,7 +598,7 @@ checkpoints:
    ```
 
 5. **执行更新**（如用户确认）：
-   - 使用 Edit 工具更新对应的设计文档段落
+   - 使用 Edit 工具更新对应的模块文档；API 全局约定变化才改 `api/conventions.md`，数据表索引 / 跨模块关系变化同步改 `data/overview.md`
    - 在更新的段落末尾添加注释：`<!-- Updated by Story {story_id}, {date} -->`
 
 **跳过条件**:
@@ -654,10 +656,10 @@ phase_name: "Complete"
 ### Architecture (from docs/project/architecture.md)
 <层次规则、依赖方向>
 
-### API Contract (optional, from docs/project/api_spec.md)
+### API Contract (optional, from docs/project/api/*.md)
 <如存在，放相关端点定义；否则写 N/A>
 
-### Data Model (optional, from docs/project/database_schema.md)
+### Data Model (optional, from docs/project/data/*.md)
 <如存在，放相关表结构；否则写 N/A>
 
 ### DDD Compliance Rules [BLOCKING]

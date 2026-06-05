@@ -325,25 +325,51 @@ def read_design_docs(
     project_docs_dir = os.path.join(project_dir, "docs", "project")
     research_dir = os.path.join(project_dir, "docs", "reference", "research")
 
-    doc_files = {
-        "architecture": "architecture.md",
-        "api_spec": "api_spec.md",
-        "database_schema": "database_schema.md",
-        "requirements": "requirements.md",
-        "design_guidelines": "design_guidelines.md",
+    def has_markdown_source(path: str) -> bool:
+        """目录至少含一个 Markdown 文件才可覆盖旧单文件 fallback。"""
+        if os.path.isdir(path):
+            return any(filename.endswith(".md") for filename in os.listdir(path))
+        return os.path.isfile(path)
+
+    def read_markdown_source(path: str) -> str:
+        """读取单文件或模块化 Markdown 目录。目录内容按文件名稳定拼接。"""
+        if os.path.isdir(path):
+            sections = []
+            for filename in sorted(os.listdir(path)):
+                if not filename.endswith(".md"):
+                    continue
+                file_path = os.path.join(path, filename)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                rel_path = os.path.relpath(file_path, project_dir)
+                sections.append(f"## Source: {rel_path}\n\n{content}")
+            return "\n\n".join(sections)
+
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    doc_candidates = {
+        "architecture": ["architecture.md"],
+        # 模块化目录优先；旧单文件仅兼容读取。
+        "api_spec": ["api", "api_spec.md"],
+        "database_schema": ["data", "database_schema.md"],
+        "requirements": ["requirements.md"],
+        "design_guidelines": ["design_guidelines.md"],
     }
 
-    for name, filename in doc_files.items():
+    for name, candidates in doc_candidates.items():
         # 优先使用 source_documents 中的路径
         path = source_documents.get(name)
-        if path and os.path.exists(path):
-            pass  # use this path
-        else:
-            path = os.path.join(project_docs_dir, filename)
+        if not path or not has_markdown_source(path):
+            path = None
+            for candidate in candidates:
+                candidate_path = os.path.join(project_docs_dir, candidate)
+                if has_markdown_source(candidate_path):
+                    path = candidate_path
+                    break
 
-        if path and os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read()
+        if path and has_markdown_source(path):
+            content = read_markdown_source(path)
             if name == "design_guidelines":
                 docs[name] = extract_ui_spec_summary(content, path, project_dir)
             else:
@@ -405,10 +431,10 @@ epic_ref: "{epic_ref}"
 ### Architecture (from docs/project/architecture.md)
 {docs.get('architecture', 'Not found - please create docs/project/architecture.md')[:1500]}
 
-### API Contract (optional, from docs/project/api_spec.md)
+### API Contract (optional, from docs/project/api/*.md)
 {docs.get('api_spec', 'N/A - update only when this Story changes the API contract')[:1500]}
 
-### Data Model (optional, from docs/project/database_schema.md)
+### Data Model (optional, from docs/project/data/*.md)
 {docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
 ### UI Spec (from docs/project/design_guidelines.md)
@@ -510,10 +536,10 @@ checkpoints: []
 ### Architecture (from docs/project/architecture.md)
 {docs.get('architecture', 'Not found - please create docs/project/architecture.md')[:1500]}
 
-### API Contract (optional, from docs/project/api_spec.md)
+### API Contract (optional, from docs/project/api/*.md)
 {docs.get('api_spec', 'N/A - update only when this Story changes the API contract')[:1500]}
 
-### Data Model (optional, from docs/project/database_schema.md)
+### Data Model (optional, from docs/project/data/*.md)
 {docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
 ### UI Spec (from docs/project/design_guidelines.md)

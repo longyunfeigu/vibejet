@@ -1,6 +1,6 @@
 ---
 name: data-model
-description: 在 Story 或实现过程中持久化模型发生变化时，按需生成或更新数据模型增量说明。适用于新增实体、表结构、迁移、索引、约束和一致性策略变化；默认不生成完整数据模型文档，除非用户明确要求。
+description: 在 Epic plan、Story 或实现过程中持久化模型发生变化时，按需生成或更新 docs/project/data/ 下的模块化数据模型契约。适用于新增实体、表结构、迁移、索引、约束和一致性策略变化。
 ---
 
 # data-model
@@ -28,11 +28,24 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 按以下顺序收集上下文：
 1. 当前 Story / Plan / 验收标准
 2. 现有架构文档：`docs/project/architecture.md`
-3. 已存在的数据模型文档：`docs/project/database_schema.md` 或 Epic `source_documents.data_model`
+3. 已存在的数据模型文档：优先读取 `docs/project/data/overview.md` + 相关 `docs/project/data/{module}.md`；兼容回退读取 `docs/project/database_schema.md` 或 Epic `source_documents.data_model`
 4. 当前代码中的 domain entity、ORM model、migration、repository、测试
 
-如果现有 `docs/project/database_schema.md` 不存在，不要默认要求创建完整文档。
-先判断这次改动是否真的需要一个模型增量说明。
+如果模块化目录不存在，先判断本次是否确实命中 schema / persistence delta。命中时创建最小可用目录和相关模块文档，不生成大而全的全库说明。
+
+## 模块化目录约定
+
+```text
+docs/project/data/
+├── overview.md           # 全局表索引、跨模块 ERD、共享持久化约定
+├── auth.md               # auth 模块模型；无持久化时通常不创建
+└── exam.md               # exam 模块表、字段、关系、索引
+```
+
+- 模块文件名优先使用 architecture 中的业务模块 slug；没有既有 slug 时用当前 Epic / Story 的业务域 slug（lower-kebab-case）。
+- 表、实体、字段、索引和 migration 说明写入对应 `{module}.md`。
+- `overview.md` 维护模块索引、表索引和跨模块关系。没有 data delta 时不要为了凑目录创建空模块文档。
+- 旧 `docs/project/database_schema.md` 只作为兼容读取 fallback；新变更不要继续写入旧文件。
 
 ## Workflow
 
@@ -88,11 +101,14 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 - 迁移风险与兼容性风险
 - 需要新增或更新的 migration / integration test
 
-### Phase 3: 写回文档
+### Phase 3: 写回模块化目录
 
 写回规则：
-- 如果 `docs/project/database_schema.md` 已存在：优先做增量更新，不重写整份文档
-- 如果不存在，但本次变更确实需要沉淀模型说明：创建一个简洁版本，只包含当前相关模块
+- 确定本次受影响的业务模块；多模块变更逐个更新
+- 确保 `docs/project/data/overview.md` 存在；首次创建时写最小模块索引、表索引与共享约定
+- 更新 `docs/project/data/{module}.md`，只写该模块实体 / 表、字段、关系、索引、约束和 migration 说明
+- 更新 `overview.md` 的模块索引、表索引和跨模块关系
+- 如果只有旧 `docs/project/database_schema.md`：读取它作为迁移参考，但把新内容写入模块化目录
 - 除非用户明确要求，不生成“大而全”的全库 ER 文档
 
 ## 输出要求
@@ -101,7 +117,7 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 - 是否需要更新数据模型文档
 - 本次 model delta 是什么
 - 影响哪些实现、migration 和测试
-- 是否需要写回 `docs/project/database_schema.md`
+- 已写回哪些 `docs/project/data/*.md`
 
 只有用户明确要求“完整数据模型设计文档”时，才扩展为完整章节。
 
@@ -117,6 +133,7 @@ description: 在 Story 或实现过程中持久化模型发生变化时，按需
 ## 与其他 skill 的关系
 
 - `codex-review`：文档生成后自动触发，做独立审查闭环
+- `vj-epic-plan`：Epic 计划命中 schema / persistence delta 时直接同步模块文档，遵守本目录契约
 - `do-story`：主实现 workflow。它不会自动强制运行本 skill；只有命中持久化模型变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 适配时，如果引入新的模型或一致性策略，再补 model delta。
 - `story-verify-fix`：验证行为是否通过，不替代模型设计说明。

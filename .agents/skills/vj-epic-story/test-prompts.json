@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "我已经写好了 PRD 和架构文档，帮我把'用户认证'这块拆成 Epic 和 Story",
+    "expected": "触发 Phase 1-5 全流程；Decompose-First 构建 IDEAL Epic；Quality Gate 体检；Batch Question 一次问完缺口；输出含 4 分类 AC + 验证: 三要素 + 用户旅程 + Assumptions 的 Story；写盘前批量预览 USER GATE"
+  },
+  {
+    "id": 2,
+    "prompt": "项目里已经有几个旧 Epic 了，现在 PRD 更新了新增'数据导出'功能，帮我更新 Epic/Story",
+    "expected": "命中 has_existing；走 Decompose-First 差异表（KEEP/UPDATE/OBSOLETE/CREATE）；OBSOLETE 若有 in_progress Story 禁止自动归档并提示人工评估；REPLAN 写盘只改 frontmatter status，不删文件"
+  },
+  {
+    "id": 3,
+    "prompt": "帮我给'手机号登录'这个 Story 写验收标准",
+    "expected": "Phase 4：先按 Story 形态 Step 0 派生（EP/BVA/决策表/状态迁移）Edge/Error，再 4 分类组织；每条 AC 附 验证: <kind> <target> → <assert>；行为 AC ≤7；覆盖度自检声明；拒绝模糊用语"
+  }
+]

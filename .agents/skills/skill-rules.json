@@ -167,6 +167,109 @@
                 ]
             }
         },
+        "vj-ui-mock": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "为前端项目产出全局设计基座（design_guidelines.md）与每屏 v0/Lovable 提示词，保证跨 Epic UI 衔接一致",
+            "promptTriggers": {
+                "keywords": [
+                    "ui mock",
+                    "ui设计",
+                    "界面设计",
+                    "设计稿",
+                    "设计基座",
+                    "原型图",
+                    "v0",
+                    "lovable",
+                    "design guidelines",
+                    "design_guidelines",
+                    "提示词出图",
+                    "前端设计"
+                ],
+                "intentPatterns": [
+                    "(出|生成|做).*?(ui|界面|设计稿|原型|mock)",
+                    "(v0|lovable).*?(提示词|prompt)",
+                    "(全局|统一).*?(设计|ui|风格)",
+                    "design.?guidelines"
+                ]
+            }
+        },
+        "design-md-matcher": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "根据 PRD 从 vibeui / awesome-design-md 推荐 3 个参考 DESIGN.md，并生成稳定的项目级 docs/project/DESIGN.md；只用于前置设计定向，不在实现阶段临时选风格",
+            "promptTriggers": {
+                "keywords": [
+                    "DESIGN.md",
+                    "design-md",
+                    "awesome-design-md",
+                    "vibeui",
+                    "设计库匹配",
+                    "风格库推荐",
+                    "参考 DESIGN",
+                    "生成项目 DESIGN",
+                    "项目设计系统",
+                    "自动匹配设计"
+                ],
+                "intentPatterns": [
+                    "(匹配|推荐|选择|挑).*?(DESIGN\\.md|design-md|设计库|风格库)",
+                    "(根据|基于).*?(PRD|需求).*?(推荐|匹配).*?(设计|DESIGN\\.md)",
+                    "(生成|产出|创建).*?(项目|自己的).*?DESIGN\\.md",
+                    "(vibeui|awesome-design-md).*?(匹配|推荐|参考)"
+                ]
+            }
+        },
+        "vj-epic-plan": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW）：Reviewer Summary、待审批决策、共享设计、跨 epic 契约、实现单元与依赖图；命中 API 或持久化变化时同步维护 docs/project/api/ 与 docs/project/data/ 模块化契约目录。",
+            "promptTriggers": {
+                "keywords": [
+                    "epic plan",
+                    "epic 计划",
+                    "epic 实现计划",
+                    "规划 epic",
+                    "epic 详规",
+                    "给 epic 出计划",
+                    "epic 级计划",
+                    "epic-plan",
+                    "plan epic"
+                ],
+                "intentPatterns": [
+                    "(规划|计划|出|做).*?epic",
+                    "epic.*?(实现计划|详规|plan|计划)",
+                    "(给|为).*?epic.*?(计划|plan|实现)"
+                ]
+            }
+        },
+        "vj-compound": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "把刚解决的问题/刚确立的决策沉淀为 docs/solutions/ 下的结构化学习文档（YAML frontmatter，可被 vj-learnings-researcher 检索）。学习飞轮的写端。",
+            "promptTriggers": {
+                "keywords": [
+                    "沉淀",
+                    "compound",
+                    "记录这次",
+                    "存经验",
+                    "踩坑记录",
+                    "沉淀经验",
+                    "记录踩坑",
+                    "把经验存",
+                    "知识沉淀",
+                    "学习沉淀"
+                ],
+                "intentPatterns": [
+                    "(沉淀|记录|存).*?(经验|踩坑|决策|教训|问题)",
+                    "(把|将).*?(这个|这次|经验|决策).*(沉淀|记录|存)",
+                    "compound"
+                ]
+            }
+        },
         "reference-impl": {
             "type": "domain",
             "enforcement": "suggest",

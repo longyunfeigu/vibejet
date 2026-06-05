@@ -142,7 +142,7 @@ do-story / story-reference-impl
   - 必要时更新 `data-model`
 
 注意：
-- 当 `docs/project/api_spec.md` / `docs/project/database_schema.md` 不存在时，只能说“需要补 delta”，不能说“违反了文档”
+- 当对应 `docs/project/api/{module}.md` / `docs/project/data/{module}.md` 不存在时，只能说“需要补 delta”，不能说“违反了文档”；旧 `api_spec.md` / `database_schema.md` 仅兼容读取
 
 ### Step 4: 实现后进入 verify
 

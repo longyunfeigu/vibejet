@@ -39,8 +39,8 @@ description: 从 Story 文件或 Story 描述启动“参考实现研究 → DDD
 如果信息不完整，优先从以下位置补全：
 - `docs/tasks/epics/`
 - `docs/project/architecture.md`
-- `docs/project/api_spec.md`（如存在，且本次涉及接口契约）
-- `docs/project/database_schema.md`（如存在，且本次涉及数据模型 / migration）
+- `docs/project/api/conventions.md` + 相关 `docs/project/api/{module}.md`（如存在，且本次涉及接口契约；旧 api_spec.md 仅 fallback）
+- `docs/project/data/overview.md` + 相关 `docs/project/data/{module}.md`（如存在，且本次涉及数据模型 / migration；旧 database_schema.md 仅 fallback）
 - 现有代码中的相似模块
 
 只有在无法安全推断时，才向用户提出最少的问题。

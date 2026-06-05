@@ -104,10 +104,12 @@ description: Single-entry Story orchestration for this repo. Use when the user w
 
 如果命中：
 - 优先要求在 plan 中补对应 delta section
-- 如已有 `docs/project/api_spec.md` / `docs/project/database_schema.md`，再决定是否同步更新
+- 同步创建或更新 `docs/project/api/{module}.md` / `docs/project/data/{module}.md`
+- API 全局约定变化才改 `docs/project/api/conventions.md`；数据表索引 / 跨模块关系变化同步改 `docs/project/data/overview.md`
+- 旧 `api_spec.md` / `database_schema.md` 仅兼容读取
 
 重要边界：
-- 当独立设计文档不存在时，只能说“需要补 delta”
+- 当对应模块设计文档不存在时，只能说“需要补 delta”
 - 不能说“违反了这些文档”
 
 ### Phase 3: Verify

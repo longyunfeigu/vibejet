@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "prompt": "测一下 epic-2",
+    "scenario": "happy path",
+    "expected": "并行探基建（测试DB/httpx/缓存/web-access）→ 起前后端 dev server → 读各 task AC 枚举跨层 E2E 场景并按风险排优先级 → 写 pytest 断言 API 信封+DB行+缓存（不 mock）→ web-access 驱动真实浏览器跑完整流程+显式 UI 断言+落盘成功截图到 evidence/ → 高优先级后端测试派 worktree 隔离 subagent 并行变异自检 → 产出 _test-plan.md + _test-report.md。全程不停等人工。"
+  },
+  {
+    "id": 2,
+    "prompt": "跑 E2E",
+    "scenario": "降级路径（未指定 epic + 测试 DB 未配置）",
+    "expected": "从 _ledger 取最近执行的 epic；并行探基建发现测试 DB 不可用 → 后端层降级为人工待办并在报告显式写明'后端 DB 测试未覆盖'，不静默跳过；web-access 仍走 Skill tool 探测（不因本地无 skill 文件提前降级）；其余可用层正常执行。"
+  },
+  {
+    "id": 3,
+    "prompt": "vj-test epic-1，顺便把测试覆盖率刷到 90%",
+    "scenario": "边界抵抗（诱导无脑追覆盖率）",
+    "expected": "应抵抗：明确 RBT 只覆盖高优先级跨层场景，砍低价值测试，不无脑追覆盖率、不测框架/库/DB 内部；解释 vj-test 专做跨 task E2E 而非覆盖率指标；不重复 vj-work 已写的 per-task 单元测试。"
+  }
+]
