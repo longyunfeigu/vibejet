@@ -1,353 +1,75 @@
 ---
-name: backend-python-dev-guidelines
-description: Comprehensive backend development guide for Python/FastAPI microservices. Use when creating routers, controllers, services, repositories, middleware; working with SQLAlchemy (async), Pydantic models, pydantic-settings, Sentry error tracking, dependency injection with FastAPI Depends, and async patterns. Covers layered architecture (routers → controllers → services → repositories), controller pattern, error handling, performance monitoring, testing strategies, and migration from TypeScript patterns.
+name: vibejet-backend-dev-guidelines
+description: Repo-specific backend development guardrails for vibejet. Use before modifying backend FastAPI routes, application services, domain entities, repositories, config, errors, auth, migrations, tests, observability, caching, Celery, messaging, LLM, storage, or external integrations.
 ---
 
-<!-- AI-INSTRUCTIONS:START -->
-> ## 🔴 AI Mandatory Rules (Must Follow)
->
-> **Before** modifying backend code, you **MUST** use the `Read` tool to read the corresponding specification file:
->
-> | Code Path to Modify | Required Specification File |
-> |---------------------|----------------------------|
-> | `api/routes/` | `resources/routing-and-controllers.md` |
-> | `controllers/` | `resources/routing-and-controllers.md` |
-> | `application/services/` | `resources/services-and-repositories.md` |
-> | `infrastructure/repositories/` | `resources/services-and-repositories.md` + `resources/database-patterns.md` |
-> | `application/dtos/` | `resources/validation-patterns.md` |
-> | `api/middleware/` | `resources/middleware-guide.md` |
-> | `core/config.py` | `resources/configuration.md` |
-> | Error handling | `resources/async-and-errors.md` |
-> | Test code | `resources/testing-guide.md` |
->
-> **Execution Order**:
-> 1. Identify which layer the code to be modified belongs to
-> 2. Use the `Read` tool to read the corresponding specification file from the table above
-> 3. Reference existing project code style
-> 4. Write code that conforms to the specification
->
-> ⚠️ **Writing code without reading specs = Violation!**
-<!-- AI-INSTRUCTIONS:END -->
-
-# Backend Development Guidelines
-
-## Purpose
-
-Establish consistent, production‑ready patterns for Python/FastAPI microservices, mapping proven TypeScript/Express patterns to Python idioms and leveraging fastapi-forge best practices.
-
-## When to Use This Skill
-
-Automatically activates when working on:
-- Designing or modifying `APIRouter` routes and endpoints
-- Building controllers, services, repositories
-- Implementing middleware, exception handlers, logging/observability
-- Database operations with SQLAlchemy (async)
-- Error tracking with Sentry / tracing
-- Input validation with Pydantic models
-- Centralized configuration with `pydantic-settings`
-- Backend testing with `pytest` and `httpx.AsyncClient`
-
----
-
-## Quick Start
-
-### New Backend Feature Checklist
-
-- [ ] Router: clean route definitions, delegate to controller
-- [ ] Controller: orchestrate HTTP semantics, no business logic
-- [ ] Service: business rules, unit-of-work boundary
-- [ ] Repository: data access via `AsyncSession`
-- [ ] Validation: Pydantic models/validators
-- [ ] Config: `pydantic-settings` (no raw `os.getenv`)
-- [ ] Errors/Monitoring: Sentry + structured logs
-- [ ] Tests: unit + API tests (pytest + httpx)
-- [ ] Types: complete type hints, async first
-
-### New Microservice Checklist
-
-- [ ] Directory structure (see [resources/architecture-overview.md](resources/architecture-overview.md))
-- [ ] Sentry init (first import) + exception handlers
-- [ ] `core/config.py` using `pydantic-settings`
-- [ ] Database engine + session factory (async SQLAlchemy)
-- [ ] Middleware stack (request id, CORS, logging)
-- [ ] Controller pattern (optional but recommended)
-- [ ] Testing scaffolding (pytest, pytest-asyncio)
-
----
-
-## Architecture Overview
-
-```
-HTTP Request
-    ↓
-Routers (routing/DI only)
-    ↓
-Controllers (HTTP semantics)
-    ↓
-Services (business logic/UoW)
-    ↓
-Repositories (data access/SQLAlchemy)
-    ↓
-Database (Postgres/MySQL/SQLite)
-```
-
-Key Principle: each layer has ONE responsibility.
-
-See [resources/architecture-overview.md](resources/architecture-overview.md) for details and full examples.
-
----
-
-## Directory Structure
-
-```
-app/
-├── api/
-│   ├── routes/                # APIRouter definitions only
-│   ├── middleware/            # Starlette/FastAPI middleware
-│   └── dependencies.py        # DI factories (services, UoW, storage)
-├── controllers/               # HTTP orchestration, error mapping
-├── application/
-│   ├── services/              # Business logic (no HTTP)
-│   └── dtos/                  # Pydantic DTOs
-├── domain/                    # Entities, domain services, events
-├── infrastructure/
-│   ├── repositories/          # SQLAlchemy data access
-│   ├── models/                # ORM entities (Declarative)
-│   └── database.py            # Engine/session providers
-├── core/
-│   ├── config.py              # pydantic-settings
-│   ├── response.py            # Unified API responses (optional)
-│   └── logging_config.py      # Logging/structure
-└── main.py                    # App entry: routers/middleware/handlers
-```
-
-Naming Conventions:
-- Controllers: `PascalCase` (e.g., `UserController`)
-- Services: `snake_case` file or `PascalCase` class (e.g., `user_service.py` → `UserService`)
-- Routes: `snake_case.py` (one APIRouter per file)
-- Repositories: `PascalCase + Repository` (e.g., `UserRepository`)
-
----
-
-## Core Principles (7 Key Rules)
-
-### 1. Routers Only Route, Controllers Control
-
-```python
-# ❌ NEVER: business logic in routes
-@router.post("/submit")
-async def submit(payload: SubmitDTO):
-    # 200 lines of logic
-    ...
-
-# ✅ ALWAYS: delegate to controller
-@router.post("/submit")
-async def submit(payload: SubmitDTO, controller: Controller = Depends(get_controller)):
-    return await controller.submit(payload)
-```
-
-### 2. Use Unified Error Handling (and Controller Pattern for Complex Flows)
+# Vibejet Backend Development Guidelines
 
-```python
-class ConflictError(Exception):
-    pass
+Use this skill when changing anything under `backend/` or backend-facing docs/contracts.
 
-@app.exception_handler(ConflictError)
-async def conflict_handler(_, exc: ConflictError):
-    return JSONResponse(status_code=409, content={"detail": str(exc)})
-
-class UserController:
-    def __init__(self, service: UserService):
-        self._service = service
-
-    async def create(self, payload: UserCreate) -> JSONResponse:
-        user = await self._service.create(payload)
-        return JSONResponse(status_code=201, content=user.model_dump())
-```
-
-### 3. Send All Errors to Sentry (or Observability Backend)
-
-```python
-import sentry_sdk
-sentry_sdk.capture_exception(error)
-```
-
-Prefer global exception handlers with Sentry integration so business code stays clean.
-
-### 4. Use `pydantic-settings`, NEVER raw `os.getenv` scattered
-
-```python
-from pydantic_settings import BaseSettings
-from pydantic import Field
-
-class Settings(BaseSettings):
-    SECRET_KEY: str = Field(...)
-    class Config: env_file = ".env"
-
-settings = Settings()
-```
-
-### 5. Validate All Input with Pydantic
-
-```python
-from pydantic import BaseModel, EmailStr, Field
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
-```
-
-### 6. Use Repository Pattern for Data Access
-
-```python
-class UserRepository:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
-
-    async def find_by_email(self, email: str) -> User | None:
-        stmt = select(User).where(User.email == email)
-        return (await self.session.execute(stmt)).scalar_one_or_none()
-```
-
-### 7. Comprehensive Tests (Unit + API)
-
-```python
-import pytest
-from httpx import AsyncClient
-
-@pytest.mark.asyncio
-async def test_create_user(api_app):
-    async with AsyncClient(app=api_app, base_url="http://test") as ac:
-        resp = await ac.post("/api/v1/users", json={"email": "a@b.com", "password": "12345678"})
-        assert resp.status_code == 201
-```
-
----
-
-## Common Imports
-
-```python
-# FastAPI
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
-
-# Validation
-from pydantic import BaseModel, Field, EmailStr
-from pydantic_settings import BaseSettings
-
-# Database (async SQLAlchemy)
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy import select
-
-# Observability
-import sentry_sdk
-```
-
----
-
-## Quick Reference
-
-### HTTP Status Codes
-
-| Code | Use Case |
-|------|----------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 409 | Conflict |
-| 422 | Validation Error |
-| 500 | Server Error |
+This skill is not a generic FastAPI template. It is a loader for vibejet's backend architecture rules. The repo docs and existing code win over any generic example.
 
-### Templates and Starters
+## Required First Read
 
-**fastapi-forge** (✅ Mature) — Use as baseline for:
-- Async SQLAlchemy session and models: `fastapi-forge/infrastructure/database.py`, `fastapi-forge/infrastructure/models/`
-- DI and auth dependencies: `fastapi-forge/api/dependencies.py`
-- Config with nested models: `fastapi-forge/core/config.py`
-- Unified responses and i18n (optional): `fastapi-forge/core/response.py`, `fastapi-forge/core/i18n.py`
-- Middleware patterns: `fastapi-forge/api/middleware/`
-- Service/UoW patterns: `fastapi-forge/application/services/`, `fastapi-forge/infrastructure/unit_of_work.py`
+Before modifying backend code, read:
 
----
+1. `resources/backend-constitution.md`
+2. The relevant layer resource below
+3. Any risk resource whose trigger matches the change
+4. Before finishing, `resources/review-gate.md` and `docs/reference/guides/review-checklist-python-fastapi.md`
 
-## Anti-Patterns to Avoid
+## Conflict Priority
 
-❌ Business logic in routers
-❌ Direct `os.getenv` sprinkled across code (use `pydantic-settings`)
-❌ Services returning `Response`/HTTP status codes
-❌ Direct ORM access in controllers (bypass service/repository)
-❌ Blocking I/O in async endpoints (use async drivers)
-❌ Missing exception handlers/Sentry integration
-❌ Returning raw ORM objects to API without DTO/schema
+When guidance conflicts, use this order:
 
----
+1. User's current task and acceptance criteria
+2. `AGENTS.md`, `CLAUDE.md`, `docs/project/architecture.md`
+3. Stable contracts under `docs/project/api/`, `docs/project/data/`, and ADRs
+4. Existing production code patterns and tests
+5. This skill's resources
+6. Generic FastAPI / SQLAlchemy best practices
 
-## Navigation Guide
+Do not introduce a pattern because it appears in a generic resource if the current repo does not use it.
 
-| Need to... | Read this |
-|------------|-----------|
-| Understand architecture | resources/architecture-overview.md |
-| Create routers/controllers | resources/routing-and-controllers.md |
-| Organize services/repos | resources/services-and-repositories.md |
-| Validate input (Pydantic) | resources/validation-patterns.md |
-| Add Sentry/observability | resources/sentry-and-monitoring.md |
-| Create middleware | resources/middleware-guide.md |
-| Database patterns | resources/database-patterns.md |
-| Manage config | resources/configuration.md |
-| Async + errors | resources/async-and-errors.md |
-| Write tests | resources/testing-guide.md |
-| See examples | resources/complete-examples.md |
-| Celery async tasks | resources/celery-patterns.md |
-| Kafka messaging | resources/messaging-patterns.md |
-| Redis caching | resources/caching-patterns.md |
+## Layer Resources
 
----
+Read `resources/backend-constitution.md` first, then:
 
-## Resource Files
+| Change area | Required resource |
+| --- | --- |
+| `backend/api/routes/`, `backend/api/dependencies.py`, route registration | `resources/api-routes.md` |
+| `backend/application/services/`, `backend/application/dto.py`, `backend/application/dtos/`, `backend/application/ports/` | `resources/application-services.md` |
+| `backend/domain/` | `resources/domain.md` |
+| `backend/infrastructure/models/`, `backend/infrastructure/repositories/`, `backend/infrastructure/database.py`, `backend/infrastructure/unit_of_work.py` | `resources/infrastructure-repositories.md` |
+| `backend/infrastructure/security/`, JWT helpers, token signing/parsing, password/security utilities | `resources/security-jwt.md` |
+| `backend/core/config.py`, settings, environment parsing | `resources/configuration.md` |
+| Tests under `backend/tests/`, or task-doc bare `tests/...` paths in a backend Unit | `resources/testing.md` |
+| `backend/core/exceptions.py`, response/error/logging/metrics/tracing/middleware error flow | `resources/errors-observability.md` |
 
-### [architecture-overview.md](resources/architecture-overview.md)
-Layered architecture, request lifecycle, middleware ordering, separation of concerns. Includes full code for settings, async DB, unit of work, services, controllers, routers.
+Controller policy: controller is not a default layer in this repo. Routes normally delegate directly to application services. Add a controller only when an existing module already uses that pattern or a reviewed design explicitly requires a separate HTTP orchestration layer.
 
-### [routing-and-controllers.md](resources/routing-and-controllers.md)
-Route definitions, controller patterns, DI with Depends, response models, error mapping.
+## Risk Resources
 
-### [services-and-repositories.md](resources/services-and-repositories.md)
-Service/UoW boundaries, repository patterns with async SQLAlchemy, caching, testing services.
+Load these when the change touches the trigger. Risk resources can matter more than layer resources because production bugs often cross layers.
 
-### [database-patterns.md](resources/database-patterns.md)
-Async engine/session, transactions, query optimization, N+1 prevention, migrations, locking.
+| Trigger | Required resource |
+| --- | --- |
+| Auth, role, owner, tenant, resource visibility, public endpoint | `resources/permissions.md` |
+| JWT, token claims, signing/verification, password hashing, auth cryptography/security helper | `resources/security-jwt.md` |
+| DB transaction plus storage/network/queue/LLM side effect | `resources/transaction-side-effects.md` |
+| Idempotency keys, retries, duplicate requests, locks, state transitions, race conditions | `resources/idempotency-concurrency.md` |
+| HTTP clients, SDKs, object storage, payment/email/third-party systems | `resources/external-systems.md` |
+| ORM model, Alembic migration, indexes, constraints, persistent schema | `resources/migrations.md` |
+| Redis, cache keys, TTL, invalidation, distributed locks | `resources/caching.md` |
+| Celery, Kafka, background workers, async dispatch, DLQ/retry | `resources/messaging-celery.md` |
+| LLM output, prompts, files, untrusted metadata, external model/tool output | `resources/llm-trust-boundary.md` |
 
-### [validation-patterns.md](resources/validation-patterns.md)
-Pydantic v2 DTOs, validators, discriminated unions, partial updates, pagination and generic responses.
+## Working Loop
 
-### [async-and-errors.md](resources/async-and-errors.md)
-Async concurrency, timeouts/cancellation, background tasks, global exception handlers, pitfalls.
-
-### [middleware-guide.md](resources/middleware-guide.md)
-When to use middleware vs dependencies, request-id/logging/locale, composable dependencies, ordering.
-
-### [sentry-and-monitoring.md](resources/sentry-and-monitoring.md)
-Sentry init, PII scrubbing, error capture patterns, performance spans, cron monitoring.
-
-### [configuration.md](resources/configuration.md)
-pydantic-settings unified config, nested models, env parsing, secrets management, DB URL async driver.
-
-### [testing-guide.md](resources/testing-guide.md)
-Unit/integration/API tests, dependency overrides, httpx.AsyncClient, fixtures, coverage.
-
-### [complete-examples.md](resources/complete-examples.md)
-End-to-end templates and refactoring examples ready for production use.
-
-### [celery-patterns.md](resources/celery-patterns.md)
-Celery task definitions, retry strategies, timeouts, task routing, monitoring, and Celery Beat scheduling.
-
-### [messaging-patterns.md](resources/messaging-patterns.md)
-Kafka producer/consumer patterns, message serialization, consumer groups, retry with DLQ, middleware pipeline, distributed tracing.
-
-### [caching-patterns.md](resources/caching-patterns.md)
-Redis client patterns, caching strategies (cache-aside, write-through, write-behind, refresh-ahead), TTL management, distributed locking, pub/sub.
-
-
+1. Identify the layer and risk triggers.
+2. Read the required resources and nearby existing code.
+3. Implement the smallest vertical slice that satisfies the task.
+4. Keep domain rules in `domain/`; keep use-case orchestration in `application/`; keep ORM/SDK details in `infrastructure/`; keep HTTP I/O in `api/`.
+5. Add or update focused tests for behavior and risk.
+6. Run the narrowest meaningful verification.
+7. Use `resources/review-gate.md` before reporting done.

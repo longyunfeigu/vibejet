@@ -26,7 +26,7 @@ Skill 自动检测上游文档、提取约束、引导 Epic/Story 拆分。
 ```
 Phase 1   初始化       → 检测文档 + 提取约束（不强迫早期决策）
 Phase 2   Epic 识别     → Decompose-First：构建 IDEAL → 对比现状 → 输出差异表
-Phase 2.5 Quality Gate  → 5 项体检（Scope/Criteria/Risk/Balance/Independence），<3/5 BLOCKING
+Phase 2.5 Quality Gate  → 3 项体检（Scope/Balance/Independence），<2/3 BLOCKING
 Phase 2.6 信息抽取      → Auto-Extract from PRD/Arch + System-Wide 6 维度 + 一次性补全
 Phase 3   Story 拆分    → INVEST 原则 + Feature Bundling 拦截
 Phase 4   验收标准      → 4 分类（Happy/Edge/Error/Integration）+ `验证:` 三要素
@@ -36,7 +36,7 @@ Phase 5   批量预览+写盘 → 写盘前 USER GATE + 完整性验证 + REPLAN
 ### 关键设计
 
 - **Decompose-First**：先按当前需求拆出"理想 Epic 列表"，再对比已有，输出 KEEP / UPDATE / OBSOLETE / CREATE 差异表。防止旧结构 anchor 新需求。
-- **Epic Quality Gate**：Epic 拆完就体检 5 项，不通过不让进 Story 阶段
+- **Epic Quality Gate**：Epic 拆完就体检 3 项（Scope/Balance/Independence），不通过不让进 Story 阶段
 - **Batch Question**：所有从 PRD 抽取不到的字段一次问完，不分多 phase 反复打断
 - **Batch Preview**：写盘前展示完整产出概览，用户一次确认
 - **Stop Conditions**：任一确认 gate 反馈 ≥3 次强制弹"继续/重审/放弃"

@@ -6,7 +6,7 @@ date: YYYY-MM-DD
 epic_id: "N"
 epic_source: docs/tasks/epics/epic-N-<slug>.md   # 或 epic-N-<slug>/epic.md（展开模式）
 flow: "A | B | C"          # 由 Appendix A Triage 判定
-provides_ref: true | false # 本 plan 含“跨 Epic 契约 > Provides”时为 true
+provides_ref: true | false # 本 Epic 是否向 catalog 写入了对下游的契约（见 §5 Catalog Sync）
 ---
 
 # [Epic N 标题] 实现计划
@@ -17,30 +17,14 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 写作风格：面向人的说明用大白话（像当面口头讲），契约字段（文件路径 / 验证命令 / Delta / 依赖 / D-ID）保持精确；不堆形容词、不写空话套话和学术腔。
 -->
 
-## 0. Reviewer Summary
+## 0. 审批门
 
-> 人工 Review 入口。控制在一屏左右；只写结论、边界和需要拍板的事项，细节链接到后续章节。
+> 人工 review 主面是 **§4 共享设计**（ERD / 流程图 / 模块边界 / 术语）——方向对不对、AI 打算怎么搭，看那里。本节只放需要你拍板的决策，且这些决策已内联标注到 §4 的对应图里（扫图即可批准方向）。完整论证在 §2，这里只链 `D-ID`、不复述。
 
-| 项目 | 内容 |
-|------|------|
-| 目标 | |
-| 实现顺序 | `U1 → U2` / 可并行波次见 §6 |
-| In Scope | |
-| 明确不做 | |
-| API / Schema 影响 | API：是/否；Schema：是/否 |
-| 项目级契约文档 | API：`docs/project/api/{module}.md` / 无需同步；Data：`docs/project/data/{module}.md` / 无需同步 |
-| 设计来源（前端 Epic） | `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md` / N/A |
-| 下游依赖 | |
-| Review Gate | 有 / 无。若有，列出 `D1`、`D2`；批准前不得进入实现 |
-
-### Review Checklist
-- [ ] 目标、范围与下游契约可接受
-- [ ] §2 中所有 `待审批` 决策已确认
-- [ ] §2 中所有 AC 偏离已回改上游 AC 或获得显式批准
-- [ ] 如适用，§4 流程图 / ERD 与 §5 API / Schema Delta 可接受
-- [ ] 如适用，§4 设计上下文与 epic.md 的页面体验地图可接受
-- [ ] §5 Catalog Sync 目标与最终状态可接受；同步在 `vj-plan-review` 采纳修正后完成，或明确无需同步
-- [ ] §6 Unit 切分、依赖与实现顺序可接受
+- **目标（一句话）**：
+- **设计与方向**：见 §4。
+- **需要你拍板**（批准前不得进入实现；无则写“无”）：`D1` …（链 §2，已内联 §4 图注）/ `ACD1` …
+- **API / Schema 影响**：API 是/否；Schema 是/否（详见 §5）。
 
 ---
 
@@ -96,27 +80,25 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 
 ---
 
-## 3. 跨 Epic 契约
+## 3. 跨 Epic 契约（Consumes）
 
-> Flow B/C 填。`Consumes` 由上游 Epic plan 的“跨 Epic 契约 > Provides”生成；`Provides` 声明本 Epic 对下游的稳定输出，并同步到 `docs/project/api/{module}.md` / `docs/project/data/{module}.md`。
+> Flow B/C 填。**单一真相源 = catalog**（`docs/project/api/`、`docs/project/data/`）。本节只填 `Consumes`（本 Epic 依赖的上游契约的过滤视图）；**不写 Provides 表**——本 Epic 对下游暴露的稳定契约写进 catalog（见 §5 Catalog Sync 列出的目标文件），不在 plan 内重复列举，避免 plan 与 catalog 双写漂移。
 
 ### Consumes
-> 本 Epic 是依赖图的根时填单行：`— | 无上游依赖 | — | epic.md §依赖`。
+> 本 Epic 依赖的上游契约子集。真相来源 = catalog（`docs/project/api|data/{module}.md`），**不是上游 plan**。本 Epic 是依赖图的根时填单行：`— | 无上游依赖 | epic.md §依赖`。
 
-| 来自 Epic | 能力 / 接口 / 模型 | 在哪用 | 真相来源 |
-|-----------|--------------------|--------|----------|
-| | | | |
-
-### Provides
-| 能力 / 接口 / 模型 | 签名 / 端点 / 表（要点） | 下游谁会用 |
-|--------------------|--------------------------|------------|
+| 依赖的契约（接口 / 模型 / 能力 / 不变量） | 在哪用 | 真相来源（catalog 路径） |
+|--------------------------------------------|--------|--------------------------|
 | | | |
+
+### 本 Epic 对下游的契约（Provides → 写 catalog，不在此列表）
+> 不在 plan 重复。本 Epic 新增的稳定契约写进 catalog 模块文档（见 §5 Catalog Sync 的目标文件；catalog 内以「契约状态 / introduced by Epic N」标出处）。**跨切面义务 / 不变量**（如 R1.x：某类记录必须经某机制关联某字段）——读代码 / 读单个模块 catalog 不一定看得出——写进 `docs/project/data/overview.md` 跨模块段或 `docs/project/api/conventions.md`，供下游 epic 规划时直接读。
 
 ---
 
 ## 4. 共享设计
 
-> Flow B/C 填。保留对人工 Review 有价值的设计材料：术语、ERD、核心流程 / 状态流转、设计上下文。只画本 Epic 拥有或消费的子集。
+> **人工 review 主面——用户主要看这一节。** 与 Flow 无关：只要有持久化模型 / 流程 / 状态流转 / 外部调用 / 前端页面，就把设计画清楚（术语、ERD、核心流程 / 状态流转、模块边界、设计上下文），只画本 Epic 拥有或消费的子集。**把 §2 的已定关键决策内联标注到对应图**，让“扫图 = 看见并批准方向”；说人话的预算花在图注和术语上。
 
 ### 术语与代码对象
 > 本 Epic 引入 5+ 新概念时填。`概念` → 一句话 + 对应代码对象 / 聚合根。
@@ -124,7 +106,7 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 - `Xxx`：一句话解释 → 落点 `domain/xxx/entity.py`
 
 ### 数据模型（ERD）
-> 有持久化模型时保留 ERD，关键字段内联 `约束 / 枚举 → 需求(R x.y)`。本 Epic 不引入表时，删除示例图，用一句话说明数据如何承载。
+> 有持久化模型时保留 ERD，关键字段内联 `约束 / 枚举 → 需求(R x.y)`，并把已定决策内联到字段注（如 `status "... → D1"`）。本 Epic 不引入表时，删除示例图，用一句话说明数据如何承载。
 
 ```mermaid
 erDiagram
@@ -137,7 +119,7 @@ erDiagram
 ```
 
 ### 核心流程 / 状态流转
-> 涉及权限、状态流转、异步、外部调用或多步骤交接时填。participant 标代码落点；关键步骤内联 R-ID；失败路径用 `alt / else`，需要人工兜底时标 `✋`。
+> 涉及权限、状态流转、异步、外部调用或多步骤交接时填。participant 标代码落点；关键步骤内联 R-ID 与已定决策（如 `Note over SVC: token 无 exp（D1）`）；失败路径用 `alt / else`，需要人工兜底时标 `✋`。
 
 ```mermaid
 sequenceDiagram
@@ -156,15 +138,16 @@ sequenceDiagram
     end
 ```
 
-### 设计上下文
-> 前端 Epic 必填。设计合同优先 `docs/project/DESIGN.md`；旧路径 `docs/project/design_guidelines.md` 只作 fallback。页面体验地图来自 epic.md，不在本 plan 重新发明。
+### 设计上下文（指针 + 现状冲突 / 契约，不复制 DESIGN.md）
+> UI Unit 的设计合同是 `docs/project/DESIGN.md`，vj-work 执行时**直接读**——本 plan **不复制其约束原文**（复制只会和真相源漂移，还诱导执行者把残缺子集当完整 spec）。
+> 前置检查：`DESIGN.md` 存在 → 继续；缺失 → 暂停 UI 实现先补草案（旧 `design_guidelines.md` 仅 fallback）。设计稿（若有）：`docs/reference/research/designs/{epic-id}/`，无则“暂无”。
+> 本节只留 work-time 单 Unit **拿不到、或并行会各判各的** 的东西 ↓
 
-| 来源 | 路径 / 位置 | 状态 | 用法 |
-|------|-------------|------|------|
-| 项目设计合同 | `docs/project/DESIGN.md` | 存在 / 缺失 | UI Unit 必读；颜色、字体、密度、组件和状态规则以此为准 |
-| 旧设计说明 fallback | `docs/project/design_guidelines.md` | 使用 / 未使用 / 缺失 | 仅当 DESIGN.md 缺失时使用 |
-| 页面体验地图 | `epic.md ## 页面体验地图` | 已覆盖 / 缺失 / N/A | 下沉到对应 UI Unit 的 Technical Approach |
-| 设计稿 | `docs/reference/research/designs/{epic-id}/` | 有 / 暂无 | 用于截图比对或结构参考 |
+**现状 ↔ DESIGN.md 冲突 / 需跨 UI Unit 统一的设计契约**（无则写“无”）：
+
+| 冲突 / 契约 | 现状 | DESIGN.md / 目标 | 处理（决策 D-ID） | 影响 Unit |
+|-------------|------|------------------|-------------------|-----------|
+| 主题主色 | `main.tsx` primary `#1565c0` | `#0F3D3E` | 对齐 DESIGN.md（D?） | U2, U4 |
 
 ### 页面体验约束（来自 epic.md）
 > 每个 UI Unit 至少关联一行。不要把这里扩写成控件脚本；只保留页面职责、主/次操作、关键状态、信息优先级、体验护栏。
@@ -223,6 +206,8 @@ Migration 与回滚：
 > 人工 Review 只看 Unit 级目标、依赖、交付和验收。文件级改动与执行细节放 Appendix C。
 
 ### Unit 概览
+> `Unit = Story`。不要把 Unit 按前端 / 后端 / 数据库拆开；技术层落点放在 Appendix C 的 Files / Approach。Task 文档默认与 Unit 一一对应，只有满足 Appendix D 的拆分门槛才允许 `1 Unit → 多 task`。
+
 | Unit | 对应 Story | 目标 | 主要交付 | Depends | 验收 |
 |------|------------|------|----------|---------|------|
 | U1 | S N.1 | | | 无 | |
@@ -307,6 +292,7 @@ graph LR
 
 > 每个 Story 对应一个 Unit。Test scenarios 链接 Story AC，不重写 AC；发现冲突时登记到 §2“AC 偏离”，不得静默改写。
 > 补充用例按来源分两类：**实现涌现型行为用例**（并发/回滚/缓存/幂等等，用户可观测）→ 回流改 Story AC（走 §2），不留此处；**纯实现级用例**（内部分支/私有函数，用户不可观测）→ 留此处。
+> 一个 Unit 内有多个技术阶段时，先写进本 Unit 的 Approach / Execution note。默认生成一个 task；只有 Appendix D 的拆分门槛成立时才列多个 task。
 
 ### U1. [Story N.1 名称]
 
@@ -324,6 +310,7 @@ graph LR
 **Execution note**: *(可选：test-first / characterization-first 等执行姿态)*
 **Patterns to follow**: 现有可镜像的文件 / 类 / 约定
 **Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；设计稿路径（如有）
+**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分。
 
 **Test scenarios**:
 - 链 S N.1 AC：Happy / Edge / Error / Integration（见 epic.md）
@@ -340,16 +327,32 @@ graph LR
 ## Appendix D. 并行与文件协调
 
 > 本 Epic 含 ≥2 个 Story 时填。§6 展示人工 Review 所需结论；本附录保存执行协调细节。**本附录的并行波次表是权威波次计划：下游 vj-work 直接消费、不重算（波次正确性由 vj-plan-review 的"依赖并行"视角负责）。**
+> 默认波次按 Unit 拓扑分层。只有通过“task 拆分门槛”时，才增加 task 级 DAG / 波次；task 波次不得越过 Unit 依赖。
 
 ### 真相源对齐
 - epic.md 的 Story 依赖：
 - 本 plan Unit DAG 与 epic.md 是否一致：
 
-### 并行波次（拓扑分层）
+### Unit 并行波次（拓扑分层）
 | 波次 | 可并行的 Units | 前置 |
 |------|----------------|------|
 | Wave 1 | U1 | — |
 | Wave 2 | U2, U3 | U1 |
+
+### task 拆分门槛（仅当 `1 Unit → 多 task` 时保留）
+| Unit | 是否拆分 | 拆分理由 | 文件隔离 / 冲突处理 | 局部验证 | Unit 闭环验收 |
+|------|----------|----------|----------------------|----------|---------------|
+| U1 | 否 / 是 | 依赖 / 隔离 / 并行收益；不得写“前后端分离”本身 | | | |
+
+### Task 并行波次（仅当启用 task 级拆分时保留）
+| 波次 | 可并行的 Tasks | 回指 Unit | 前置 | Unit 依赖是否满足 |
+|------|----------------|-----------|------|--------------------|
+| Wave 1 | T001 | U1 | — | 是 |
+
+### Unit → Task 映射（仅当启用 task 级拆分时保留）
+| Unit | Tasks | Unit done 信号 |
+|------|-------|----------------|
+| U1 | T001, T002 | 所有 task 完成 + U1 Verification / Story AC 通过 |
 
 ### 共享文件冲突点
 | 共享文件 | 涉及 Units | 处理建议 |
@@ -398,5 +401,5 @@ graph LR
 - **架构**: docs/project/architecture.md
 - **API Catalog**: docs/project/api/conventions.md + docs/project/api/{module}.md（如适用）
 - **Data Catalog**: docs/project/data/overview.md + docs/project/data/{module}.md（如适用）
-- **上游 Epic plans**: [docs/tasks/plans/...](path)（读取其 Provides）
+- **上游契约（Consumes 真相源）**: docs/project/api/、docs/project/data/（catalog；不再从上游 plan 读 Provides）
 - **复用锚点**: [path or symbol]

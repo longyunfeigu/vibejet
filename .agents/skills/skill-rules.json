@@ -225,7 +225,7 @@
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",
-            "description": "以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW）：Reviewer Summary、待审批决策、共享设计、跨 epic 契约、实现单元与依赖图；命中 API 或持久化变化时同步维护 docs/project/api/ 与 docs/project/data/ 模块化契约目录。",
+            "description": "以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW）：共享设计（人工 review 主面：ERD/流程图/边界/术语，决策内联进图）、§0 审批门（待拍板决策）、跨 epic 契约、实现单元与依赖图；命中 API 或持久化变化时同步维护 docs/project/api/ 与 docs/project/data/ 模块化契约目录。",
             "promptTriggers": {
                 "keywords": [
                     "epic plan",

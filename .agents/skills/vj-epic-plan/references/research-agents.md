@@ -58,28 +58,28 @@ Epic ID（设计稿路径用）: {epic-N}
 ## Agent B — upstream-contracts（上游 Epic 契约）
 
 ```
-你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 提取本 Epic 依赖的上游 Provides。
+你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 从 catalog 提取本 Epic 依赖的上游契约，生成 Consumes。**真相源 = catalog（`docs/project/api/`、`docs/project/data/`），不是上游 plan 的 Provides。**
 
 <本次任务>
 {epic_context}
 </本次任务>
 
 步骤：
-1. 从 epic_context 的"上游依赖 Epic"字段取出每个上游编号（如 epic-1、epic-3）。若字段为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
-2. 用 `rg --files docs/tasks/plans/ | rg "epic-{N}-.*-plan\\.md$"` 查找每个上游 Epic 对应的最新 plan 文件（有多个取日期最新的）。
-3. 从每个上游 plan 中**只提取** `## 3. 跨 Epic 契约` → `### Provides` 段（兼容旧 plan 时回退找 `§0.5 Provides`）。不读整个 plan。
-4. 若某上游 Epic 没有对应 plan，或 plan 没有 Provides 段，记"epic-{N}：暂无 plan / Provides 未声明"。
+1. 从 epic_context 的"上游依赖 Epic"与本 Epic 业务域，判断可能消费哪些上游能力。若"上游依赖 Epic"为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
+2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` 含跨切面不变量（如 R1.x）。
+3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / 鉴权约定 / 跨切面不变量），作为 Consumes。
+4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 plan 的 `## 3. 跨 Epic 契约` / `§5 Catalog Sync`（旧 plan 可能还有 Provides 段），并标注"catalog 缺失，回退读 plan"。
 
 结构化输出：
 
 **Consumes 列表**
-每条格式：`{序号}. {能力/接口/模型描述} | 来源：{上游 plan 路径 § 章节 或 docs/project/api|data/{module}.md}`
+每条格式：`{序号}. {依赖的契约描述} | 在哪用：{...} | 真相来源：docs/project/api|data/{module}.md`
 
 **缺失声明**
-哪些上游 Epic 无 plan 或无 Provides，以及这可能影响本 Epic 的哪方面。
+哪些预期的上游契约在 catalog 里没有（可能上游 epic 尚未实现 / 未同步 catalog），以及这对本 Epic 的影响。
 
 **读取来源**
-实际读了哪些文件（路径列表）。
+实际读了哪些 catalog / 文件（路径列表）。
 ```
 
 ---
