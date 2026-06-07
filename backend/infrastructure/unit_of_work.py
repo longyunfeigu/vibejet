@@ -7,7 +7,7 @@ import inspect
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.common.unit_of_work import AbstractUnitOfWork
+from application.ports.unit_of_work import AbstractUnitOfWork
 from infrastructure.database import AsyncSessionLocal
 from infrastructure.repositories.file_asset_repository import (
     SQLAlchemyFileAssetRepository,

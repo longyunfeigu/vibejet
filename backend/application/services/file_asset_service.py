@@ -1,4 +1,4 @@
-# input: AbstractUnitOfWork, StoragePort, FileAsset 领域实体, 配置 settings
+# input: FileAssetUnitOfWork, StoragePort, FileAsset 领域实体, 配置 settings
 # output: FileAssetApplicationService 文件资产生命周期编排
 # owner: wanhua.gu
 # pos: 应用层服务 - 文件资产生命周期编排（pending/active/deleted、上传/直传/中转、签名URL）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from os.path import splitext
-from typing import Any, AsyncIterator, Callable, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Optional, Protocol, Tuple
 
 from application.dto import FileAssetDTO, FileAssetSummaryDTO, StorageUploadResponseDTO
 from application.ports.storage import PresignedURL, StorageInfo, StoragePort
@@ -23,10 +23,20 @@ from domain.common.exceptions import (
     InvalidFileNameException,
     UnsupportedMimeTypeException,
 )
-from domain.common.unit_of_work import AbstractUnitOfWork
 from domain.file_asset import FileAsset
+from domain.file_asset.repository import FileAssetRepository
 
 logger = get_logger(__name__)
+
+
+class FileAssetUnitOfWork(Protocol):
+    file_asset_repository: FileAssetRepository
+
+    async def __aenter__(self) -> "FileAssetUnitOfWork": ...
+
+    async def __aexit__(self, exc_type, exc, tb) -> None: ...
+
+    async def commit(self) -> None: ...
 
 
 def _sanitize_filename_for_header(filename: Optional[str], *, fallback: str) -> str:
@@ -68,7 +78,7 @@ class FileAssetApplicationService:
     """High-level file asset workflows bridging API and domain layers."""
 
     def __init__(
-        self, uow_factory: Callable[..., AbstractUnitOfWork], storage: StoragePort | None = None
+        self, uow_factory: Callable[..., FileAssetUnitOfWork], storage: StoragePort | None = None
     ):
         self._uow_factory = uow_factory
         self._storage = storage

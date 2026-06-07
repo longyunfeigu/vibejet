@@ -1,4 +1,4 @@
-# input: AbstractUnitOfWork, Conversation/AgentConfig 领域实体
+# input: ConversationUnitOfWork, Conversation/AgentConfig 领域实体
 # output: ConversationApplicationService 对话 CRUD 编排
 # owner: unknown
 # pos: 应用层服务 - 对话与 Agent 配置 CRUD 用例编排；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Protocol, Tuple
 
 from application.dto import (
     AgentConfigDTO,
@@ -19,19 +19,37 @@ from application.dto import (
     UpdateConversationDTO,
 )
 from application.utils.time import utcnow
-from domain.common.unit_of_work import AbstractUnitOfWork
 from domain.conversation.entity import AgentConfig, Conversation
 from domain.conversation.exceptions import (
     AgentConfigNameExistsException,
     AgentConfigNotFoundException,
     ConversationNotFoundException,
 )
+from domain.conversation.repository import (
+    AgentConfigRepository,
+    ConversationRepository,
+    MessageRepository,
+    RunRepository,
+)
+
+
+class ConversationUnitOfWork(Protocol):
+    conversation_repository: ConversationRepository
+    message_repository: MessageRepository
+    run_repository: RunRepository
+    agent_config_repository: AgentConfigRepository
+
+    async def __aenter__(self) -> "ConversationUnitOfWork": ...
+
+    async def __aexit__(self, exc_type, exc, tb) -> None: ...
+
+    async def commit(self) -> None: ...
 
 
 class ConversationApplicationService:
     """High-level conversation workflows bridging API and domain layers."""
 
-    def __init__(self, uow_factory: Callable[..., AbstractUnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[..., ConversationUnitOfWork]) -> None:
         self._uow_factory = uow_factory
 
     # ── Conversation CRUD ──────────────────────────────────────────

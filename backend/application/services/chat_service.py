@@ -1,4 +1,4 @@
-# input: AbstractUnitOfWork, LLMPort, Conversation/Message/Run 领域实体
+# input: ChatUnitOfWork, LLMPort, Conversation/Message/Run 领域实体
 # output: ChatApplicationService 聊天用例编排（流式 + 非流式）
 # owner: unknown
 # pos: 应用层服务 - 核心聊天流程编排，发消息→创建Run→调LLM→流式返回；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
@@ -7,21 +7,33 @@
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator, Callable
+from typing import AsyncIterator, Callable, Protocol
 
 from application.dto import ChatRequestDTO, MessageDTO_Agent, RunDTO
 from application.ports.llm import LLMMessage, LLMPort, LLMResponse
 from application.utils.time import utcnow
 from core.logging_config import get_logger
-from domain.common.unit_of_work import AbstractUnitOfWork
 from domain.conversation.entity import Message, Run
 from domain.conversation.exceptions import (
     ConversationArchivedException,
     ConversationNotFoundException,
     LLMProviderException,
 )
+from domain.conversation.repository import ConversationRepository, MessageRepository, RunRepository
 
 logger = get_logger(__name__)
+
+
+class ChatUnitOfWork(Protocol):
+    conversation_repository: ConversationRepository
+    message_repository: MessageRepository
+    run_repository: RunRepository
+
+    async def __aenter__(self) -> "ChatUnitOfWork": ...
+
+    async def __aexit__(self, exc_type, exc, tb) -> None: ...
+
+    async def commit(self) -> None: ...
 
 
 class ChatApplicationService:
@@ -29,7 +41,7 @@ class ChatApplicationService:
 
     def __init__(
         self,
-        uow_factory: Callable[..., AbstractUnitOfWork],
+        uow_factory: Callable[..., ChatUnitOfWork],
         llm: LLMPort,
     ) -> None:
         self._uow_factory = uow_factory

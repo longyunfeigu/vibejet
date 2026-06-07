@@ -62,7 +62,7 @@ The base library currently provides these reusable capabilities:
 | REST runtime | `backend/main.py`, `backend/api/` | FastAPI app, versioned routes under `/api/v1`, middleware, OpenAPI |
 | gRPC runtime | `backend/grpc_app/`, `backend/grpc_main.py` | Parallel transport for services that need gRPC |
 | Persistence | `backend/infrastructure/database.py`, `backend/alembic/` | Async SQLAlchemy and Alembic migrations |
-| Repository/UoW | `backend/domain/common/`, `backend/infrastructure/repositories/`, `backend/infrastructure/unit_of_work.py` | Generic persistence boundary patterns |
+| Repository/UoW | `backend/domain/*/repository.py`, `backend/application/ports/unit_of_work.py`, `backend/infrastructure/repositories/`, `backend/infrastructure/unit_of_work.py` | Domain repository interfaces, application transaction port, and SQLAlchemy implementations |
 | File storage | `backend/application/ports/storage.py`, `backend/infrastructure/external/storage/` | Local, S3, and OSS providers behind a storage port |
 | Messaging | `backend/infrastructure/external/messaging/` | Kafka driver abstraction with retry/DLQ-oriented configuration |
 | Background tasks | `backend/infrastructure/tasks/` | Celery app, task base, and dispatcher pattern |
@@ -87,6 +87,10 @@ When adding a new downstream business module:
 
 Keep the dependency direction unchanged. If an application service needs an external system, define
 a port in `application/ports/` and implement it in `infrastructure/`.
+
+Unit of Work is an application-layer transaction boundary. The central UoW port must stay
+repository-agnostic; application services should type the specific repositories they need with
+service-local protocols instead of expanding one global UoW interface for every new module.
 
 ## Documentation Rules
 

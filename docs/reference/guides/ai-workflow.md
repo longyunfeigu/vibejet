@@ -171,7 +171,8 @@ vj-product-requirements
 
 ## 4. Plan 应该怎么用
 
-Plan 模板见 [TEMPLATE.md](../../tasks/plans/TEMPLATE.md)。
+Plan 文件放在 `docs/tasks/plans/`。如果该目录下存在 `TEMPLATE.md`，优先沿用模板；
+否则按 `CLAUDE.md` 的 Plan 文件规范创建。
 
 ### Flow A / B / C
 
@@ -201,7 +202,8 @@ Plan 模板见 [TEMPLATE.md](../../tasks/plans/TEMPLATE.md)。
 
 - `§10.1 Schema / Migration Delta`
   - 当改表结构或 migration 时填写
-  - 同步写入 `docs/project/data/{module}.md`，并更新 `docs/project/data/overview.md`
+  - 同步写入 `docs/project/data/{module}.md`
+  - 如果当前项目维护数据模块索引，同时更新对应索引；没有索引时不要引用已归档的历史 overview
 
 ## 5. 前端设计图怎么接入
 

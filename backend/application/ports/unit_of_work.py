@@ -1,4 +1,9 @@
-"""Unit of Work 抽象定义"""
+"""Application-layer Unit of Work port.
+
+This base owns transaction lifecycle behavior only. Concrete repository
+attributes are intentionally typed at each application service boundary so a
+new module does not require changing one global UoW interface.
+"""
 
 from __future__ import annotations
 
@@ -6,33 +11,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-from domain.file_asset.repository import FileAssetRepository
-from domain.conversation.repository import (
-    ConversationRepository,
-    MessageRepository,
-    RunRepository,
-    AgentConfigRepository,
-)
-
-
 class AbstractUnitOfWork(ABC):
-    """应用层事务边界控制抽象"""
-
-    file_asset_repository: FileAssetRepository
-    conversation_repository: ConversationRepository
-    message_repository: MessageRepository
-    run_repository: RunRepository
-    agent_config_repository: AgentConfigRepository
+    """Application transaction boundary abstraction."""
 
     def __init__(self, *, readonly: bool = False) -> None:
         self._committed = False
         self._readonly = readonly
         self._repositories: dict[str, Any] = {}
-        self.file_asset_repository = None  # type: ignore[assignment]
-        self.conversation_repository = None  # type: ignore[assignment]
-        self.message_repository = None  # type: ignore[assignment]
-        self.run_repository = None  # type: ignore[assignment]
-        self.agent_config_repository = None  # type: ignore[assignment]
 
     async def __aenter__(self) -> "AbstractUnitOfWork":
         return self
@@ -47,12 +32,12 @@ class AbstractUnitOfWork(ABC):
 
     @abstractmethod
     async def commit(self) -> None:
-        """提交事务"""
+        """Commit the current transaction."""
         ...
 
     @abstractmethod
     async def rollback(self) -> None:
-        """回滚事务"""
+        """Roll back the current transaction."""
         ...
 
     def register_repository(self, name: str, repo: Any) -> None:
