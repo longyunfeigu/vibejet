@@ -7,9 +7,9 @@
 ```text
 vj-epic-story (WHAT)
       ↓
-vj-epic-plan  (HOW: 实现计划 + task 文档 + Unit 波次)
+vj-epic-plan  (HOW: 实现计划 + task 文档 + Unit/Screen 波次)
       ↓
-vj-work       (执行: auto/fast/strict + worktree + Verification)
+vj-work       (执行: auto/fast/strict + worktree + Verification + Screen composition)
       ↓
 vj-compound   (可选沉淀)
 ```
@@ -26,13 +26,14 @@ vj-compound   (可选沉淀)
 
 1. **Execution Context**：Phase 1 生成 `_execution_context.md`，把 layer skill / DESIGN.md / API / data 约束压成可回溯 checklist 和每个 Unit 的 Context Packet。Checklist 不是完整规范，所有条目必须带 source pointer。
 2. **Verification 驱动执行**：每个 Unit 的 `Verification` 是 done signal。fast 和 strict 都不能跳过真实验证。
-3. **风险触发质量门**：UI QA、test-first、System-Wide 检查、review 和 per-unit 记录按风险触发；高风险保留严格路径，普通任务不背审计型固定成本。
+3. **Screen-first 前端执行**：前端 Epic 消费 plan §4 `UI Surface Contract`，先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI，避免按 Story 拼页面。
+4. **风险触发质量门**：UI QA、test-first、System-Wide 检查、review 和 per-unit 记录按风险触发；高风险保留严格路径，普通任务不背审计型固定成本。
 
 ## Subagent 原则
 
 默认 inline worktree execution。只有运行时支持独立写入空间、同 wave Unit 无依赖且无文件冲突、并且并行收益明确时才派 subagent。
 
-subagent 任务必须自包含：即使运行时支持继承上下文，也必须显式传 plan path、task doc path、`_execution_context.md` path、Unit ID、Unit Context Packet、write scope、Verification 和 return contract。
+subagent 任务必须自包含：即使运行时支持继承上下文，也必须显式传 plan path、task doc path、`_execution_context.md` path、Unit ID、Unit Context Packet、write scope、Verification 和 return contract。若是 UI task，还必须传 Screen ID、Route、Primary Job、Covered Units、API-for-UI 和 Screen done。
 
 ## 文件
 

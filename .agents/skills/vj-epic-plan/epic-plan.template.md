@@ -156,6 +156,21 @@ sequenceDiagram
 |-----------|----------|--------|--------|----------|------------|----------|-----------|
 | | | | | | | | U1 |
 
+### UI Surface Contract（前端 Epic 必填）
+> 前端质量的真相源。Story / Unit 负责验收追踪，Screen / Route 负责整体体验。不得让每个 Story 各自发明页面片段；同一 Screen 的 UI 在 frontend composition wave 中整体实现。
+> 启动前端实现的条件不是“所有后端全部完成”，而是该 Screen 依赖的 API / 状态 / 数据合同已经稳定。合同不清时列入 §2 待审批决策。
+
+| Screen ID | Route | Primary Job | Role | Covered Units | Regions / IA | Key States | API-for-UI / Data Contract | Screen Done |
+|-----------|-------|-------------|------|---------------|--------------|------------|----------------------------|-------------|
+| screen-xxx | `/path` | 用户在此屏完成什么任务 | admin / employee | U1, U3 | 左/中/右区域或上下区域 | empty / loading / error / draft / success / permission | `GET/POST ...` + 关键字段 / 状态枚举 | 可跑通的屏级验收信号 |
+
+### Frontend Composition Policy
+> 用于 Appendix D 与 vj-work。后端按 capability 落地，前端按 experience 落地。
+
+| Screen ID | Frontend start condition | Composition scope | Must preserve | Browser / Screenshot check |
+|-----------|--------------------------|-------------------|---------------|----------------------------|
+| screen-xxx | 依赖接口、字段、错误、状态已稳定；mock/real adapter 均可返回合同数据 | 一次性实现该 Route 的壳、区域、主任务、相关 Unit 的 UI AC | 同屏 sibling Unit 的区域与主流程；不得孤立堆卡片 | desktop + mobile / targeted |
+
 ### 设计参考
 > 前端 Story 且有设计稿时填。默认从 `docs/reference/research/designs/{epic-id}/` 收集；无设计稿时明确写“暂无”。
 
@@ -207,6 +222,7 @@ Migration 与回滚：
 
 ### Unit 概览
 > `Unit = Story`。不要把 Unit 按前端 / 后端 / 数据库拆开；技术层落点放在 Appendix C 的 Files / Approach。Task 文档默认与 Unit 一一对应，只有满足 Appendix D 的拆分门槛才允许 `1 Unit → 多 task`。
+> 前端 Epic 例外不是改 Unit 语义，而是改执行编排：后端/API/data 按 Unit capability 交付；UI 由 Appendix D 的 Frontend composition wave 按 Screen/Route 聚合实现。Unit done 仍以 Story AC / Unit Verification / Screen verification 共同成立为准。
 
 | Unit | 对应 Story | 目标 | 主要交付 | Depends | 验收 |
 |------|------------|------|----------|---------|------|
@@ -277,7 +293,7 @@ graph LR
 - 当前流程：
 - 当前问题 / 痛点：
 
-### 可复用锚点（现有代码 / 上游 Provides）
+### 可复用锚点（现有代码 / 上游契约）
 - 已有实现可直接复用：
 - 需改造复用：
 - 不应重复建设：
@@ -310,7 +326,8 @@ graph LR
 **Execution note**: *(可选：test-first / characterization-first 等执行姿态)*
 **Patterns to follow**: 现有可镜像的文件 / 类 / 约定
 **Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；设计稿路径（如有）
-**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分。
+**UI Surface participation（UI Unit）**: Screen ID / Route；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号。
+**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分；只有当 UI Surface Contract 要求按 Screen 聚合实现时，允许把 UI AC 汇入 Screen composition task，并在此处回指对应 task。
 
 **Test scenarios**:
 - 链 S N.1 AC：Happy / Edge / Error / Integration（见 epic.md）
@@ -328,6 +345,7 @@ graph LR
 
 > 本 Epic 含 ≥2 个 Story 时填。§6 展示人工 Review 所需结论；本附录保存执行协调细节。**本附录的并行波次表是权威波次计划：下游 vj-work 直接消费、不重算（波次正确性由 vj-plan-review 的"依赖并行"视角负责）。**
 > 默认波次按 Unit 拓扑分层。只有通过“task 拆分门槛”时，才增加 task 级 DAG / 波次；task 波次不得越过 Unit 依赖。
+> 前端 Epic 必须额外填写 Execution lanes 与 Frontend composition waves。前端不是等所有后端 100% 完成后再做，也不是跟每个 Story 分散做；某个 Screen 的 API / 状态 / 数据合同稳定后，按 Screen 整体实现。
 
 ### 真相源对齐
 - epic.md 的 Story 依赖：
@@ -338,6 +356,19 @@ graph LR
 |------|----------------|------|
 | Wave 1 | U1 | — |
 | Wave 2 | U2, U3 | U1 |
+
+### Execution lanes（前端 Epic 必填）
+| Lane | Wave | Scope | Start condition | Done signal |
+|------|------|-------|-----------------|-------------|
+| UI surface / API contract | Wave 0 | UI Surface Contract + API-for-UI 字段 / 状态 / 错误合同 | plan 定稿 | §4 Screen 表完整，§5 API/Data Delta 对齐 |
+| Backend / API capability | Wave 1..N | 按 Unit 实现后端、API、AI adapter、数据持久化 | 上游 Unit 依赖满足 | API / pytest / service verification 通过 |
+| Frontend composition | Wave N+1..M | 按 Screen/Route 整体实现 UI | 对应 Screen 依赖的 API / 状态 / 数据合同稳定，可用 mock 或真实接口返回 | Screen browser check + 关联 UI AC 通过 |
+| E2E polish | Final | 演示脚本、截图、异常状态、证据 | backend + screen composition 完成 | 端到端脚本通过 |
+
+### Frontend composition waves（前端 Epic 必填）
+| Wave | Screen ID / Route | Covered Units | Required backend/API contracts | Files likely touched | Verification |
+|------|-------------------|---------------|--------------------------------|----------------------|--------------|
+| FE-1 | screen-xxx / `/path` | U1, U3 | `GET/POST ...`；字段 / 状态枚举 | `frontend/src/routes/...`, `features/...` | Browser route + desktop/mobile screenshot |
 
 ### task 拆分门槛（仅当 `1 Unit → 多 task` 时保留）
 | Unit | 是否拆分 | 拆分理由 | 文件隔离 / 冲突处理 | 局部验证 | Unit 闭环验收 |
@@ -387,11 +418,13 @@ graph LR
 - 缓存（键、TTL、失效）：
 
 ### 执行步骤
-> 按 Unit 分组，完成即 commit；可并行 Unit 与协调点见 Appendix D。
+> 按 Appendix D 的 lane 顺序执行。后端/API/data 仍按 Unit 分组；前端按 Screen composition wave 分组；可并行 Unit 与协调点见 Appendix D。
 
-- [ ] U1: [描述] → 文件 [...] → commit
-- [ ] U2: [描述] → 文件 [...] → commit
-- [ ] （全部 Unit 后）vj-work 全量验证 + review；若改用 run-epic，确认依赖真相源仍来自 epic.md
+- [ ] Wave 0: UI Surface Contract + API-for-UI 合同对齐（如前端 Epic）
+- [ ] Backend/API capability: U1 [描述] → 文件 [...] → verification
+- [ ] Backend/API capability: U2 [描述] → 文件 [...] → verification
+- [ ] Frontend composition: screen-xxx `/path` → 覆盖 U1/U2 的 UI AC → browser/screenshot verification
+- [ ] E2E polish: 完整演示脚本 + 全量验证 + review；若改用 run-epic，确认依赖真相源仍来自 epic.md
 
 ---
 

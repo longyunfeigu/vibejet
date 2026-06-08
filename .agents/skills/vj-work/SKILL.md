@@ -23,6 +23,7 @@ AI coding 质量主要来自四件事：
 2. **相关约束足够近**：只把当前 Unit 需要的架构、设计、契约约束放进执行上下文。
 3. **真实反馈回路**：以 Unit 的 `Verification` 命令作为 done signal，失败就修，不靠自评。
 4. **风险正确升级**：权限、迁移、公共 API、事务、UI 壳等高风险面切 strict，不用 fast path 蒙混。
+5. **UI 按体验闭环交付**：后端/API/data 可以按 capability Unit 推进；前端质量来自 Screen/Route 的完整任务上下文、稳定 API-for-UI 合同和浏览器截图反馈，不能按 Story 验收项碎片化堆 UI。
 
 因此 v2 的目标不是少读上下文，而是少读无关和重复上下文；不是少验证，而是把验证集中到真实 done signal；不是取消审计，而是让审计按风险触发。
 
@@ -34,6 +35,8 @@ AI coding 质量主要来自四件事：
 - **worktree 隔离**。本 skill 改代码一律从当前 `HEAD` 创建执行 worktree / 执行分支，不在当前主仓库工作树直接堆代码改动。
 - **当前非默认分支就是 integration base**。开工只读当前分支名与工作区状态；不得通过 `git log` / `git show` / reflog 翻 commit 历史来推断 base，也不得在非默认分支上询问"是否基于当前分支开 worktree"。只有默认分支或未提交改动歧义才停下问人。
 - **上下文必须可回溯**。Execution Checklist 是 attention guide，不是完整规范；每条约束必须带 source pointer。`DESIGN.md`、`docs/project/api/`、`docs/project/data/`、repo-local layer skill 原文仍是真相源。
+- **Backend by capability, frontend by experience**。前端 Epic 执行时必须消费 plan §4 `UI Surface Contract` 与 Appendix D `Execution lanes / Frontend composition waves`：先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI。不要等所有后端 100% 完成才开始前端，也不要把前端散进每个 Story 局部做。
+- **禁止孤立 UI 片段**。UI Unit / task 若属于 Screen composition，必须读同屏 sibling Units、Route 目标文件、Screen regions、API-for-UI 与 Screen done；不得为了当前 Unit 新增脱离 Screen Contract 的单页、卡片堆、表单堆或按钮堆。
 - **subagent 任务必须自包含**。不得依赖父 agent Phase 0/1 的隐式上下文。即使运行时支持 `fork_context` / isolation，也必须显式传 Unit Context Packet 或 `_execution_context.md` 路径 + Unit ID。
 - **高风险自动 strict**。命中 strict trigger 时不得为了速度降级；不确定风险等级时按 strict 或精准补读 source pointer。
 - **KISS / YAGNI**。只实现 Unit 要求，匹配既有约定，不引入投机抽象或无关重构。
@@ -91,9 +94,10 @@ epic_work_executor:
 ## Phase 0：定位 plan 与 branch gate
 
 1. 定位 plan：按输入解析；空参取最新 plan。读 plan 中这些执行原料：
+   - `## 4. 共享设计`：前端 Epic 必读 `UI Surface Contract`、`Frontend Composition Policy`、页面体验约束、设计上下文。
    - `## 6. 实现单元与依赖`：Unit 概览 + Depends。
    - `Appendix C`：Goal、Files、Approach、Execution note、Patterns、Test scenarios、Verification。
-   - `Appendix D`：并行波次与共享文件冲突点。
+   - `Appendix D`：并行波次、Execution lanes、Frontend composition waves 与共享文件冲突点。
    - Scope Boundaries / Out of Scope。
    - Requirements、Deferred to Implementation、Implementation-Time Unknowns。
 2. Branch / worktree gate：
@@ -126,6 +130,7 @@ UI Unit fallback 注入规则保留：
 
 - Files 含 `.tsx`，或路径含 `routes/` / `features/` / `components/` -> UI Unit。
 - task 文档 Design context 只列 `DESIGN.md` 章节锚点 + 决定性原句；禁止有损摘要。
+- task 文档 Screen context 必须投影自 plan §4 `UI Surface Contract`。若 UI Unit 找不到 Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done，且不是 trivial UI，STOP 回到 plan 修正；不要执行期自由设计。
 
 ### 2. 判定 execution mode
 
@@ -171,6 +176,7 @@ Unit Context Packet 固定字段：
 ```text
 Unit:
   id / task path / wave / depends
+Task scope: unit | partial-unit | screen-composition
 Goal:
 Acceptance / done signal:
 Target files:
@@ -180,6 +186,8 @@ Verification command:
 Non-goals:
 Risk class:
 UI class: none | trivial | functional | critical
+Execution lane: contract | backend-api-capability | frontend-composition | e2e-polish | legacy-unit
+Screen context: none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done
 Test policy: test-first | test-with-implementation | verification-only
 System-wide check: none | direct-neighbors | risk-triggered-two-hop
 ```
@@ -189,6 +197,14 @@ System-wide check: none | direct-neighbors | risk-triggered-two-hop
 ## Phase 2：波次计划与审批策略
 
 波次计划直接消费 `_ledger.md` / Appendix D，不重算。旧 plan 无 Appendix D 时才按 Files + Depends 回退补算一次。
+
+前端 Epic 的 Appendix D 若包含 `Execution lanes` / `Frontend composition waves`：
+
+- 先执行 UI surface / API contract 可见性检查：确认 `_execution_context.md` 已写入每个 Screen 的合同摘要。
+- backend/API/data capability wave 仍按 Unit / task 执行，目标是让对应 Screen 的数据、状态、错误、权限、mock/real adapter 合同稳定。
+- frontend composition wave 按 Screen/Route 执行；同一 Screen 覆盖多个 Unit 时，以 Screen done + 关联 UI AC 作为该 wave 的 done signal。
+- E2E polish wave 在所有相关 Screen composition 通过后执行完整演示脚本、截图、异常状态与全量验证。
+- 如果旧 plan 没有 lanes，但发现多个 UI Unit 共享同一路由，切到 `frontend-composition fallback`：先生成临时 Screen 分组写入 `_execution_context.md`，按 Screen 串行执行，避免并行写坏 UI。
 
 Approval gate：
 
@@ -209,6 +225,13 @@ Docs planning commit：
 
 始终使用 worktree 写代码。默认 inline，在一个执行 worktree 中按 wave 推进。
 
+执行顺序遵循 Appendix D lanes：
+
+1. **Contract / context wave**：不写业务 UI；确认 API-for-UI、Screen states、mock/real adapter、DESIGN.md source pointers 都进入 `_execution_context.md`。
+2. **Backend/API capability waves**：按 Unit 落地后端、API、AI adapter、数据与测试。允许为前端提供类型、mock adapter 或最小探针；不顺手搭完整页面。
+3. **Frontend composition waves**：按 Screen/Route 整体实现 UI。每个 Screen task 必须读同屏 sibling Units、现有 route/components、DESIGN.md、UI Surface Contract 和 API-for-UI；一次性完成布局区域、主任务、关键状态和相关 UI AC。
+4. **E2E polish wave**：跑完整业务演示脚本，补字段、错误状态、截图证据和最终验证。
+
 Subagent 只在满足全部条件时使用：
 
 - 用户、平台或运行时明确允许 subagent / parallel agent work。
@@ -227,6 +250,7 @@ subagent prompt 必须自包含，至少包含：
 - task doc path。
 - `_execution_context.md` path。
 - Unit ID 与完整 Unit Context Packet。
+- 如果是 UI task：Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done / sibling Units。
 - write scope：允许修改的路径。
 - Verification command。
 - source pointer fallback 规则。
@@ -244,11 +268,12 @@ subagent prompt 必须自包含，至少包含：
 mark in-progress in session plan
 read T{NNN}.md summary + Technical Approach + AC + DoD
 read Unit Context Packet from _execution_context.md
+if UI task: read Screen context + sibling UI Units + existing route/component files
 read target files
 read pattern files (max 1-3 unless source pointer requires more)
 if Unit already satisfies Verification: mark skipped/completed with evidence
 apply test policy
-implement narrowly
+implement narrowly; if frontend-composition, implement the whole Screen scope, not an isolated Story fragment
 run Unit Verification
 fix failures, max 3 attempts
 apply risk-based UI/system checks
@@ -266,6 +291,7 @@ strict mode 在 fast loop 基础上保留旧版审计行为：
 - 更新 `_ledger.md` 状态、commit、verification。
 - 每 Unit 提交代码 + task doc + ledger。
 - UI-critical 必须完整桌面+移动截图与 DESIGN.md checklist。
+- frontend-composition task 必须记录 Screen Contract 覆盖情况：Primary Job、Regions、Key States、API-for-UI、Covered Units、Screen done。
 
 ### Test policy
 
@@ -287,11 +313,24 @@ UI class：
 
 执行要求：
 
-- critical：读 DESIGN.md 对应锚点原文；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist；不满足先修。
-- functional：读相关 pattern/token/source pointer；做 targeted browser check 或局部截图；验证 loading/error/empty/success/permission 中实际相关状态。
+- critical：读 DESIGN.md 对应锚点原文 + plan §4 UI Surface Contract；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist 与 Screen 合同；不满足先修。
+- functional：读相关 pattern/token/source pointer；若属于 frontend-composition，做 Screen-level browser check；否则做 targeted browser check 或局部截图；验证 loading/error/empty/success/permission 中实际相关状态。
 - trivial：不强制截图；跑 typecheck/test/lint 或 Unit Verification。
 
 如果 task 文档与 `DESIGN.md` 冲突，以 `DESIGN.md` 原文为准；缺设计合同且属于 UI-critical，STOP。
+如果 task 文档与 plan §4 `UI Surface Contract` 冲突，以 plan 的 Screen Contract 为整屏体验真相源；合同缺失或明显不覆盖当前 Route 时，STOP 回到 vj-epic-plan 修正。
+
+### Frontend composition gate
+
+进入任一 frontend-composition task 前必须检查：
+
+- Screen ID / Route / Primary Job / Role 明确。
+- Covered Units 与 sibling UI Units 明确，且当前执行不会破坏同屏已实现区域。
+- API-for-UI 合同明确：endpoint / 字段 / 状态枚举 / 错误语义 / mock 或真实 adapter。
+- 目标 route/component 文件已读取；若不存在，明确新建位置与路由注册方式。
+- Screen done 可浏览器验证。
+
+不满足时不要“先随便做 UI”；补 `_execution_context.md` 或停止回到 plan。
 
 ### System-wide check policy
 
@@ -318,6 +357,7 @@ strict：同上，并在 ledger 记录整理原因。
 
 1. 全量验证：
    - 跑全部 Unit 的 Verification。
+   - 前端 Epic 跑每个 Screen 的 Screen done / Browser verification，并保留桌面+移动截图或 targeted screenshot 证据。
    - 跑 plan Appendix E 的整体校验命令。
    - 跑项目 lint/typecheck/test（按 backend/frontend 命中情况）。
 2. Review gate：
@@ -344,6 +384,7 @@ mode:
 strict triggers:
 context files loaded:
 unit verification commands:
+screen verification commands:
 ui screenshot triggered:
 review triggered:
 subagent triggered:

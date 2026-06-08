@@ -18,6 +18,19 @@
 - Design: `{none/trivial/functional/critical}` — source pointers: `{...}`
 - API contract: `{yes/no}` — source pointers: `{...}`
 - Data model: `{yes/no}` — source pointers: `{...}`
+- UI Surface Contract: `{none | present | fallback}` — source pointers: `{plan §4, Appendix D}`
+
+## UI Surface / Execution Lanes
+
+> Fill for frontend epics. Source truth is plan §4 `UI Surface Contract` and Appendix D `Execution lanes / Frontend composition waves`.
+
+| Screen ID | Route | Primary Job | Covered Units | API-for-UI / Data Contract | Frontend start condition | Screen done |
+|-----------|-------|-------------|---------------|----------------------------|--------------------------|-------------|
+| `{screen-id}` | `{route}` | `{job}` | `{U1,U2}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` |
+
+| Lane | Wave | Scope | Done signal |
+|------|------|-------|-------------|
+| `{contract/backend-api-capability/frontend-composition/e2e-polish}` | `{wave}` | `{scope}` | `{done}` |
 
 ## Epic Execution Checklist
 
@@ -32,9 +45,12 @@
 ### T{NNN} — {Task title}
 
 - **Unit:** `{U-ID}`
+- **Task scope:** `{unit | partial-unit | screen-composition}`
 - **Task doc:** `{docs/tasks/work/.../TNNN-...md}`
 - **Wave:** `{wave}`
 - **Depends:** `{depends}`
+- **Execution lane:** `{contract | backend-api-capability | frontend-composition | e2e-polish | legacy-unit}`
+- **Screen context:** `{none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done}`
 - **Goal:** `{one-sentence goal}`
 - **Acceptance / done signal:** `{observable done state + Verification}`
 - **Target files:**
@@ -59,6 +75,7 @@
 
 - **Context files loaded:** `{paths}`
 - **Unit verification commands:** `{commands/results}`
+- **Screen verification commands:** `{commands/results}`
 - **UI screenshot triggered:** `{yes/no, units}`
 - **Review triggered:** `{yes/no, reason}`
 - **Subagent triggered:** `{yes/no, units}`

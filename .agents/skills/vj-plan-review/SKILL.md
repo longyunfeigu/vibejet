@@ -1,6 +1,6 @@
 ---
 name: vj-plan-review
-description: 为 vj-epic-plan 产出的 epic 实现计划做多视角独立审查——并行派 persona 子代理（一致性/可行性/范围/对抗/依赖并行）各审一个视角，汇总去重后由 Claude 自主判断采纳，并据采纳意见修正 plan 文档。在 vj-epic-plan 写盘后自动执行（取代 epic-plan 的 codex-review），用户可说"跳过审查"。也可手动 /vj-plan-review [plan路径]。在 vj-epic-plan 之后、vj-work 之前。
+description: 为 vj-epic-plan 产出的 epic 实现计划做多视角独立审查——并行派 persona 子代理（一致性/可行性/范围/对抗/依赖并行/UI surface）各审一个视角，汇总去重后由 Claude 自主判断采纳，并据采纳意见修正 plan 文档。在 vj-epic-plan 写盘后自动执行（取代 epic-plan 的 codex-review），用户可说"跳过审查"。也可手动 /vj-plan-review [plan路径]。在 vj-epic-plan 之后、vj-work 之前。
 ---
 
 # vj-plan-review — Epic 计划多视角审查
@@ -36,7 +36,7 @@ vj-plan-review epic-1                  # 按 epic 编号定位
 epic_plan_reviewer:
   plans_dir: docs/tasks/plans/
   default: latest                                  # 未指定取最新 *-plan.md
-  personas: [coherence, feasibility, scope, adversarial, dependency]
+  personas: [coherence, feasibility, scope, adversarial, dependency, ui-surface]
   adopt_mode: auto-with-gate                       # Blocking自主；AC偏离/范围/改epic.md→问用户
   persona_defs: references/personas.md
   dispatch_template: references/subagent-template.md
@@ -55,7 +55,7 @@ epic_plan_reviewer:
 
 ### Phase 2：并行派 persona 子代理
 
-- 对 `personas` 列出的 5 个视角，各派一个**只读子代理**。用平台子代理原语（Claude Code：`Agent`/`Task`，对标本仓库 `vj-learnings-researcher` 的派发先例；无并行能力的平台退化为串行）。
+- 对 `personas` 列出的 6 个视角，各派一个**只读子代理**。用平台子代理原语（Claude Code：`Agent`/`Task`，对标本仓库 `vj-learnings-researcher` 的派发先例；无并行能力的平台退化为串行）。
 - 每个代理的 prompt = `subagent-template.md`，把对应 persona 段填入 `{persona}`、plan 路径与全文填入 `{plan_path}`/`{plan_content}`。
 - 子代理按输出契约返回 findings：`[序号] [Blocking|Non-blocking] 问题 | 证据(plan原文) | 建议修法`。
 - 某代理失败/超时 → 用其余代理的结果继续，在摘要里记缺哪个视角；不因单个失败阻塞整轮。
@@ -83,7 +83,7 @@ epic_plan_reviewer:
 ### Phase 5：输出摘要
 
 ```
-vj-plan-review 完成（N 条 finding，X Blocking，Y Non-blocking；视角：coherence/feasibility/scope/adversarial/dependency）
+vj-plan-review 完成（N 条 finding，X Blocking，Y Non-blocking；视角：coherence/feasibility/scope/adversarial/dependency/ui-surface）
 
 ✅ 已采纳（M 条）：
 [1] [Blocking] 问题 → 已修正（§位置）
