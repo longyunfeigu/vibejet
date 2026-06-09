@@ -248,14 +248,15 @@ AI 在 plan mode 探索代码后回答 8 问 + 填写约束清单：
 
 ### Adding a Frontend Feature
 
-Stack: Vite 8 + React 19 + TS 6 (strict) + MUI v9 + TanStack Router/Query + RHF + Zod + Vitest. Full guidelines in `.agents/skills/frontend-dev-guidelines/SKILL.md`.
+Stack: Vite 8 + React 19 + TS 6 (strict) + Tailwind v4 + shadcn/ui (Radix) + TanStack Router/Query + RHF + Zod + Vitest. UI 用 Tailwind utility class + shadcn 组件，**不用 MUI**。设计 token 唯一来源 `docs/project/DESIGN.md` → 编译进 `src/index.css` 的 CSS 变量。Full guidelines in `.agents/skills/frontend-dev-guidelines/SKILL.md`.
 
 1. Create `frontend/src/features/<name>/` with subdirs: `api/`, `components/`, `hooks/`, `types/` (and `helpers/` if needed)
 2. Wrap backend endpoint in `api/<name>Api.ts` using `apiClient` from `@/lib/apiClient`
 3. Create `useSuspenseQuery` wrapper in `hooks/use<Name>.ts`
-4. UI component in `components/<Name>Card.tsx` consumes the hook (no early-return loading; rely on outer `<SuspenseLoader>`)
-5. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute` + `lazy` + `<SuspenseLoader>`
-6. Run `pnpm dev` once to regenerate `src/routeTree.gen.ts` (tracked file, do not hand-edit)
+4. UI component in `components/<Name>Card.tsx`：用 shadcn 组件（`@/components/ui/*`）+ Tailwind class + `cn()`，consumes the hook (no early-return loading; rely on outer `<SuspenseLoader>`)
+5. 需要的 shadcn 组件用 `npx shadcn@latest add <component>` 拉进 `@/components/ui/`（网络抖动时见 SKILL.md 的 curl 兜底）
+6. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute` + `lazy` + `<SuspenseLoader>`
+7. Run `pnpm dev` once to regenerate `src/routeTree.gen.ts` (tracked file, do not hand-edit)
 
 Reference impl: `frontend/src/features/health/` + `frontend/src/routes/health/`.
 
@@ -513,11 +514,13 @@ Use the `review` skill
 - Dev entrypoint: `frontend/src/main.tsx`
 - Routes (file-based): `frontend/src/routes/` (e.g. `routes/index.tsx`, `routes/health/index.tsx`)
 - Features: `frontend/src/features/` (each: `api/`, `components/`, `hooks/`, `types/`)
-- Shared UI components: `frontend/src/components/ui/`, `frontend/src/components/layout/`
-- Reusable infra: `frontend/src/components/SuspenseLoader/`, `frontend/src/hooks/useMuiSnackbar.ts`
-- API client: `frontend/src/lib/apiClient.ts` (axios, `baseURL = VITE_API_URL`)
+- shadcn 组件（vendored）: `frontend/src/components/ui/`（`npx shadcn add` 生成，可改）；布局: `frontend/src/components/layout/`
+- 样式工具: `frontend/src/lib/utils.ts` 的 `cn()`（clsx + tailwind-merge）；设计 token: `frontend/src/index.css`（`@theme` + `:root`，源自 `docs/project/DESIGN.md`）
+- Toast: 直接用 `sonner`（`import { toast } from 'sonner'`；`<Toaster/>` 已挂在 `main.tsx`）
+- Reusable infra: `frontend/src/components/SuspenseLoader/`
+- API client: `frontend/src/lib/apiClient.ts` (axios, `baseURL = VITE_API_URL`, `withCredentials`)
 - Auth hook (placeholder): `frontend/src/hooks/useAuth.ts`
-- Path aliases: `@/` → `src/`, `~types/`, `~components/`, `~features/` (configured in `tsconfig.app.json` + `vite.config.ts` + `vitest.config.ts`)
+- Path alias: `@/` → `src/`（单一别名，configured in `tsconfig.app.json` + `vite.config.ts` + `vitest.config.ts`）
 - Vite config: `frontend/vite.config.ts` (proxies `/api/*` to `VITE_API_URL`)
 - Environment: `frontend/.env` (`VITE_API_URL`)
 - Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`

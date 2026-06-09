@@ -113,6 +113,10 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/tasks/epics/epic-001.md" 
 
 **纯后端 Story**: 跳过此 section，直接进入 Phase 2。
 
+**前端 UI Story 但无任何外部参考**（确属页面/组件实现，但不满足上述三条）: **不跳过**——遵守 `.claude/rules/frontend.md` 与 `frontend-dev-guidelines` 的「Product Richness 剧本 B」（屏范式 + 吃满 epic 页面体验地图 + 调 `design-taste-frontend` / `high-end-visual-design`），按整屏富度建，**不做 AC 最小的薄屏**。
+
+**数据（所有前端 Story）**: 评审不许空屏——后端先行接真接口（dev 要有 seed），否则用 `features/<x>/mock*.ts` 占位，接口落地即删。
+
 当条件满足时，按来源类型执行对应步骤：
 
 ---

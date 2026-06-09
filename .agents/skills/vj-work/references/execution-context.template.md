@@ -1,7 +1,7 @@
 # Epic {N} {名称} — Execution Context
 
 > Generated/updated by `vj-work` Phase 1. This file is an execution cache, not a new source of truth.
-> Source truth remains the plan, task docs, `docs/project/DESIGN.md`, `docs/project/api/`, `docs/project/data/`, and repo-local layer skills.
+> Source truth remains the plan, task docs, `docs/project/DESIGN.md`, `docs/project/api/`, `docs/project/data/`, `docs/project/ui/`, and repo-local layer skills.
 
 ## Mode Decision
 
@@ -18,15 +18,16 @@
 - Design: `{none/trivial/functional/critical}` — source pointers: `{...}`
 - API contract: `{yes/no}` — source pointers: `{...}`
 - Data model: `{yes/no}` — source pointers: `{...}`
-- UI Surface Contract: `{none | present | fallback}` — source pointers: `{plan §4, Appendix D}`
+- UI Surface Delta: `{none | present | fallback}` — source pointers: `{plan §4, Appendix D}`
+- UI Catalog: `{none | present | fallback}` — source pointers: `{docs/project/ui/surfaces.md, docs/project/ui/routes.md}`
 
 ## UI Surface / Execution Lanes
 
-> Fill for frontend epics. Source truth is plan §4 `UI Surface Contract` and Appendix D `Execution lanes / Frontend composition waves`.
+> Fill for frontend epics. Source truth is `docs/project/ui/` catalog when present; otherwise current plan §4 `UI Surface Delta` and Appendix D `Execution lanes / Frontend composition waves`.
 
-| Screen ID | Route | Primary Job | Covered Units | API-for-UI / Data Contract | Frontend start condition | Screen done |
-|-----------|-------|-------------|---------------|----------------------------|--------------------------|-------------|
-| `{screen-id}` | `{route}` | `{job}` | `{U1,U2}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` |
+| Screen ID | Route | Primary Job | Covered Units | API-for-UI / Data Contract | Frontend start condition | Screen done | Source |
+|-----------|-------|-------------|---------------|----------------------------|--------------------------|-------------|--------|
+| `{screen-id}` | `{route}` | `{job}` | `{U1,U2}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` | `{docs/project/ui/... or plan §4 delta}` |
 
 | Lane | Wave | Scope | Done signal |
 |------|------|-------|-------------|
@@ -50,7 +51,7 @@
 - **Wave:** `{wave}`
 - **Depends:** `{depends}`
 - **Execution lane:** `{contract | backend-api-capability | frontend-composition | e2e-polish | legacy-unit}`
-- **Screen context:** `{none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done}`
+- **Screen context:** `{none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done / catalog source}`
 - **Goal:** `{one-sentence goal}`
 - **Acceptance / done signal:** `{observable done state + Verification}`
 - **Target files:**

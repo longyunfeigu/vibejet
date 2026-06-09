@@ -78,7 +78,7 @@
 - [ ] 若本 task 覆盖整个 Unit，Story AC / Unit Verification 已通过
 - [ ] 无遗留兼容垫片
 - [ ] 命中 API / data / design 契约变化时，相关文档已更新
-- [ ] 若本 task 是 UI / Screen composition，已按 plan §4 UI Surface Contract 完成整屏主任务、屏内区域、关键状态、关联 sibling Units 与 Screen done；未把当前 Story 做成孤立 UI 片段
+- [ ] 若本 task 是 UI / Screen composition，已按 `docs/project/ui/` catalog 或 plan §4 UI Surface Delta 完成整屏主任务、屏内区域、关键状态、关联 sibling Units 与 Screen done；未把当前 Story 做成孤立 UI 片段
 - [ ] fast mode：收尾统一回写变更叙事 / ledger；strict mode：本 Unit 完成即回写
 - [ ] 命中 review trigger 时，vj-work Phase 4 review blocking findings 已修复
 
@@ -106,7 +106,7 @@
   不得只依赖本 task 文档的句子。
 ======================================================================== -->
 <!--
-Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，plan §4 UI Surface Contract 是整屏体验合同）:
+Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs/project/ui catalog 是整屏体验合同；catalog 未同步时临时看 plan §4 UI delta）:
 
 【0】开工前先读现有前端 theme / layout / component patterns（优先复用 theme，不另起一套风格）。
 
@@ -126,7 +126,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，plan
 【4】页面体验地图：读并遵循 epic.md `## 页面体验地图` 中本 Unit 对应页面/区域：
     页面职责、主操作、次操作、关键状态、信息优先级、体验护栏。
 
-【5】UI Surface Contract：读并遵循 plan §4 `UI Surface Contract` 与 `Frontend Composition Policy`。
+【5】UI Surface / Route：读并遵循 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`；若尚未同步，临时读 plan §4 `UI Surface Delta` 与 `Frontend Composition Policy`。
     {{Screen ID: screen-...}}
     {{Route: /...}}
     {{Primary Job / Role: ...}}
@@ -135,6 +135,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，plan
     {{同屏 sibling Units: U...；实现时不得破坏这些区域与主流程}}
     {{Regions / IA: 左/中/右或上下区域、主要列表/表单/分析面板等}}
     {{API-for-UI / Data Contract: endpoints、关键字段、状态枚举、错误语义、mock/real adapter 切换}}
+    {{Catalog source: docs/project/ui/surfaces.md / docs/project/ui/routes.md；若尚未同步，写 plan §4 UI delta}}
     {{Screen done: 浏览器可验证的整屏完成信号}}
 
     执行规则：
@@ -162,7 +163,7 @@ UI-trivial：不强制截图；仍不得违反已列 DESIGN.md 硬约束。
   □ 数据即界面：列表/队列优先表格，不是每条记录一张大卡（§Data-Dense, Don't L524）
   □ 语义色：success/warning/danger/ai 仅用于状态；AI 暂存内容视觉上"未确认"（§Do/Don't L513）
   □ 五态完整：空 / 加载 / 错误 / 成功 / 无权限
-  □ Screen 合同：当前 Route 的 Primary Job、Regions、Key States、Screen done 与 plan §4 一致；同屏 sibling Unit 的主流程未被破坏
+  □ Screen 合同：当前 Route 的 Primary Job、Regions、Key States、Screen done 与 `docs/project/ui/` catalog 或 plan §4 UI delta 一致；同屏 sibling Unit 的主流程未被破坏
   □ API-for-UI：前端只消费合同字段 / 状态 / 错误语义；缺字段时回补 API 合同或 mock adapter，不在 UI 内硬编码临时假数据
   □ 截图/浏览器检查：按 UI class 执行；无文字溢出、无元素重叠、主操作首屏可见，且与 DESIGN.md + 页面体验地图一致
 -->

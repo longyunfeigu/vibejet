@@ -24,9 +24,9 @@ vj-compound   (可选沉淀)
 
 ## 三大核心能力
 
-1. **Execution Context**：Phase 1 生成 `_execution_context.md`，把 layer skill / DESIGN.md / API / data 约束压成可回溯 checklist 和每个 Unit 的 Context Packet。Checklist 不是完整规范，所有条目必须带 source pointer。
+1. **Execution Context**：Phase 1 生成 `_execution_context.md`，把 layer skill / DESIGN.md / API / data / UI catalog 约束压成可回溯 checklist 和每个 Unit 的 Context Packet。Checklist 不是完整规范，所有条目必须带 source pointer。
 2. **Verification 驱动执行**：每个 Unit 的 `Verification` 是 done signal。fast 和 strict 都不能跳过真实验证。
-3. **Screen-first 前端执行**：前端 Epic 消费 plan §4 `UI Surface Contract`，先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI，避免按 Story 拼页面。
+3. **Screen-first 前端执行**：前端 Epic 消费 task docs / `_execution_context.md` 中的 Screen context 与 `docs/project/ui/` catalog，先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI，避免按 Story 拼页面。
 4. **风险触发质量门**：UI QA、test-first、System-Wide 检查、review 和 per-unit 记录按风险触发；高风险保留严格路径，普通任务不背审计型固定成本。
 
 ## Subagent 原则

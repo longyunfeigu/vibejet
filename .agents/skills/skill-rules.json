@@ -195,7 +195,7 @@
                 ]
             }
         },
-        "design-md-matcher": {
+        "vj-design-md-matcher": {
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",
@@ -301,7 +301,7 @@
             "type": "guardrail",
             "enforcement": "block",
             "priority": "high",
-            "description": "React/TypeScript best practices including MUI v7 compatibility",
+            "description": "vibejet 前端规范：React + Vite + TS + Tailwind v4 + shadcn/ui + TanStack（不用 MUI）",
             "promptTriggers": {
                 "keywords": [
                     "component",
@@ -312,16 +312,15 @@
                     "modal",
                     "dialog",
                     "form",
-                    "MUI",
-                    "Material-UI",
-                    "Grid",
+                    "Tailwind",
+                    "shadcn",
                     "styling",
                     "frontend",
                     "React"
                 ],
                 "intentPatterns": [
                     "(create|add|make|build|update|modify|edit).*?(component|UI|page|modal|dialog|form)",
-                    "(how to|best practice).*?(component|react|MUI)",
+                    "(how to|best practice).*?(component|react|tailwind|shadcn)",
                     "(style|design|layout).*?(component|UI)"
                 ]
             },
@@ -329,8 +328,6 @@
                 "pathPatterns": [
                     "frontend/src/**/*.tsx",
                     "frontend/src/**/*.ts",
-                    "client/src/**/*.tsx",
-                    "client/src/**/*.ts",
                     "src/**/*.tsx"
                 ],
                 "pathExclusions": [
@@ -338,21 +335,20 @@
                     "**/*.test.ts",
                     "**/*.spec.tsx",
                     "**/*.spec.ts",
-                    "**/*.styles.ts",
+                    "**/components/ui/**",
+                    "**/routeTree.gen.ts",
                     "**/vite.config.ts",
                     "**/tsconfig.json"
                 ],
                 "contentPatterns": [
-                    "from '@mui/material';",
-                    "import.*Grid.*from.*@mui",
-                    "<Grid ",
-                    "Grid2",
-                    "Unstable_Grid",
+                    "from '@mui",
+                    "@material-ui",
+                    "sx={",
                     "makeStyles",
-                    "@material-ui/core"
+                    "createTheme"
                 ]
             },
-            "blockMessage": "⚠️ BLOCKED - Frontend Best Practices Required\n\n📋 REQUIRED ACTION:\n1. Use Skill tool: 'frontend-dev-guidelines'\n2. Review MUI v7 patterns (Grid uses size={{}} prop, NOT xs/sm props)\n3. Check React/TypeScript best practices\n4. Use proper styling patterns\n5. Then retry this edit\n\nReason: Enforce MUI v7 compatibility and React best practices\nFile: {file_path}\n\n💡 TIP: Add '// @skip-validation' comment to skip future checks",
+            "blockMessage": "⚠️ BLOCKED - Frontend Best Practices Required\n\n📋 REQUIRED ACTION:\n1. Use Skill tool: 'frontend-dev-guidelines'\n2. 本项目用 Tailwind v4 + shadcn/ui，禁用 MUI / emotion / sx。检测到 MUI 残留请改写为 Tailwind class + shadcn 组件\n3. 样式 token 来自 docs/project/DESIGN.md → src/index.css，不要硬编码 hex\n4. 数据用 useSuspenseQuery + <SuspenseLoader>，不写 early-return loading\n5. Then retry this edit\n\nReason: Enforce Tailwind+shadcn stack (no MUI) and React best practices\nFile: {file_path}\n\n💡 TIP: Add '// @skip-validation' comment to skip future checks",
             "skipConditions": {
                 "sessionSkillUsed": true,
                 "fileMarkers": [

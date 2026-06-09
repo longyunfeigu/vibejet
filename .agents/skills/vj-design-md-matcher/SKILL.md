@@ -1,9 +1,9 @@
 ---
-name: design-md-matcher
+name: vj-design-md-matcher
 description: Match a product PRD or product brief to three reference DESIGN.md files from the vibeui / VoltAgent awesome-design-md library using a bundled local cache first and network fallback only when needed, then synthesize a project-owned docs/project/DESIGN.md. Use when the user asks for automatic DESIGN.md library matching, vibeui style references, awesome-design-md recommendations, design-system inspiration before UI mockups, offline/local DESIGN.md matching, or wants to generate a stable project design direction from a PRD. This skill must run before implementation; do not use it inside vj-work execution to pick styles ad hoc.
 ---
 
-# design-md-matcher
+# vj-design-md-matcher
 
 根据 PRD 从 `vibeui / awesome-design-md` 设计库推荐 3 个参考 `DESIGN.md`，再生成项目自己的 `docs/project/DESIGN.md`。
 
@@ -12,7 +12,7 @@ description: Match a product PRD or product brief to three reference DESIGN.md f
 This skill is a pre-design step:
 
 ```text
-PRD -> design-md-matcher -> docs/project/DESIGN.md -> vj-ui-mock / frontend implementation
+PRD -> vj-design-md-matcher -> docs/project/DESIGN.md -> vj-ui-mock / frontend implementation
 ```
 
 Do not use this skill during `vj-work` or story implementation to choose a temporary visual style. Once `docs/project/DESIGN.md` exists and is confirmed, downstream work consumes that file as the stable style source.
@@ -49,13 +49,13 @@ Default behavior:
 Refresh the cache when the catalog changes:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py --download-cache
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py --download-cache
 ```
 
 Use a custom cache location:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --download-cache \
   --cache /path/to/design-md-cache
 ```
@@ -84,7 +84,7 @@ Use `scripts/match_design_md.py` for first-pass retrieval.
 Default local-cache-first matching:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --prd docs/project/requirements.md \
   --limit 8
 ```
@@ -92,7 +92,7 @@ python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
 Local mirror:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --prd docs/project/requirements.md \
   --local /path/to/awesome-design-md \
   --limit 8
@@ -101,7 +101,7 @@ python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
 Offline local-only:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --prd docs/project/requirements.md \
   --offline \
   --limit 8
@@ -110,7 +110,7 @@ python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
 Conversation-only brief:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --query "enterprise employee exam and grading admin system, high-density tables, review workflow" \
   --limit 8
 ```
@@ -179,7 +179,7 @@ Rules for generation:
 - Optional retrieval JSON when requested:
 
 ```bash
-python3 .agents/skills/design-md-matcher/scripts/match_design_md.py \
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
   --prd docs/project/requirements.md \
   --json > /tmp/design-md-candidates.json
 ```

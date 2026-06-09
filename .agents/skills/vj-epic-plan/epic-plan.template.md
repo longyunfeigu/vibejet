@@ -17,6 +17,18 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 写作风格：面向人的说明用大白话（像当面口头讲），契约字段（文件路径 / 验证命令 / Delta / 依赖 / D-ID）保持精确；不堆形容词、不写空话套话和学术腔。
 -->
 
+## Context Ownership
+
+> 本 plan 是人工 review manifest + 本 Epic delta。稳定跨 Epic 上下文写入 catalog；AI coding 执行上下文写入 task docs / `_execution_context.md`。
+
+| Context | Source of truth | 本 plan 只做什么 |
+|---------|-----------------|------------------|
+| API 契约 | `docs/project/api/` | §5 记录本 Epic API delta + Catalog Sync |
+| Data / persistence 契约 | `docs/project/data/` | §5 记录本 Epic schema delta + Catalog Sync |
+| UI Surface / Route 合同 | `docs/project/ui/surfaces.md`, `docs/project/ui/routes.md` | §4/§5 记录本 Epic UI delta + Catalog Sync |
+| AI 执行上下文 | `docs/tasks/work/epic-.../T*.md`, `_execution_context.md` | Appendix C/D 给投影原料 |
+| 人工决策 / 审计 | 本 plan | §0/§2/Appendix A/E |
+
 ## 0. 审批门
 
 > 人工 review 主面是 **§4 共享设计**（ERD / 流程图 / 模块边界 / 术语）——方向对不对、AI 打算怎么搭，看那里。本节只放需要你拍板的决策，且这些决策已内联标注到 §4 的对应图里（扫图即可批准方向）。完整论证在 §2，这里只链 `D-ID`、不复述。
@@ -24,7 +36,7 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 - **目标（一句话）**：
 - **设计与方向**：见 §4。
 - **需要你拍板**（批准前不得进入实现；无则写“无”）：`D1` …（链 §2，已内联 §4 图注）/ `ACD1` …
-- **API / Schema 影响**：API 是/否；Schema 是/否（详见 §5）。
+- **API / Schema / UI catalog 影响**：API 是/否；Schema 是/否；UI 是/否（详见 §5）。
 
 ---
 
@@ -82,17 +94,17 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 
 ## 3. 跨 Epic 契约（Consumes）
 
-> Flow B/C 填。**单一真相源 = catalog**（`docs/project/api/`、`docs/project/data/`）。本节只填 `Consumes`（本 Epic 依赖的上游契约的过滤视图）；**不写 Provides 表**——本 Epic 对下游暴露的稳定契约写进 catalog（见 §5 Catalog Sync 列出的目标文件），不在 plan 内重复列举，避免 plan 与 catalog 双写漂移。
+> Flow B/C 填。**单一真相源 = catalog**（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`）。本节只填 `Consumes`（本 Epic 依赖的上游契约的过滤视图）；**不写 Provides 表**——本 Epic 对下游暴露的稳定契约写进 catalog（见 §5 Catalog Sync 列出的目标文件），不在 plan 内重复列举，避免 plan 与 catalog 双写漂移。
 
 ### Consumes
-> 本 Epic 依赖的上游契约子集。真相来源 = catalog（`docs/project/api|data/{module}.md`），**不是上游 plan**。本 Epic 是依赖图的根时填单行：`— | 无上游依赖 | epic.md §依赖`。
+> 本 Epic 依赖的上游契约子集。真相来源 = catalog（`docs/project/api|data|ui/{module-or-file}.md`），**不是上游 plan**。本 Epic 是依赖图的根时填单行：`— | 无上游依赖 | epic.md §依赖`。
 
 | 依赖的契约（接口 / 模型 / 能力 / 不变量） | 在哪用 | 真相来源（catalog 路径） |
 |--------------------------------------------|--------|--------------------------|
 | | | |
 
 ### 本 Epic 对下游的契约（Provides → 写 catalog，不在此列表）
-> 不在 plan 重复。本 Epic 新增的稳定契约写进 catalog 模块文档（见 §5 Catalog Sync 的目标文件；catalog 内以「契约状态 / introduced by Epic N」标出处）。**跨切面义务 / 不变量**（如 R1.x：某类记录必须经某机制关联某字段）——读代码 / 读单个模块 catalog 不一定看得出——写进 `docs/project/data/overview.md` 跨模块段或 `docs/project/api/conventions.md`，供下游 epic 规划时直接读。
+> 不在 plan 重复。本 Epic 新增的稳定契约写进 catalog 模块文档（见 §5 Catalog Sync 的目标文件；catalog 内以「契约状态 / introduced by Epic N」标出处）。**跨切面义务 / 不变量**（如 R1.x：某类记录必须经某机制关联某字段）——读代码 / 读单个模块 catalog 不一定看得出——写进 `docs/project/data/overview.md` 跨模块段、`docs/project/api/conventions.md` 或 `docs/project/ui/surfaces.md`，供下游 epic 规划时直接读。
 
 ---
 
@@ -140,7 +152,8 @@ sequenceDiagram
 
 ### 设计上下文（指针 + 现状冲突 / 契约，不复制 DESIGN.md）
 > UI Unit 的设计合同是 `docs/project/DESIGN.md`，vj-work 执行时**直接读**——本 plan **不复制其约束原文**（复制只会和真相源漂移，还诱导执行者把残缺子集当完整 spec）。
-> 前置检查：`DESIGN.md` 存在 → 继续；缺失 → 暂停 UI 实现先补草案（旧 `design_guidelines.md` 仅 fallback）。设计稿（若有）：`docs/reference/research/designs/{epic-id}/`，无则“暂无”。
+> UI Surface / Route 合同的稳定真相源是 `docs/project/ui/surfaces.md` + `docs/project/ui/routes.md`。本节只写本 Epic 的新增/更新 delta；Phase 5 同步到 catalog，后续 Epic 读 catalog，不翻旧 plan。
+> 前置检查：`DESIGN.md` 存在 → 继续；缺失 → 暂停 UI-critical 实现先补草案（旧 `design_guidelines.md` 仅 fallback）。设计稿（若有）：`docs/reference/research/designs/{epic-id}/`，无则“暂无”。
 > 本节只留 work-time 单 Unit **拿不到、或并行会各判各的** 的东西 ↓
 
 **现状 ↔ DESIGN.md 冲突 / 需跨 UI Unit 统一的设计契约**（无则写“无”）：
@@ -156,13 +169,14 @@ sequenceDiagram
 |-----------|----------|--------|--------|----------|------------|----------|-----------|
 | | | | | | | | U1 |
 
-### UI Surface Contract（前端 Epic 必填）
-> 前端质量的真相源。Story / Unit 负责验收追踪，Screen / Route 负责整体体验。不得让每个 Story 各自发明页面片段；同一 Screen 的 UI 在 frontend composition wave 中整体实现。
+### UI Surface Delta（前端 Epic 必填）
+> 本 Epic 新增或更新的 Screen / Route 合同。稳定版本在 Phase 5 写入 `docs/project/ui/surfaces.md` 与 `docs/project/ui/routes.md`；后续 Epic 读取 catalog。
+> Story / Unit 负责验收追踪，Screen / Route 负责整体体验。不得让每个 Story 各自发明页面片段；同一 Screen 的 UI 在 frontend composition wave 中整体实现。
 > 启动前端实现的条件不是“所有后端全部完成”，而是该 Screen 依赖的 API / 状态 / 数据合同已经稳定。合同不清时列入 §2 待审批决策。
 
-| Screen ID | Route | Primary Job | Role | Covered Units | Regions / IA | Key States | API-for-UI / Data Contract | Screen Done |
-|-----------|-------|-------------|------|---------------|--------------|------------|----------------------------|-------------|
-| screen-xxx | `/path` | 用户在此屏完成什么任务 | admin / employee | U1, U3 | 左/中/右区域或上下区域 | empty / loading / error / draft / success / permission | `GET/POST ...` + 关键字段 / 状态枚举 | 可跑通的屏级验收信号 |
+| Action | Screen ID | Route | Primary Job | Role | Covered Units | Regions / IA | Key States | API-for-UI / Data Contract | Screen Done | Catalog target |
+|--------|-----------|-------|-------------|------|---------------|--------------|------------|----------------------------|-------------|----------------|
+| Add / Update | screen-xxx | `/path` | 用户在此屏完成什么任务 | admin / employee | U1, U3 | 左/中/右区域或上下区域 | empty / loading / error / draft / success / permission | `GET/POST ...` + 关键字段 / 状态枚举 | 可跑通的屏级验收信号 | `docs/project/ui/surfaces.md` |
 
 ### Frontend Composition Policy
 > 用于 Appendix D 与 vj-work。后端按 capability 落地，前端按 experience 落地。
@@ -180,7 +194,7 @@ sequenceDiagram
 
 ---
 
-## 5. API / Schema Delta
+## 5. API / Schema / UI Catalog Delta
 
 > Triage 命中“改 API 契约”或“改 DB schema / persistence contract”时填。本节是当前 Epic 的 delta；稳定项目级视图同步维护在模块化契约目录。
 
@@ -191,6 +205,7 @@ sequenceDiagram
 |------|-------------|--------|--------|
 | API | `docs/project/api/conventions.md`（仅全局约定变化时修改）+ `docs/project/api/{module}.md` | Create / Update / N/A | |
 | Data | `docs/project/data/overview.md`（表索引 / 跨模块关系）+ `docs/project/data/{module}.md` | Create / Update / N/A | |
+| UI | `docs/project/ui/surfaces.md` + `docs/project/ui/routes.md` | Create / Update / N/A | |
 
 ### API Contract Delta（命中才填）
 | Change | Endpoint | Request | Response | Auth / Idempotency / Notes |
@@ -213,6 +228,16 @@ sequenceDiagram
 索引 / 约束 / 一致性（unique / FK / 事务 / 幂等）：
 Migration 与回滚：
 已同步 Data 模块文档：`docs/project/data/overview.md` + `docs/project/data/{module}.md` / 无需同步
+
+### UI Surface / Route Delta（前端 Epic 命中才填）
+| Change | Screen / Route | Before | After | Notes |
+|--------|----------------|--------|-------|-------|
+| Added / Updated / Removed | `screen-xxx` / `/path` | | | |
+
+路由 / 角色 / 导航变化：
+API-for-UI 依赖：
+Screen 状态（empty/loading/error/success/permission/draft）：
+已同步 UI catalog：`docs/project/ui/surfaces.md` + `docs/project/ui/routes.md` / 无需同步
 
 ---
 
@@ -263,24 +288,27 @@ graph LR
 - **Confidence**: High / Medium / Low
 - **理由**：
 
-### 约束清单
-**硬约束**（Story AC / PRD 明确要求，引 R-ID / AC）：
--
+### 关键约束来源
+> 这里只列 source pointer，不复制 catalog / DESIGN.md / 代码约束原文。执行期由 vj-work 投影进 task docs 与 `_execution_context.md`。
 
-**隐含约束**（从现有代码 / 架构推导）：
--
+| 类别 | 来源 | 本 Epic 用途 |
+|------|------|--------------|
+| Story / AC | `docs/tasks/epics/...` | |
+| API catalog | `docs/project/api/...` | |
+| Data catalog | `docs/project/data/...` | |
+| UI catalog / Design | `docs/project/ui/...`, `docs/project/DESIGN.md` | |
+| Code patterns | `backend/...`, `frontend/...` | |
+
+### 执行约束投影
+- Appendix C：只在对应 Unit 的 Approach / Patterns / Test scenarios 中列该 Unit 需要的约束来源。
+- task docs：按 Unit 注入目标文件、验证命令、UI Screen context 与 source pointer。
+- `_execution_context.md`：由 vj-work 生成 10-20 条 Epic-level checklist + 每 Unit Context Packet；不从 Appendix A 复制长清单。
 
 ### Scope Challenge
 - 现有代码 / 上游 Epic 已 Provides 什么，能避免平行实现？
 - 达成本 Epic 的最小改动是什么？
 - 哪些是 scope creep，应延后？
 - 若预计单个 Story 改 >8 文件且超 2 层，是否方案过重？
-
-### 本次必须产出
-- [x] 本 Epic Plan
-- [ ] 同步 docs/project/api/conventions.md + docs/project/api/{module}.md（改 API 契约时）
-- [ ] 同步 docs/project/data/overview.md + docs/project/data/{module}.md（改 schema / persistence contract 时）
-- [ ] 补 ADR（有架构影响时）
 
 ### 升级触发条件
 - 实现中若发现 [改 DB / 改 API 契约 / 跨 BC / 需求歧义]，暂停并升级 Flow。
@@ -326,8 +354,8 @@ graph LR
 **Execution note**: *(可选：test-first / characterization-first 等执行姿态)*
 **Patterns to follow**: 现有可镜像的文件 / 类 / 约定
 **Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；设计稿路径（如有）
-**UI Surface participation（UI Unit）**: Screen ID / Route；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号。
-**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分；只有当 UI Surface Contract 要求按 Screen 聚合实现时，允许把 UI AC 汇入 Screen composition task，并在此处回指对应 task。
+**UI Surface participation（UI Unit）**: Screen ID / Route；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号；catalog target `docs/project/ui/surfaces.md` / `routes.md`。
+**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分；只有当 UI Surface Delta / catalog 要求按 Screen 聚合实现时，允许把 UI AC 汇入 Screen composition task，并在此处回指对应 task。
 
 **Test scenarios**:
 - 链 S N.1 AC：Happy / Edge / Error / Integration（见 epic.md）
@@ -360,7 +388,7 @@ graph LR
 ### Execution lanes（前端 Epic 必填）
 | Lane | Wave | Scope | Start condition | Done signal |
 |------|------|-------|-----------------|-------------|
-| UI surface / API contract | Wave 0 | UI Surface Contract + API-for-UI 字段 / 状态 / 错误合同 | plan 定稿 | §4 Screen 表完整，§5 API/Data Delta 对齐 |
+| UI surface / API contract | Wave 0 | UI Surface Delta + API-for-UI 字段 / 状态 / 错误合同 + UI catalog sync target | plan 定稿 | §4 Screen delta 完整，§5 API/Data/UI Delta 对齐 |
 | Backend / API capability | Wave 1..N | 按 Unit 实现后端、API、AI adapter、数据持久化 | 上游 Unit 依赖满足 | API / pytest / service verification 通过 |
 | Frontend composition | Wave N+1..M | 按 Screen/Route 整体实现 UI | 对应 Screen 依赖的 API / 状态 / 数据合同稳定，可用 mock 或真实接口返回 | Screen browser check + 关联 UI AC 通过 |
 | E2E polish | Final | 演示脚本、截图、异常状态、证据 | backend + screen composition 完成 | 端到端脚本通过 |
@@ -420,7 +448,7 @@ graph LR
 ### 执行步骤
 > 按 Appendix D 的 lane 顺序执行。后端/API/data 仍按 Unit 分组；前端按 Screen composition wave 分组；可并行 Unit 与协调点见 Appendix D。
 
-- [ ] Wave 0: UI Surface Contract + API-for-UI 合同对齐（如前端 Epic）
+- [ ] Wave 0: UI Surface Delta + API-for-UI 合同 + UI catalog target 对齐（如前端 Epic）
 - [ ] Backend/API capability: U1 [描述] → 文件 [...] → verification
 - [ ] Backend/API capability: U2 [描述] → 文件 [...] → verification
 - [ ] Frontend composition: screen-xxx `/path` → 覆盖 U1/U2 的 UI AC → browser/screenshot verification
@@ -434,5 +462,6 @@ graph LR
 - **架构**: docs/project/architecture.md
 - **API Catalog**: docs/project/api/conventions.md + docs/project/api/{module}.md（如适用）
 - **Data Catalog**: docs/project/data/overview.md + docs/project/data/{module}.md（如适用）
-- **上游契约（Consumes 真相源）**: docs/project/api/、docs/project/data/（catalog；不再从上游 plan 读 Provides）
+- **UI Catalog**: docs/project/ui/surfaces.md + docs/project/ui/routes.md（如适用）
+- **上游契约（Consumes 真相源）**: docs/project/api/、docs/project/data/、docs/project/ui/（catalog；不再从上游 plan 读 Provides）
 - **复用锚点**: [path or symbol]

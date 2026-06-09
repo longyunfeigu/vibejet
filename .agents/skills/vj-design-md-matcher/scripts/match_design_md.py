@@ -49,7 +49,7 @@ def fetch_text(url: str, timeout: int = 20) -> str:
         url,
         headers={
             "Accept": "application/vnd.github+json, text/plain;q=0.9, */*;q=0.1",
-            "User-Agent": "design-md-matcher",
+            "User-Agent": "vj-design-md-matcher",
         },
     )
     token = os.environ.get("GITHUB_TOKEN")
@@ -642,13 +642,13 @@ def main() -> int:
         try:
             return download_cache(args)
         except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
-            print(f"design-md-matcher cache download failed: {exc}", file=sys.stderr)
+            print(f"vj-design-md-matcher cache download failed: {exc}", file=sys.stderr)
             return 1
 
     try:
         candidates = rank(args)
     except (SystemExit, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as exc:
-        print(f"design-md-matcher failed: {exc}", file=sys.stderr)
+        print(f"vj-design-md-matcher failed: {exc}", file=sys.stderr)
         return 1
 
     if args.json:

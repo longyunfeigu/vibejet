@@ -1,4 +1,0 @@
-interface:
-  display_name: "DESIGN.md Matcher"
-  short_description: "按 PRD 匹配参考 DESIGN.md 并生成项目设计系统"
-  default_prompt: "Use $design-md-matcher to recommend three DESIGN.md references from the library for this PRD and draft docs/project/DESIGN.md."

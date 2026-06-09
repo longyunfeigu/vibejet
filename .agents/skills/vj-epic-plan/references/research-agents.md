@@ -11,7 +11,7 @@ Epic: epic-{N}-{slug}
 上游依赖 Epic: {epic-N 列表，无则"无"}
 是否前端 Epic: {true/false}
 Epic ID（设计稿路径用）: {epic-N}
-设计来源候选: docs/project/DESIGN.md（优先）/ docs/project/design_guidelines.md（fallback）/ docs/reference/research/designs/{Epic ID}/
+设计来源候选: docs/project/DESIGN.md（优先）/ docs/project/design_guidelines.md（fallback）/ docs/project/ui/ / docs/reference/research/designs/{Epic ID}/
 ```
 
 研究任务**只读**——不改文件、不建文件、不写代码。读不到的文件记"不存在"，不要报错停止。
@@ -32,6 +32,7 @@ Epic ID（设计稿路径用）: {epic-N}
 2. 读模块化契约目录（按业务域 slug 定位）：
    - API：读 `docs/project/api/conventions.md`（若存在）；读每个涉及模块的 `docs/project/api/{module}.md`。
    - Data：读 `docs/project/data/overview.md`（若存在）；读每个涉及模块的 `docs/project/data/{module}.md`。
+   - UI：若本 Epic 是前端 Epic，读 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`（若存在），提取既有 Screen / Route / Role / API-for-UI / Screen done 合同。
    - module slug 从 architecture.md 的业务模块命名推导，或直接用 epic_context 中的业务域 slug。
 3. 若 `docs/project/api/` / `docs/project/data/` 不存在，兼容回退读取 `docs/project/api_spec.md` / `docs/project/database_schema.md`；旧单文件只读，标注"兼容回退"。
 
@@ -46,6 +47,9 @@ Epic ID（设计稿路径用）: {epic-N}
 **已有数据模型**
 涉及实体/表、字段约束、索引、跨模块关系。
 
+**已有 UI Surface / Route 合同**
+涉及 Screen、Route、角色、状态、API-for-UI、Screen done、导航/守卫约定。
+
 **硬约束清单**
 来自架构或设计文档的不可违反约束，每条标注来源文件。
 
@@ -58,7 +62,7 @@ Epic ID（设计稿路径用）: {epic-N}
 ## Agent B — upstream-contracts（上游 Epic 契约）
 
 ```
-你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 从 catalog 提取本 Epic 依赖的上游契约，生成 Consumes。**真相源 = catalog（`docs/project/api/`、`docs/project/data/`），不是上游 plan 的 Provides。**
+你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 从 catalog 提取本 Epic 依赖的上游契约，生成 Consumes。**真相源 = catalog（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`），不是上游 plan 的 Provides。**
 
 <本次任务>
 {epic_context}
@@ -66,14 +70,14 @@ Epic ID（设计稿路径用）: {epic-N}
 
 步骤：
 1. 从 epic_context 的"上游依赖 Epic"与本 Epic 业务域，判断可能消费哪些上游能力。若"上游依赖 Epic"为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
-2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` 含跨切面不变量（如 R1.x）。
-3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / 鉴权约定 / 跨切面不变量），作为 Consumes。
+2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`、`docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` / `ui/surfaces.md` 含跨切面不变量（如 R1.x）。
+3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / UI Surface / Route / 鉴权约定 / 跨切面不变量），作为 Consumes。
 4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 plan 的 `## 3. 跨 Epic 契约` / `§5 Catalog Sync`（旧 plan 可能还有 Provides 段），并标注"catalog 缺失，回退读 plan"。
 
 结构化输出：
 
 **Consumes 列表**
-每条格式：`{序号}. {依赖的契约描述} | 在哪用：{...} | 真相来源：docs/project/api|data/{module}.md`
+每条格式：`{序号}. {依赖的契约描述} | 在哪用：{...} | 真相来源：docs/project/api|data|ui/{module-or-file}.md`
 
 **缺失声明**
 哪些预期的上游契约在 catalog 里没有（可能上游 epic 尚未实现 / 未同步 catalog），以及这对本 Epic 的影响。
@@ -102,6 +106,7 @@ Epic ID（设计稿路径用）: {epic-N}
 3. **设计上下文扫描**（仅当 epic_context 中 `是否前端 Epic: true`）：
    - 优先检查并读取 `docs/project/DESIGN.md`，提取与本 Epic 相关的颜色、字体、密度、组件、布局、状态、Do/Don't 和响应式约束。
    - 若 `DESIGN.md` 不存在，再检查 `docs/project/design_guidelines.md`，标注为"fallback 旧路径"。
+   - 读取 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`（若存在），列出与本 Epic 路由/角色/流程相关的既有 Surface，标注“直接复用 / 更新 / 新增”。
    - 扫描 `docs/reference/research/designs/{Epic ID}/`，列出存在的设计稿与 vj-ui-mock 产出的提示词文件；无则记"暂无设计稿"。
 
 结构化输出：
@@ -118,6 +123,7 @@ Epic ID（设计稿路径用）: {epic-N}
 **设计上下文**（前端 Epic，否则省略）
 - 项目设计合同：`docs/project/DESIGN.md` 是否存在；若存在，列 5-8 条与本 Epic 直接相关的约束。
 - fallback：`docs/project/design_guidelines.md` 是否使用；只有 DESIGN.md 缺失时才使用。
+- UI catalog：`docs/project/ui/surfaces.md` / `routes.md` 是否存在；相关 Surface / Route 列表与复用/更新/新增建议。
 - 设计稿 / 提示词：找到的文件列表，或"暂无设计稿"。
 
 **扫描覆盖范围**

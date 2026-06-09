@@ -1,399 +1,157 @@
 ---
 name: frontend-dev-guidelines
-description: Frontend development guidelines for React/TypeScript applications. Modern patterns including Suspense, lazy loading, useSuspenseQuery, file organization with features directory, MUI v7 styling, TanStack Router, performance optimization, and TypeScript best practices. Use when creating components, pages, features, fetching data, styling, routing, or working with frontend code.
+description: Frontend development guidelines for vibejet's React + Vite + TypeScript + Tailwind v4 + shadcn/ui + TanStack stack. Use when creating components, pages, features, fetching data, styling, routing, forms, or working with frontend code. UI uses Tailwind utility classes + shadcn components (NOT MUI); design tokens come from docs/project/DESIGN.md compiled into src/index.css.
 ---
 
 # Frontend Development Guidelines
 
 ## Purpose
 
-Comprehensive guide for modern React development, emphasizing Suspense-based data fetching, lazy loading, proper file organization, and performance optimization.
+vibejet 前端的统一规范。栈是当前最适合 AI coding 的组合：**React 19 + Vite + TypeScript(strict) + Tailwind v4 + shadcn/ui(Radix) + TanStack Router/Query + RHF/Zod**。样式用 Tailwind utility class + shadcn 组件，**不用 MUI / emotion / `sx`**。
 
-## When to Use This Skill
+设计 token 唯一来源 = `docs/project/DESIGN.md`，编译进 `frontend/src/index.css` 的 CSS 变量（`@theme` + `:root`）。改设计先改 DESIGN.md → index.css，**不在组件里硬编码颜色/圆角**。
 
-- Creating new components or pages
-- Building new features
-- Fetching data with TanStack Query
-- Setting up routing with TanStack Router
-- Styling components with MUI v7
-- Performance optimization
-- Organizing frontend code
-- TypeScript best practices
+## Canonical Stack（不要偏离）
 
----
+| 关注点 | 选型 |
+|---|---|
+| 构建 | Vite 8 |
+| 语言 | TypeScript strict（`@/` 单一别名；类型用 `import type`） |
+| 样式 | Tailwind v4（CSS-first `@theme`，无 `tailwind.config.js`） |
+| 组件 | shadcn/ui（new-york 风，Radix 原语，源码 copy 进 `src/components/ui/`，归你所有可改） |
+| 类名合并 | `cn()` = clsx + tailwind-merge（`@/lib/utils`） |
+| 变体 | class-variance-authority（cva），见 `ui/button.tsx` |
+| 图标 | lucide-react |
+| 数据 | TanStack Query（`useSuspenseQuery` 为主） |
+| 路由 | TanStack Router（文件式，`routeTree.gen.ts` 由 dev 自动生成） |
+| 表单 | React Hook Form + Zod（+ shadcn `Form`） |
+| Toast | sonner（`import { toast } from 'sonner'`；`<Toaster/>` 已在 `main.tsx`） |
+| HTTP | `apiClient`（axios，`@/lib/apiClient`，`baseURL=VITE_API_URL`，`withCredentials`） |
 
-## Quick Start
+## New Component Checklist
 
-### New Component Checklist
+- [ ] TS 函数组件 + props interface，命名导出 + 默认导出
+- [ ] 样式用 Tailwind class；条件/合并用 `cn()`；多变体用 `cva`
+- [ ] 复用 shadcn 组件（`@/components/ui/*`）；缺的用 `npx shadcn@latest add <c>` 拉进来（网络抖动见下方 curl 兜底）
+- [ ] 颜色/间距/圆角走 token（`bg-background`/`text-foreground`/`text-muted-foreground`/`bg-primary`/`border-border`/`bg-card`/`bg-success`/`bg-destructive`…），不写裸 hex
+- [ ] 数据用 `useSuspenseQuery`；**不写 `if (isLoading) return <Spinner/>` 这种 early-return**；外层包 `<SuspenseLoader>`
+- [ ] 错误态用 route 的 `errorComponent` / ErrorBoundary + 重试；瞬时反馈用 `sonner`
+- [ ] 图标用 lucide-react；交互元素要有 `focus-visible` 环（token `--ring`），键盘可达
 
-Creating a component? Follow this checklist:
+## New Feature Checklist
 
-- [ ] Use `React.FC<Props>` pattern with TypeScript
-- [ ] Lazy load if heavy component: `React.lazy(() => import())`
-- [ ] Wrap in `<SuspenseLoader>` for loading states
-- [ ] Use `useSuspenseQuery` for data fetching
-- [ ] Import aliases: `@/`, `~types`, `~components`, `~features`
-- [ ] Styles: Inline if <100 lines, separate file if >100 lines
-- [ ] Use `useCallback` for event handlers passed to children
-- [ ] Default export at bottom
-- [ ] No early returns with loading spinners
-- [ ] Use `useMuiSnackbar` for user notifications
-
-### New Feature Checklist
-
-Creating a feature? Set up this structure:
-
-- [ ] Create `features/{feature-name}/` directory
-- [ ] Create subdirectories: `api/`, `components/`, `hooks/`, `helpers/`, `types/`
-- [ ] Create API service file: `api/{feature}Api.ts`
-- [ ] Set up TypeScript types in `types/`
-- [ ] Create route in `routes/{feature-name}/index.tsx`
-- [ ] Lazy load feature components
-- [ ] Use Suspense boundaries
-- [ ] Export public API from feature `index.ts`
-
----
-
-## Import Aliases Quick Reference
-
-| Alias | Resolves To | Example |
-|-------|-------------|---------|
-| `@/` | `src/` | `import { apiClient } from '@/lib/apiClient'` |
-| `~types` | `src/types` | `import type { User } from '~types/user'` |
-| `~components` | `src/components` | `import { SuspenseLoader } from '~components/SuspenseLoader'` |
-| `~features` | `src/features` | `import { authApi } from '~features/auth'` |
-
-Defined in: [vite.config.ts](../../vite.config.ts) lines 180-185
-
----
-
-## Common Imports Cheatsheet
-
-```typescript
-// React & Lazy Loading
-import React, { useState, useCallback, useMemo } from 'react';
-const Heavy = React.lazy(() => import('./Heavy'));
-
-// MUI Components
-import { Box, Paper, Typography, Button, Grid } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material';
-
-// TanStack Query (Suspense)
-import { useSuspenseQuery, useQueryClient } from '@tanstack/react-query';
-
-// TanStack Router
-import { createFileRoute } from '@tanstack/react-router';
-
-// Project Components
-import { SuspenseLoader } from '~components/SuspenseLoader';
-
-// Hooks
-import { useAuth } from '@/hooks/useAuth';
-import { useMuiSnackbar } from '@/hooks/useMuiSnackbar';
-
-// Types
-import type { Post } from '~types/post';
+```
+features/<name>/
+  api/<name>Api.ts       # 用 apiClient 包后端接口
+  hooks/use<Name>.ts     # useSuspenseQuery 包装
+  components/<Name>*.tsx # shadcn + Tailwind，消费 hook
+  types/index.ts
+  index.ts               # 公开 barrel
+routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 ```
 
----
+参考实现：`frontend/src/features/health/` + `frontend/src/routes/health/`。
 
-## Topic Guides
+## Product Richness（建富屏 — 别像 demo）
 
-### 🎨 Component Patterns
+> 非协商铁律见 `.claude/rules/frontend.md`（按路径自动注入）。这里是 how-to。
+> 核心：**屏丑通常不是栈 / DESIGN 的问题，是建得太薄。按页面体验地图建整屏，不停在 AC 最小；不许空屏。**
 
-**Modern React components use:**
-- `React.FC<Props>` for type safety
-- `React.lazy()` for code splitting
-- `SuspenseLoader` for loading states
-- Named const + default export pattern
+### 剧本 A：有可抄的高级作品（reference-based，首选）
 
-**Key Concepts:**
-- Lazy load heavy components (DataGrid, charts, editors)
-- Always wrap lazy components in Suspense
-- Use SuspenseLoader component (with fade animation)
-- Component structure: Props → Hooks → Handlers → Render → Export
+1. **拿参考**：用户截图（最佳，最准、无登录墙）/ URL（用 web-access CDP 打开截**渲染图**，不能只 WebFetch HTML）/ 仅产品名（保真度较低）。挑**同屏类型**的参考（审核台找工单列表，仪表盘找 dashboard，别拿落地页参考表格）。
+2. **拆"组成"不拆"皮"**：提取布局 / 信息密度 / 组件清单（统计卡 / 表格 / 筛选 / tabs / 徽章）/ 交互范式 / 间距层次；**丢掉品牌皮**（配色 / logo / 招牌字）。
+3. **重皮肤化**：用 `DESIGN.md` token + shadcn 组件 + 真实/mock 数据落地 → 长得像本产品、但有参考的丰富度。
+4. **对照**：截自己的图，跟参考比密度/组成、跟 DESIGN.md 比 token。
 
-**[📖 Complete Guide: resources/component-patterns.md](resources/component-patterns.md)**
+### 剧本 B：没有外部参考（from scratch）
 
----
+1. **屏归型**：列表/控制台、仪表盘、详情、表单/向导、设置、空态——套该范式的标准富组成（控制台 = 工具条[筛选+搜索+主操作] + 密集表格 + 批量 + 统计摘要 + 行操作 + 全状态）。
+2. **吃满「页面体验地图」**：把 epic 里该屏的 职责/主操作/次操作/关键状态/信息优先级 全建出来。
+3. **调设计品味 skill**：`design-taste-frontend` / `high-end-visual-design` 当"内化的高级标准"。
 
-### 📊 Data Fetching
+### 数据规则（不许空屏）
 
-**PRIMARY PATTERN: useSuspenseQuery**
-- Use with Suspense boundaries
-- Cache-first strategy (check grid cache before API)
-- Replaces `isLoading` checks
-- Type-safe with generics
+- 后端先行 → 接真接口（dev 库要有 seed 数据）。
+- 后端没好 / 前后端并行 → `features/<x>/mock*.ts` 占位，**接口落地即删**。
 
-**API Service Layer:**
-- Create `features/{feature}/api/{feature}Api.ts`
-- Use `apiClient` axios instance
-- Centralized methods per feature
-- Route format: `/form/route` (NOT `/api/form/route`)
+### 富度 checklist（自检）
 
-**[📖 Complete Guide: resources/data-fetching.md](resources/data-fetching.md)**
+- [ ] 整屏按页面体验地图建全（外壳/导航/次操作），不是 AC 最小
+- [ ] 有数据就上表格/统计/筛选，不堆孤立卡片
+- [ ] 三态齐：加载(Skeleton) / 空(图标+引导动作) / 错误(原因+重试)
+- [ ] 数值 mono 右对齐；状态 = 圆点+文案；长文截断 + title
+- [ ] 资深 PM 一眼看像"已上线"，而不是 demo
 
----
+## Styling（Tailwind v4 + shadcn）
 
-### 📁 File Organization
+- Utility class 内联，写在标记旁；合并/条件用 `cn(...)`。
+- **禁止** `sx` prop、MUI theme、emotion、styled。
+- 设计 token = CSS 变量（在 `src/index.css` 的 `:root` + `@theme inline`，源自 DESIGN.md）。语义类直接用：`bg-background text-foreground border-border bg-card bg-muted text-muted-foreground bg-primary text-primary-foreground bg-success bg-warning bg-destructive` 等。
+- 多变体组件用 `cva`（看 `src/components/ui/button.tsx` 的写法）。
+- 布局用 Tailwind `flex`/`grid`/间距 class（**不用 MUI Grid**）；响应式用 `md:`/`lg:` 断点。
+- 改主题色/圆角/字体：改 `docs/project/DESIGN.md` → 同步 `src/index.css` 的 token，不在组件里硬编码。
 
-**features/ vs components/:**
-- `features/`: Domain-specific (posts, comments, auth)
-- `components/`: Truly reusable (SuspenseLoader, CustomAppBar)
+## shadcn/ui 用法
 
-**Feature Subdirectories:**
-```
-features/
-  my-feature/
-    api/          # API service layer
-    components/   # Feature components
-    hooks/        # Custom hooks
-    helpers/      # Utility functions
-    types/        # TypeScript types
-```
+- 组件是**复制进 `src/components/ui/` 的纯 TSX**（Radix + Tailwind），就是你的代码，可直接改。
+- 添加：`npx shadcn@latest add button card dialog form table dropdown-menu ...`
+- **registry 网络抖动兜底**（本仓库环境 `ui.shadcn.com` 偶发并发失败，单发 curl 稳定）：
+  ```bash
+  curl -s "https://ui.shadcn.com/r/styles/new-york-v4/<comp>.json" -o /tmp/c.json
+  # 把 .files[].content 写到 src/components/ui/<comp>.tsx；把 .dependencies 用 pnpm add 装上
+  ```
+- `components.json` 是配置（new-york / neutral / cssVariables:true / `@/` 别名 / lucide）。Radix 走统一包 `radix-ui`（`import { Slot } from 'radix-ui'`）。
 
-**[📖 Complete Guide: resources/file-organization.md](resources/file-organization.md)**
+## Data Fetching（useSuspenseQuery）
 
----
+- 每 feature 一个 `api/<name>Api.ts`，方法用 `apiClient`。
+- `hooks/use<Name>.ts` 用 `useSuspenseQuery({ queryKey, queryFn })`，组件直接拿 `data`（无 `isLoading` 判断）。
+- 外层用 `<SuspenseLoader>`（`@/components/SuspenseLoader`，Skeleton fallback）。
+- 失败：靠 route `errorComponent` 或 ErrorBoundary 兜，给原因 + 重试（对应 DESIGN 三态强制）。
+- query 默认项见 `main.tsx`（staleTime 30s、不 refetchOnWindowFocus、retry 1）。
 
-### 🎨 Styling
+## Routing（TanStack Router，文件式）
 
-**Inline vs Separate:**
-- <100 lines: Inline `const styles: Record<string, SxProps<Theme>>`
-- >100 lines: Separate `.styles.ts` file
+- `routes/<name>/index.tsx` 用 `createFileRoute('/<name>/')({ component, loader })`。
+- 重组件用 `lazy(() => import(...))` 包，再套 `<SuspenseLoader>`。
+- `src/routeTree.gen.ts` 由 `@tanstack/router-plugin` 在 `pnpm dev` 时自动生成，**不手改**；新增/改路由后跑一次 dev 重生。
 
-**Primary Method:**
-- Use `sx` prop for MUI components
-- Type-safe with `SxProps<Theme>`
-- Theme access: `(theme) => theme.palette.primary.main`
+## Forms（RHF + Zod + shadcn Form）
 
-**MUI v7 Grid:**
-```typescript
-<Grid size={{ xs: 12, md: 6 }}>  // ✅ v7 syntax
-<Grid xs={12} md={6}>             // ❌ Old syntax
-```
+- zod schema + `zodResolver`；用 shadcn `Form/FormField/FormItem/FormLabel/FormControl/FormMessage`。
+- 标签置于输入上方；必填加 `*` + `aria-required`；错误文案在字段下方（DESIGN §Component Rules）。
+- 任一必填缺失禁用提交并就地提示。
 
-**[📖 Complete Guide: resources/styling-guide.md](resources/styling-guide.md)**
+## 三态（DESIGN 强制：加载/空/错误）
 
----
+- **加载**：`SuspenseLoader` 骨架屏；按钮内联 spinner + 禁用；禁止整页空白。
+- **空**：图标 + 一句说明 + 主引导动作。
+- **错误**：ErrorBoundary/`errorComponent` + 原因 + 重试；瞬时用 `sonner` toast（成功/失败用语义色）。
+- 状态表达 = 颜色 + 图标 + 文案三件套，不只靠颜色（无障碍）。
 
-### 🛣️ Routing
+## File Organization
 
-**TanStack Router - Folder-Based:**
-- Directory: `routes/my-route/index.tsx`
-- Lazy load components
-- Use `createFileRoute`
-- Breadcrumb data in loader
+- `features/`：领域相关（每个含 `api/ components/ hooks/ types/`，可选 `helpers/`）。
+- `components/ui/`：shadcn 组件（vendored）。`components/layout/`：外壳。`components/<Shared>/`：跨域复用（如 `SuspenseLoader`）。
+- `lib/`：`apiClient`、`utils`(cn)。`hooks/`：跨域 hook（如 `useAuth` 占位）。
 
-**Example:**
-```typescript
-import { createFileRoute } from '@tanstack/react-router';
-import { lazy } from 'react';
+## TypeScript / Performance
 
-const MyPage = lazy(() => import('@/features/my-feature/components/MyPage'));
-
-export const Route = createFileRoute('/my-route/')({
-    component: MyPage,
-    loader: () => ({ crumb: 'My Route' }),
-});
-```
-
-**[📖 Complete Guide: resources/routing-guide.md](resources/routing-guide.md)**
-
----
-
-### ⏳ Loading & Error States
-
-**CRITICAL RULE: No Early Returns**
-
-```typescript
-// ❌ NEVER - Causes layout shift
-if (isLoading) {
-    return <LoadingSpinner />;
-}
-
-// ✅ ALWAYS - Consistent layout
-<SuspenseLoader>
-    <Content />
-</SuspenseLoader>
-```
-
-**Why:** Prevents Cumulative Layout Shift (CLS), better UX
-
-**Error Handling:**
-- Use `useMuiSnackbar` for user feedback
-- NEVER `react-toastify`
-- TanStack Query `onError` callbacks
-
-**[📖 Complete Guide: resources/loading-and-error-states.md](resources/loading-and-error-states.md)**
-
----
-
-### ⚡ Performance
-
-**Optimization Patterns:**
-- `useMemo`: Expensive computations (filter, sort, map)
-- `useCallback`: Event handlers passed to children
-- `React.memo`: Expensive components
-- Debounced search (300-500ms)
-- Memory leak prevention (cleanup in useEffect)
-
-**[📖 Complete Guide: resources/performance.md](resources/performance.md)**
-
----
-
-### 📘 TypeScript
-
-**Standards:**
-- Strict mode, no `any` type
-- Explicit return types on functions
-- Type imports: `import type { User } from '~types/user'`
-- Component prop interfaces with JSDoc
-
-**[📖 Complete Guide: resources/typescript-standards.md](resources/typescript-standards.md)**
-
----
-
-### 🔧 Common Patterns
-
-**Covered Topics:**
-- React Hook Form with Zod validation
-- DataGrid wrapper contracts
-- Dialog component standards
-- `useAuth` hook for current user
-- Mutation patterns with cache invalidation
-
-**[📖 Complete Guide: resources/common-patterns.md](resources/common-patterns.md)**
-
----
-
-### 📚 Complete Examples
-
-**Full working examples:**
-- Modern component with all patterns
-- Complete feature structure
-- API service layer
-- Route with lazy loading
-- Suspense + useSuspenseQuery
-- Form with validation
-
-**[📖 Complete Guide: resources/complete-examples.md](resources/complete-examples.md)**
-
----
-
-## Navigation Guide
-
-| Need to... | Read this resource |
-|------------|-------------------|
-| Create a component | [component-patterns.md](resources/component-patterns.md) |
-| Fetch data | [data-fetching.md](resources/data-fetching.md) |
-| Organize files/folders | [file-organization.md](resources/file-organization.md) |
-| Style components | [styling-guide.md](resources/styling-guide.md) |
-| Set up routing | [routing-guide.md](resources/routing-guide.md) |
-| Handle loading/errors | [loading-and-error-states.md](resources/loading-and-error-states.md) |
-| Optimize performance | [performance.md](resources/performance.md) |
-| TypeScript types | [typescript-standards.md](resources/typescript-standards.md) |
-| Forms/Auth/DataGrid | [common-patterns.md](resources/common-patterns.md) |
-| See full examples | [complete-examples.md](resources/complete-examples.md) |
-
----
+- strict、不用 `any`、显式返回类型、类型导入用 `import type`（`verbatimModuleSyntax` 开启）。
+- `useMemo`/`useCallback` 用于昂贵计算与传给子组件的 handler；重组件 `React.lazy`；`React.memo` 谨慎用。
 
 ## Core Principles
 
-1. **Lazy Load Everything Heavy**: Routes, DataGrid, charts, editors
-2. **Suspense for Loading**: Use SuspenseLoader, not early returns
-3. **useSuspenseQuery**: Primary data fetching pattern for new code
-4. **Features are Organized**: api/, components/, hooks/, helpers/ subdirs
-5. **Styles Based on Size**: <100 inline, >100 separate
-6. **Import Aliases**: Use @/, ~types, ~components, ~features
-7. **No Early Returns**: Prevents layout shift
-8. **useMuiSnackbar**: For all user notifications
+1. **Tailwind + shadcn + DESIGN.md token**，绝不 MUI/`sx`/裸 hex。
+2. **`useSuspenseQuery` + `<SuspenseLoader>`**，不写 early-return loading。
+3. `cn()` 合并 class，`cva` 管变体。
+4. shadcn 组件是 vendored、可改的你自己的代码。
+5. `@/` 单一别名。
+6. Toast 用 sonner，图标用 lucide。
+7. 三态（加载/空/错误）必备；状态 = 色 + 图标 + 文案。
 
----
+## Reference
 
-## Quick Reference: File Structure
-
-```
-src/
-  features/
-    my-feature/
-      api/
-        myFeatureApi.ts       # API service
-      components/
-        MyFeature.tsx         # Main component
-        SubComponent.tsx      # Related components
-      hooks/
-        useMyFeature.ts       # Custom hooks
-        useSuspenseMyFeature.ts  # Suspense hooks
-      helpers/
-        myFeatureHelpers.ts   # Utilities
-      types/
-        index.ts              # TypeScript types
-      index.ts                # Public exports
-
-  components/
-    SuspenseLoader/
-      SuspenseLoader.tsx      # Reusable loader
-    CustomAppBar/
-      CustomAppBar.tsx        # Reusable app bar
-
-  routes/
-    my-route/
-      index.tsx               # Route component
-      create/
-        index.tsx             # Nested route
-```
-
----
-
-## Modern Component Template (Quick Copy)
-
-```typescript
-import React, { useState, useCallback } from 'react';
-import { Box, Paper } from '@mui/material';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { featureApi } from '../api/featureApi';
-import type { FeatureData } from '~types/feature';
-
-interface MyComponentProps {
-    id: number;
-    onAction?: () => void;
-}
-
-export const MyComponent: React.FC<MyComponentProps> = ({ id, onAction }) => {
-    const [state, setState] = useState<string>('');
-
-    const { data } = useSuspenseQuery({
-        queryKey: ['feature', id],
-        queryFn: () => featureApi.getFeature(id),
-    });
-
-    const handleAction = useCallback(() => {
-        setState('updated');
-        onAction?.();
-    }, [onAction]);
-
-    return (
-        <Box sx={{ p: 2 }}>
-            <Paper sx={{ p: 3 }}>
-                {/* Content */}
-            </Paper>
-        </Box>
-    );
-};
-
-export default MyComponent;
-```
-
-For complete examples, see [resources/complete-examples.md](resources/complete-examples.md)
-
----
-
-## Related Skills
-
-- **error-tracking**: Error tracking with Sentry (applies to frontend too)
-- **backend-dev-guidelines**: Backend API patterns that frontend consumes
-
----
-
-**Skill Status**: Modular structure with progressive loading for optimal context management
+- 参考实现：`frontend/src/features/health/`、`frontend/src/routes/health/`、`frontend/src/components/ui/*`、`frontend/src/index.css`(token)。
+- 设计来源：`docs/project/DESIGN.md`。
