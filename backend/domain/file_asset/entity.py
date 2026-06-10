@@ -1,34 +1,29 @@
+# input: domain.common（BaseEntity、异常），纯业务逻辑
+# output: FileAsset 领域实体（对象存储文件聚合根）
+# owner: unknown
+# pos: 领域层 - 文件资产聚合根（继承 BaseEntity 公共原语，status 驱动软删）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entity representing a stored file asset."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Optional
 
+from domain.common.entity import BaseEntity, utcnow
 from domain.common.exceptions import DomainValidationException
 
 _ALLOWED_STATUSES = {"pending", "active", "deleted"}
 
 
-def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
 @dataclass
-class FileAsset:
+class FileAsset(BaseEntity[int]):
     """Aggregate root describing a file stored in object storage."""
 
-    id: Optional[int]
-    owner_id: Optional[int]
-    storage_type: str
-    bucket: Optional[str]
-    region: Optional[str]
-    key: str
+    owner_id: Optional[int] = None
+    storage_type: str = "local"
+    bucket: Optional[str] = None
+    region: Optional[str] = None
+    key: str = ""
     size: int = 0
     etag: Optional[str] = None
     content_type: Optional[str] = None
@@ -38,16 +33,11 @@ class FileAsset:
     metadata: dict[str, Any] = field(default_factory=dict)
     url: Optional[str] = None
     status: str = "pending"
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self.status = self.status or "pending"
         self._validate_status(self.status)
-        self.created_at = _ensure_utc(self.created_at)
-        self.updated_at = _ensure_utc(self.updated_at)
-        self.deleted_at = _ensure_utc(self.deleted_at)
         if self.metadata is None:
             self.metadata = {}
 
@@ -60,28 +50,20 @@ class FileAsset:
                 details={"allowed": sorted(_ALLOWED_STATUSES)},
             )
 
-    def _touch(self) -> None:
-        now = datetime.now(timezone.utc)
-        self.updated_at = now
-        if self.created_at is None:
-            self.created_at = now
-
     def mark_pending(self) -> None:
-        self._validate_status("pending")
         self.status = "pending"
         self.deleted_at = None
         self._touch()
 
     def mark_active(self) -> None:
-        self._validate_status("active")
         self.status = "active"
         self.deleted_at = None
         self._touch()
 
     def mark_deleted(self) -> None:
-        self._validate_status("deleted")
+        # 文件资产的软删由 status 驱动，同时记录 deleted_at
         self.status = "deleted"
-        self.deleted_at = datetime.now(timezone.utc)
+        self.deleted_at = utcnow()
         self._touch()
 
     def update_object_metadata(
