@@ -35,6 +35,9 @@ class StorageProviderPortAdapter(StoragePort):
     async def delete(self, key: str) -> bool:
         return await self.provider.delete(key)
 
+    async def download(self, key: str) -> bytes:
+        return await self.provider.download(key)
+
     async def get_metadata(self, key: str) -> ObjectMetadata:
         meta = await self.provider.get_metadata(key)
         return ObjectMetadata(

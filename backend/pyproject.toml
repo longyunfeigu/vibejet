@@ -206,6 +206,8 @@ aiokafka = ["aiokafka>=0.10,<1"]
 anthropic = ["anthropic>=0.40,<2"]
 # Async task queue
 celery = ["celery>=5.3.6,<6"]
+# Document parsing (markitdown provider; TextIn provider only needs core httpx)
+documents = ["markitdown[docx,pptx,xlsx,xls,pdf]>=0.1.3,<0.2"]
 # gRPC server (grpc_main.py / grpc_app)
 grpc = [
     "grpcio>=1.58,<2",

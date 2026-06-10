@@ -136,6 +136,31 @@ class StorageSettings(BaseModel):
     required: bool = False
 
 
+class DocumentSettings(BaseModel):
+    """文档解析配置：解析器二选一（环境变量 DOCUMENT__PARSER），不混用、不静默降级。"""
+
+    parser: str = "markitdown"  # markitdown | textin
+    # 单文件解析输入上限（防止超大文件拖垮 worker / 烧穿按页计费额度）
+    max_parse_bytes: int = 50 * 1024 * 1024  # 50MB
+    # TextIn 凭证（仅 parser=textin 时必填；长期有效，无刷新逻辑）
+    textin_app_id: Optional[str] = None
+    textin_secret_code: Optional[str] = None
+    textin_base_url: str = "https://api.textin.com"
+    textin_timeout: int = 120
+
+    @model_validator(mode="after")
+    def _validate_parser(self):
+        allowed = {"markitdown", "textin"}
+        if self.parser not in allowed:
+            raise ValueError(f"DOCUMENT__PARSER 必须是 {sorted(allowed)} 之一，当前: {self.parser}")
+        if self.parser == "textin" and not (self.textin_app_id and self.textin_secret_code):
+            raise ValueError(
+                "DOCUMENT__PARSER=textin 需要同时配置 "
+                "DOCUMENT__TEXTIN_APP_ID 和 DOCUMENT__TEXTIN_SECRET_CODE"
+            )
+        return self
+
+
 class AuthSettings(BaseModel):
     # JWT 签名使用顶层 SECRET_KEY
     algorithm: str = "HS256"
@@ -214,6 +239,7 @@ class Settings(BaseSettings):
     )
 
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    document: DocumentSettings = Field(default_factory=DocumentSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
