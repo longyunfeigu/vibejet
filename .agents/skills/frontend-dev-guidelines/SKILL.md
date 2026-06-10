@@ -68,7 +68,7 @@ routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 
 1. **屏归型**：列表/控制台、仪表盘、详情、表单/向导、设置、空态——套该范式的标准富组成（控制台 = 工具条[筛选+搜索+主操作] + 密集表格 + 批量 + 统计摘要 + 行操作 + 全状态）。
 2. **吃满「页面体验地图」**：把 epic 里该屏的 职责/主操作/次操作/关键状态/信息优先级 全建出来。
-3. **调设计品味 skill**：`design-taste-frontend` / `high-end-visual-design` 当"内化的高级标准"。
+3. **品味工具按屏型选**：**front-of-house**（login/landing/营销）→ `design-taste-frontend` / `high-end-visual-design` 当"内化的高级标准"。**operational**（dashboard/table-list/审核台/detail/form/设置）→ **不调** `design-taste-frontend`（其 §13 明确 out-of-scope: dashboards/admin），改用 **`resources/dense-ui-craft.md`（operational 屏的 craft 真相源：间距分层/字重色阶层次/边框克制/对齐/微态/accent 预算）** + `DESIGN.md` §Richness Floor 对应屏型 + §Reference Skeletons + §Spacing Hierarchy + 一个密集后台参考（Linear/Airtable/Retool/Carbon）。两个方向都违规：marketing 留白（巨型空框、半屏 hero）和 wall-to-wall 挤死（页框/区块层用组件内间距）。
 
 ### 数据规则（不许空屏）
 
@@ -80,8 +80,9 @@ routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 - [ ] 整屏按页面体验地图建全（外壳/导航/次操作），不是 AC 最小
 - [ ] 有数据就上表格/统计/筛选，不堆孤立卡片
 - [ ] 三态齐：加载(Skeleton) / 空(图标+引导动作) / 错误(原因+重试)
-- [ ] 数值 mono 右对齐；状态 = 圆点+文案；长文截断 + title
-- [ ] 资深 PM 一眼看像"已上线"，而不是 demo
+- [ ] 间距分四层（页框→区块→容器→组件，DESIGN.md §Spacing Hierarchy）；数值 mono 右对齐；状态 = 圆点+文案；长文截断 + title
+- [ ] 资深 PM 一眼看像"已上线"，而不是 demo；也不像 Excel（见 `resources/dense-ui-craft.md` 反模式速查）
+- [ ] **过 `.claude/rules/frontend.md`「出口闸：品味」对应轨**（done 前置条件；闸门条目以该文件为唯一真相源，不在此复述）：front-of-house 走 A 轨（A1–A3），operational 走 B 轨（B1–B5，内含工艺线 C1–C5）。任一不过则迭代，不准标 done。
 
 ## Styling（Tailwind v4 + shadcn）
 
@@ -154,4 +155,5 @@ routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 ## Reference
 
 - 参考实现：`frontend/src/features/health/`、`frontend/src/routes/health/`、`frontend/src/components/ui/*`、`frontend/src/index.css`(token)。
-- 设计来源：`docs/project/DESIGN.md`。
+- 设计来源：`docs/project/DESIGN.md`（token / 字阶 / §Spacing Hierarchy / §Richness Floor / §Reference Skeletons）。
+- 密屏工艺：`resources/dense-ui-craft.md`（operational 屏 craft 真相源）。

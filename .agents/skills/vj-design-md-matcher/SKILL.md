@@ -155,9 +155,12 @@ Write `docs/project/DESIGN.md` with these sections:
 ## Color Tokens
 ## Typography Tokens
 ## Layout Rules
+## Spacing Hierarchy
 ## Component Rules
 ## Interaction States
 ## Data-Dense UI Rules
+## Richness Floor by Screen-Type
+## Reference Skeletons (per screen archetype)
 ## Accessibility Rules
 ## Do / Don't
 ## Downstream Prompt Base
@@ -168,7 +171,10 @@ Rules for generation:
 - Make the system fit the product, not the reference brands.
 - Use practical tokens that a frontend engineer can implement.
 - Keep palettes balanced; avoid one-note purple/blue gradients, decorative orbs, heavy beige themes, or brand-copy colors unless the PRD demands them.
-- For SaaS/admin tools, prefer quiet, dense, scannable UI over marketing-style composition.
+- For SaaS/admin tools, default **operational** screens (tables, queues, editors) to quiet, dense, scannable composition. BUT do **not** blanket-apply this austerity to **front-of-house** screens (login, first-run, landing, empty-first-screen): those must meet a **richness floor** — intentional composition + product identity within the *same* tokens — never marketing gradient/orb/glass. A token system that is "correct" but produces a lone centered card on every screen has failed; encode the floor explicitly so downstream executors don't ship AC-minimal screens.
+- `Spacing Hierarchy` is **mandatory** and must be layered, not a single range. A flat rule like "operational screens use 8–16" will be executed literally by downstream AI as wall-to-wall 8px and the result reads as Excel, not as Linear. Always specify per-level hard ranges: page frame (content padding, around the page header) > region gaps (between header / stats / toolbar / table) > container internal padding > component rhythm > row height. State the principle explicitly: **density lives in the data core; air lives at the page frame** — premium dense references (Linear, Airtable) pack rows but keep generous page padding. Include machine-checkable floors (minimum page padding, minimum region gap, max ~4 distinct gap values per screen) so the exit gate can measure screenshots against them.
+- `Richness Floor by Screen-Type`: for each screen archetype present in the PRD (front-of-house / dashboard / table-list / detail-reading / form-wizard), state a one-line **floor** (the minimum intentional composition, not an upper bound). Make clear richness = deliberate composition + identity + hierarchy, not decoration.
+- `Reference Skeletons (per screen archetype)`: **do not discard the matched references' composition after extracting tokens.** Distill each selected reference's *structure and density* into a concrete per-archetype skeleton (regions, order, density), re-skinned with this file's tokens — so the executor copies a good skeleton instead of inventing a minimal one. Include a project-specific skeleton for the product's primary login/auth screen when the PRD has one.
 - Include states for loading, empty, error, disabled, selected, dirty, saved, review-needed, and destructive actions when relevant.
 - The `Downstream Prompt Base` must be reusable by `vj-ui-mock` or frontend work and must explicitly say to follow this `DESIGN.md`.
 

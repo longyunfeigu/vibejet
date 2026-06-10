@@ -24,8 +24,9 @@ AI coding 质量主要来自四件事：
 3. **真实反馈回路**：以 Unit 的 `Verification` 命令作为 done signal，失败就修，不靠自评。
 4. **风险正确升级**：权限、迁移、公共 API、事务、UI 壳等高风险面切 strict，不用 fast path 蒙混。
 5. **UI 按体验闭环交付**：后端/API/data 可以按 capability Unit 推进；前端质量来自 Screen/Route 的完整任务上下文、稳定 API-for-UI 合同和浏览器截图反馈，不能按 Story 验收项碎片化堆 UI。
+6. **Orchestrator 上下文卫生**：主 session 是编排者，不是执行者。单个 Unit 的重活（读 20+ 文件、写代码、跑测试/迁移、浏览器验证）会吞掉大量上下文——这些必须下沉到 subagent，主 session 只接收结构化小结。Unit 越多，主 session 越要保持轻，否则审计/编排能力会随 epic 规模塌掉。
 
-因此 v2 的目标不是少读上下文，而是少读无关和重复上下文；不是少验证，而是把验证集中到真实 done signal；不是取消审计，而是让审计按风险触发。
+因此 v2 的目标不是少读上下文，而是少读无关和重复上下文；不是少验证，而是把验证集中到真实 done signal；不是取消审计，而是让审计按风险触发；不是 orchestrator 亲自干所有活，而是把执行下沉给隔离的 subagent、主 session 只编排与审计。
 
 ## 铁律
 
@@ -37,7 +38,8 @@ AI coding 质量主要来自四件事：
 - **上下文必须可回溯**。Execution Checklist 是 attention guide，不是完整规范；每条约束必须带 source pointer。`DESIGN.md`、`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`、repo-local layer skill 原文仍是真相源。
 - **Backend by capability, frontend by experience**。前端 Epic 执行时必须消费 task docs / `_execution_context.md` 中的 Screen context，以及 `docs/project/ui/` catalog（必要时回看 plan §4 delta 与 Appendix D lanes）：先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI。不要等所有后端 100% 完成才开始前端，也不要把前端散进每个 Story 局部做。
 - **禁止孤立 UI 片段**。UI Unit / task 若属于 Screen composition，必须读同屏 sibling Units、Route 目标文件、Screen regions、API-for-UI 与 Screen done；不得为了当前 Unit 新增脱离 Screen Contract 的单页、卡片堆、表单堆或按钮堆。
-- **前端富度 = 整屏 + 不空屏 + 参考**。UI Unit 执行须守 `.claude/rules/frontend.md` 与 `frontend-dev-guidelines` 的「Product Richness（剧本 A/B）」：按页面体验地图建整屏（不停在 AC 最小）；**评审不许空屏**（后端先行接真接口+seed，否则 `features/<x>/mock*.ts` 占位待删）；有外部参考走剧本 A（抄组成不抄皮 + DESIGN.md 重皮肤），无参考走剧本 B（屏范式 + design-taste skill）。
+- **前端质量 = 富度（防空）+ 工艺（防挤）+ 屏型对的闸**。UI Unit 执行须守 `.claude/rules/frontend.md` 的富度铁律（R0–R4：先分屏型、按页面体验地图建整屏、不空屏、走参考、不堆孤卡）与工艺铁律（C1–C5：间距分层、字重色阶层次、边框/accent 克制）；间距数值以 `DESIGN.md` §Spacing Hierarchy 为准。**admin/后台屏几乎都是 operational**：不调 `design-taste-frontend`（对后台 out-of-scope），craft 真相源 = `frontend-dev-guidelines/resources/dense-ui-craft.md`，出口走 frontend.md B 轨客观硬线。规则条目以 frontend.md 为唯一真相源，本 skill 不复述。
+- **UI-critical 屏的出口闸判定独立于实现，且 orchestrator commit 前必须真看截图**。每个 UI-critical / operational screen 标 done / commit 前：(1) 必须有真实桌面截图；(2) B 轨 pass/fail 由**非实现该屏的一方**产出——orchestrator 亲自看截图，或派独立 visual-audit subagent（输入仅截图 + 该屏 frontend.md B 轨 checklist + 一张同类密集后台参考；**不给实现代码、不给实现 subagent 的小结**），返回带**截图实测**占比（首屏最大空容器高度占比、页框 padding、最小区块 gap）的 pass/fail；(3) 第一性原理 6「orchestrator 只 ingest 小结、不读 transcript」**不豁免看 UI 截图**——截图是轻量 artifact，UI-critical 屏严禁仅凭实现 subagent 的文字小结就 commit。自评 "passes" 不构成过闸。这把独立判定从 Phase 3 末的 cross-screen polish 提前到每屏 done（翻车实证见 memory `frontend-taste-gate-not-checklist`：规则本就精确，洞在自评 + 没人看像素）。
 - **subagent 任务必须自包含**。不得依赖父 agent Phase 0/1 的隐式上下文。即使运行时支持 `fork_context` / isolation，也必须显式传 Unit Context Packet 或 `_execution_context.md` 路径 + Unit ID。
 - **高风险自动 strict**。命中 strict trigger 时不得为了速度降级；不确定风险等级时按 strict 或精准补读 source pointer。
 - **KISS / YAGNI**。只实现 Unit 要求，匹配既有约定，不引入投机抽象或无关重构。
@@ -209,8 +211,8 @@ System-wide check: none | direct-neighbors | risk-triggered-two-hop
 
 - 先执行 UI surface / API contract 可见性检查：确认 `_execution_context.md` 已写入每个 Screen 的合同摘要，并带 `docs/project/ui/` catalog source 或 plan delta source。
 - backend/API/data capability wave 仍按 Unit / task 执行，目标是让对应 Screen 的数据、状态、错误、权限、mock/real adapter 合同稳定。
-- frontend composition wave 按 Screen/Route 执行；同一 Screen 覆盖多个 Unit 时，以 Screen done + 关联 UI AC 作为该 wave 的 done signal。
-- E2E polish wave 在所有相关 Screen composition 通过后执行完整演示脚本、截图、异常状态与全量验证。
+- frontend composition wave 按 Screen/Route 执行；同一 Screen 覆盖多个 Unit 时，以 Screen done + 关联 UI AC 作为该 wave 的 done signal。**每个 Screen 额外必过 `.claude/rules/frontend.md`「出口闸：品味」对应轨——与功能 AC 同等牙齿，不过不得标该 Screen done**：front-of-house 走 A 轨（A1–A3），operational 走 B 轨（B1–B5，内含工艺线 C1–C5）。变更叙事须按闸门要求列出实际组件 / `data-testid` / 间距实测值与参考对照结论，不接受无对照的主观 "passes"。**且该 pass/fail 判定必须由非实现者产出（orchestrator 看截图或独立 auditor），实现 subagent 自写的 "passes" 不算过闸**。闸门条目内容以 frontend.md 为唯一真相源，本 skill 不复述。
+- E2E polish wave 在所有相关 Screen composition 通过后执行：先做 cross-screen visual polish pass（见 Phase 3），再跑完整演示脚本、截图、异常状态与全量验证。
 - 如果旧 plan 没有 lanes，但发现多个 UI Unit 共享同一路由，切到 `frontend-composition fallback`：先生成临时 Screen 分组写入 `_execution_context.md`，按 Screen 串行执行，避免并行写坏 UI。
 
 Approval gate：
@@ -230,24 +232,44 @@ Docs planning commit：
 
 ### 执行策略
 
-始终使用 worktree 写代码。默认 inline，在一个执行 worktree 中按 wave 推进。
+始终使用 worktree 写代码，绝不在主仓库工作树直接写业务代码。
 
-执行顺序遵循 Appendix D lanes：
+**默认：每个 Unit 派一个自包含 subagent（Task 工具）执行，用于上下文隔离。** 动机首先是 orchestrator 上下文卫生（第一性原理 6），其次才是并行。重活——读 20+ 文件、写代码、跑测试/迁移、浏览器验证——都留在子代理上下文里；orchestrator 只接收子代理返回的结构化小结（changed files / verification 结果 / deviations / risks），**绝不 Read 子代理的 transcript/.output**（会撑爆上下文）。这样 orchestrator 上下文随 Unit 数线性缓增（只长“小结 + review”），不因 Unit 增多而胀满。
+
+两种派发模式：
+
+| 模式 | 何时用 | worktree |
+|------|--------|----------|
+| **serial-isolation（默认）** | Unit 间有依赖 / 共享文件（绝大多数 epic） | **共享同一个执行 worktree**，按依赖顺序串行派发；上游 Unit 完成（commit 后）再派下游，下游读已落盘状态 |
+| **parallel-isolation** | 同波次 ≥2 个 Unit、写集无交集、无逻辑依赖、各 Unit 够大、运行时允许 | 各 Unit 用独立 worktree（Task `isolation: worktree`），完成后按依赖序 merge |
+
+> 关键：依赖型 / 共享文件的串行 Unit **必须共享同一执行 worktree**，绝不给它们各开隔离 worktree——否则下游 Unit 看不到上游代码。`isolation: worktree` 只给真正并行且写集无交集的 Unit 用。线性依赖（如 U1→U2→U3）= serial-isolation：仍每 Unit 一个 subagent（隔离上下文），但同 worktree 串行。
+
+**inline 执行**（orchestrator 亲自写代码，不派 subagent）仅在以下情况，且须记录原因：
+
+- 运行时 / 平台不支持 subagent 或 Task 工具。
+- 该 Unit trivial 或极小（派发 + ingest 开销 > 收益），如纯配置、单文件小改、纯文案。
+- orchestrator 已完整持有该 Unit 精确上下文且已实现到一半（中途转交反而浪费已加载上下文）。
+
+记录 `inline worktree execution` 及原因。这是正常策略，不是失败。
+
+无论 inline 还是 subagent，执行顺序都遵循 Appendix D lanes，单个 Unit 内部按 lane 顺序“契约→后端→屏→验证”推进：
 
 1. **Contract / context wave**：不写业务 UI；确认 API-for-UI、Screen states、mock/real adapter、DESIGN.md source pointers、`docs/project/ui/` catalog source 都进入 `_execution_context.md`。
 2. **Backend/API capability waves**：按 Unit 落地后端、API、AI adapter、数据与测试。允许为前端提供类型、mock adapter 或最小探针；不顺手搭完整页面。
 3. **Frontend composition waves**：按 Screen/Route 整体实现 UI。每个 Screen task 必须读同屏 sibling Units、现有 route/components、DESIGN.md、`docs/project/ui/` catalog、当前 task 注入的 Screen context 和 API-for-UI；一次性完成布局区域、主任务、关键状态和相关 UI AC。
-4. **E2E polish wave**：跑完整业务演示脚本，补字段、错误状态、截图证据和最终验证。
+4. **E2E polish wave**：跑完整业务演示脚本，补字段、错误状态、截图证据和最终验证。前端 Epic 在本 wave 内**必须**先做 cross-screen visual polish pass（见下），再做最终验证。
 
-Subagent 只在满足全部条件时使用：
+### Cross-screen visual polish pass（前端 Epic 必做）
 
-- 用户、平台或运行时明确允许 subagent / parallel agent work。
-- 同一 wave 内 >= 2 个 Unit。
-- 文件写集无交集，且无逻辑依赖。
-- 每个 Unit 足够大，预计并行收益高于派发/merge 成本。
-- 运行时具备独立写入空间或 forked workspace。
+动机：各 Screen 由不同 subagent 持最小上下文分别实现，taste 与规格会跨屏漂移（页框 padding、页头规格、区块 gap、字号档、同类组件不同实现、accent 用量）。单屏闸门查不出跨屏不一致，必须有一个**同时看到所有屏**的 pass。
 
-否则记录 runtime fallback：`inline worktree execution`。这是正常策略，不是失败。
+做法：
+
+1. 所有 frontend composition wave 完成后，收集全部 Screen 的桌面截图（复用各 Screen 出口闸证据，不重截）。
+2. 派一个独立 audit subagent（屏 ≤2 个时可 orchestrator 亲自做），输入 = 全部截图 + `DESIGN.md` §Spacing Hierarchy / 字阶表 + `dense-ui-craft.md` 反模式速查，输出 = 漂移清单：逐项报 跨屏页框 padding 是否一致、页头规格是否一致、字号档是否超标、同类组件是否多套实现、accent 是否超预算，每项给 Screen + 文件定位。
+3. 漂移项统一修复（优先抽共享组件/常量，禁止逐屏手调出第三种规格），修完重截受影响屏，过一遍对应闸门轨。
+4. 漂移清单与修复结果记入收尾的变更叙事。
 
 ### Subagent 派发契约
 
@@ -268,6 +290,13 @@ subagent prompt 必须自包含，至少包含：
   - risks / blockers。
 
 即使 Codex `spawn_agent(fork_context=true)` 或 Claude Code isolation 可继承上下文，也必须显式传 Unit Packet；父 agent 的隐式理解不算执行合同。
+
+worktree / ingest 约束（serial-isolation 默认）：
+
+- 依赖型 / 共享文件 Unit 的 subagent **在 orchestrator 当前的执行 worktree 内工作**（cwd 即该 worktree），**不要传 `isolation: worktree`**——否则下游 Unit 看不到上游已落盘代码。`isolation: worktree` 仅留给 parallel-isolation 的无依赖、写集无交集 Unit。
+- orchestrator **只消费子代理返回的结构化小结**（changed files / verification 结果 / deviations / risks），**绝不 Read 子代理 transcript / `.output`**（那是完整对话 JSONL，会撑爆主上下文）。**例外——UI-critical 屏的截图 artifact 必须看**：commit 这类屏前，orchestrator 亲自 Read 截图文件（轻量 PNG，不撑上下文）或派独立 visual-auditor，不得仅凭小结里的 "passes" 文字就 commit UI 屏（见上文铁律「UI-critical 屏的出口闸判定独立于实现」）。
+- 串行派发：上游 Unit 的 subagent 返回并（strict 下）commit 后，再派下游；下游 prompt 里注明“上游已完成、读已落盘状态”。
+- subagent 内部跑 Unit Loop（fast / strict），含实现 + Verification + （strict）task doc 变更叙事回写；orchestrator 负责 `_ledger.md` 状态、commit（若子代理未提交）、review gate、跨 Unit 编排。
 
 ### Unit Loop：fast
 
@@ -322,7 +351,7 @@ UI class：
 
 执行要求：
 
-- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；**开工前先取具体视觉锚点**（`vj-design-md-matcher` 选/生成参考图，或 `design-taste-frontend`/`high-end-visual-design` skill 范式），不许照散文搭最小骨架；桌面+移动截图；**截图后过独立设计评审 gate（见下）**——不满足先修。
+- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；**开工前先取具体视觉锚点**（`vj-design-md-matcher` 选/生成参考图，或 `design-taste-frontend`/`high-end-visual-design` skill 范式），不许照散文搭最小骨架；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist 与 Screen 合同 + `frontend.md` 出口闸对应轨（operational 屏 = B 轨客观硬线，不接受无对照的主观 pass）；**截图后过独立设计评审 gate（见下）**——不满足先修。
 - functional：读相关 pattern/token/source pointer；若属于 frontend-composition，做 Screen-level browser check；否则做 targeted browser check 或局部截图；验证 loading/error/empty/success/permission 中实际相关状态。
 - trivial：不强制截图；跑 typecheck/test/lint 或 Unit Verification。
 
@@ -373,7 +402,7 @@ strict：同上，并在 ledger 记录整理原因。
 
 1. 全量验证：
    - 跑全部 Unit 的 Verification。
-   - 前端 Epic 跑每个 Screen 的 Screen done / Browser verification，并保留桌面+移动截图或 targeted screenshot 证据。
+   - 前端 Epic 跑每个 Screen 的 Screen done / Browser verification，并保留桌面+移动截图或 targeted screenshot 证据；确认 cross-screen visual polish pass 已执行、漂移清单已清零或在叙事中记录残留原因。
    - 跑 plan Appendix E 的整体校验命令。
    - 跑项目 lint/typecheck/test（按 backend/frontend 命中情况）。
 2. Review gate：

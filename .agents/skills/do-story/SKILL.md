@@ -113,7 +113,7 @@ python3 "${SKILL_DIR}/scripts/setup-do-story.py" "docs/tasks/epics/epic-001.md" 
 
 **纯后端 Story**: 跳过此 section，直接进入 Phase 2。
 
-**前端 UI Story 但无任何外部参考**（确属页面/组件实现，但不满足上述三条）: **不跳过**——遵守 `.claude/rules/frontend.md` 与 `frontend-dev-guidelines` 的「Product Richness 剧本 B」（屏范式 + 吃满 epic 页面体验地图 + 调 `design-taste-frontend` / `high-end-visual-design`），按整屏富度建，**不做 AC 最小的薄屏**。
+**前端 UI Story 但无任何外部参考**（确属页面/组件实现，但不满足上述三条）: **不跳过**——遵守 `.claude/rules/frontend.md` 与 `frontend-dev-guidelines` 的「Product Richness 剧本 B」：先分屏型（frontend.md R0），front-of-house 屏调 `design-taste-frontend` / `high-end-visual-design`，operational 屏改用 `frontend-dev-guidelines/resources/dense-ui-craft.md` + DESIGN.md §Richness Floor / §Spacing Hierarchy（design-taste 对后台 out-of-scope）；吃满 epic 页面体验地图，按整屏富度建，**不做 AC 最小的薄屏**。
 
 **数据（所有前端 Story）**: 评审不许空屏——后端先行接真接口（dev 要有 seed），否则用 `features/<x>/mock*.ts` 占位，接口落地即删。
 
@@ -625,6 +625,7 @@ phase_name: "Complete"
 - [ ] `cd backend && pytest -v` 全部通过
 - [ ] 前端 Story：每个 AC 场景有截图验证记录
 - [ ] 前端 Story（有设计参考图时）：最终截图 vs 设计稿对比完成，差异已修正
+- [ ] 前端 Story：已过 `.claude/rules/frontend.md`「出口闸：品味」对应轨（front-of-house 走 A 轨 A1–A3；operational 走 B 轨 B1–B5 含工艺线 C1–C5），变更叙事按闸门要求留证据（组件/data-testid/间距实测/参考对照）；闸门条目以 frontend.md 为唯一真相源
 - [ ] checkpoints 中所有层均为 "completed" 状态
 - [ ] 所有 checkpoint 关联的 commit 存在于 git log 中
 - [ ] Design Doc 差异已处理（如命中相关契约/模型变化，则已更新或确认跳过）
