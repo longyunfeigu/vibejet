@@ -99,6 +99,28 @@ class NewPasswordSameAsOldException(BusinessException):
         )
 
 
+class UnauthorizedException(BusinessException):
+    def __init__(self, message: str = "Authentication required"):
+        super().__init__(
+            code=BusinessCode.UNAUTHORIZED,
+            message=message,
+            error_type="Unauthorized",
+            message_key="auth.required",
+        )
+
+
+class InvalidTokenException(BusinessException):
+    def __init__(self, reason: Optional[str] = None):
+        details = {"reason": reason} if reason else None
+        super().__init__(
+            code=BusinessCode.UNAUTHORIZED,
+            message="Invalid or expired token",
+            error_type="InvalidToken",
+            details=details,
+            message_key="auth.token.invalid",
+        )
+
+
 class DomainValidationException(BusinessException):
     def __init__(
         self,

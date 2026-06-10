@@ -196,6 +196,55 @@ class StorageUploadResponseDTO(DTOBase):
     file_status: str
 
 
+# ── Auth / User DTOs ────────────────────────────────────────────────
+
+
+class RegisterRequestDTO(DTOBase):
+    """Input for user registration."""
+
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_.-]+$")
+    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8, max_length=128)
+    full_name: Optional[str] = Field(default=None, max_length=100)
+
+
+class LoginRequestDTO(DTOBase):
+    """Input for login. `username` accepts username or email."""
+
+    username: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class RefreshRequestDTO(DTOBase):
+    """Input for refreshing an access token."""
+
+    refresh_token: str = Field(min_length=1)
+
+
+class TokenPairDTO(DTOBase):
+    """Issued token pair."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = 0
+
+
+class UserDTO(DTOBase):
+    """Public user payload (never exposes the password hash)."""
+
+    id: int
+    username: str
+    email: str
+    full_name: Optional[str] = None
+    is_active: bool = True
+    is_superuser: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── Agent / Conversation DTOs ────────────────────────────────────────
 
 

@@ -32,6 +32,9 @@ from infrastructure.repositories.message_repository import (
 from infrastructure.repositories.run_repository import (
     SQLAlchemyRunRepository,
 )
+from infrastructure.repositories.user_repository import (
+    SQLAlchemyUserRepository,
+)
 
 
 class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
@@ -44,6 +47,7 @@ class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
         "message_repository": SQLAlchemyMessageRepository,
         "run_repository": SQLAlchemyRunRepository,
         "agent_config_repository": SQLAlchemyAgentConfigRepository,
+        "user_repository": SQLAlchemyUserRepository,
     }
 
     def __init__(

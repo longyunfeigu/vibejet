@@ -17,7 +17,7 @@ from fastapi import (
     UploadFile,
 )
 
-from api.dependencies import get_file_asset_service
+from api.dependencies import get_current_user, get_file_asset_service
 from api.utils.idempotency import IdempotencyContext, idempotency_for
 from application.dto import (
     PresignUploadRequestDTO,
@@ -26,6 +26,7 @@ from application.dto import (
     PresignUploadResponseDTO,
     PresignUploadDetailDTO,
     FileAssetSummaryDTO,
+    UserDTO,
 )
 from application.services.file_asset_service import FileAssetApplicationService
 from core.response import (
@@ -35,9 +36,11 @@ from core.response import (
 from core.i18n import t
 
 
+# 认证闸门：上传/预签名端点要求登录，归属写入当前用户
 router = APIRouter(
     prefix="/storage",
     tags=["文件存储"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -78,6 +81,7 @@ async def presign_upload(
     payload: PresignUploadRequestDTO,
     service: FileAssetApplicationService = Depends(get_file_asset_service),
     idem: IdempotencyContext = Depends(idempotency_for("storage:presign-upload")),
+    current_user: UserDTO = Depends(get_current_user),
 ):
     request_hash = idem.request_hash(payload.model_dump(by_alias=True, exclude_none=True))
 
@@ -89,7 +93,7 @@ async def presign_upload(
 
     try:
         file_summary, presigned = await service.presign_upload(
-            user_id=None,
+            user_id=current_user.id,
             filename=payload.filename,
             mime_type=payload.mime_type,
             size_bytes=payload.size_bytes,
@@ -141,6 +145,7 @@ async def upload_file(
     file: UploadFile = File(..., description="要上传的文件"),
     kind: str = Query("uploads", description="业务分类（如 avatar、document 等）"),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
+    current_user: UserDTO = Depends(get_current_user),
 ):
     """由应用服务器中转上传文件到对象存储（编排已下沉到 Application Service）。"""
 
@@ -154,7 +159,7 @@ async def upload_file(
             yield chunk
 
     resp = await service.relay_upload_stream(
-        user_id=None,  # No user tracking
+        user_id=current_user.id,
         file_stream=_iter_chunks(file),
         filename=file.filename or "upload.bin",
         kind=kind,

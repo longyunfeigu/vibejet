@@ -1,21 +1,96 @@
-"""
-API 依赖项
-"""
+# input: application services, infrastructure 实现（composition root 豁免）, HTTP Bearer 凭证
+# output: get_*_service 依赖工厂, get_current_user 认证依赖
+# owner: wanhua.gu
+# pos: 表示层 - FastAPI 依赖注入装配点（具体实现→端口的唯一绑定处）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+"""API 依赖项（composition root）。"""
 
 from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from application.dto import UserDTO
+from application.ports.llm import LLMPort
+from application.ports.security import PasswordHasher, TokenProvider
+from application.ports.storage import StoragePort
+from application.services.auth_service import AuthApplicationService
+from application.services.chat_service import ChatApplicationService
+from application.services.conversation_service import ConversationApplicationService
 from application.services.file_asset_service import FileAssetApplicationService
 from application.services.idempotency_service import IdempotencyService
-from application.services.conversation_service import ConversationApplicationService
-from application.services.chat_service import ChatApplicationService
-from application.ports.storage import StoragePort
-from application.ports.llm import LLMPort
-from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
-from infrastructure.external.storage import get_storage
-from infrastructure.external.llm import get_llm_client
-from infrastructure.adapters.storage_port import StorageProviderPortAdapter
-from infrastructure.adapters.idempotency_store import RedisIdempotencyStore
 from core.config import settings
+from domain.common.exceptions import UnauthorizedException
+from infrastructure.adapters.idempotency_store import RedisIdempotencyStore
+from infrastructure.adapters.storage_port import StorageProviderPortAdapter
+from infrastructure.external.llm import get_llm_client
+from infrastructure.external.storage import get_storage
+from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
+from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
+
+
+class _NoopIdempotencyStore:
+    """Redis 未配置时的直通实现：不加锁、不缓存结果。"""
+
+    async def get(self, *, scope: str, key: str):
+        return None
+
+    async def try_start(self, *, scope: str, key: str, request_hash: str, ttl_seconds: int) -> bool:
+        return True
+
+    async def set_result(
+        self, *, scope: str, key: str, request_hash: str, payload: dict, ttl_seconds: int
+    ) -> None:
+        return None
+
+    async def release(self, *, scope: str, key: str) -> None:
+        return None
+
+
+_noop_idempotency_store = _NoopIdempotencyStore()
+
+# 进程级单例：密码哈希与令牌签发是无状态纯计算
+_password_hasher = PwdlibPasswordHasher()
+_bearer_scheme = HTTPBearer(auto_error=False)
+_token_provider: JwtTokenProvider | None = None
+
+
+def _get_token_provider() -> JwtTokenProvider:
+    global _token_provider
+    if _token_provider is None:
+        _token_provider = JwtTokenProvider(
+            secret_key=settings.SECRET_KEY or "",
+            algorithm=settings.auth.algorithm,
+            access_ttl_seconds=settings.auth.access_token_ttl_seconds,
+            refresh_ttl_seconds=settings.auth.refresh_token_ttl_seconds,
+        )
+    return _token_provider
+
+
+async def get_password_hasher() -> PasswordHasher:
+    return _password_hasher
+
+
+async def get_token_provider() -> TokenProvider:
+    return _get_token_provider()
+
+
+async def get_auth_service(
+    hasher: PasswordHasher = Depends(get_password_hasher),
+    tokens: TokenProvider = Depends(get_token_provider),
+) -> AuthApplicationService:
+    return AuthApplicationService(
+        uow_factory=SQLAlchemyUnitOfWork,
+        password_hasher=hasher,
+        token_provider=tokens,
+    )
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    service: AuthApplicationService = Depends(get_auth_service),
+) -> UserDTO:
+    """Resolve the authenticated user from the Bearer token (401 otherwise)."""
+    if credentials is None or not credentials.credentials:
+        raise UnauthorizedException()
+    return await service.get_current_user(credentials.credentials)
 
 
 async def get_storage_port(provider=Depends(get_storage)) -> StoragePort:
@@ -29,28 +104,7 @@ async def get_file_asset_service(
 
 
 async def get_idempotency_service() -> IdempotencyService:
-    if not settings.redis.url:
-
-        class _NoopStore:
-            async def get(self, *, scope: str, key: str):
-                return None
-
-            async def try_start(
-                self, *, scope: str, key: str, request_hash: str, ttl_seconds: int
-            ) -> bool:
-                return True
-
-            async def set_result(
-                self, *, scope: str, key: str, request_hash: str, payload: dict, ttl_seconds: int
-            ) -> None:
-                return None
-
-            async def release(self, *, scope: str, key: str) -> None:
-                return None
-
-        store = _NoopStore()
-    else:
-        store = RedisIdempotencyStore()
+    store = RedisIdempotencyStore() if settings.redis.url else _noop_idempotency_store
     return IdempotencyService(
         store=store,
         lock_ttl_seconds=settings.idempotency.lock_ttl_seconds,
@@ -66,7 +120,7 @@ async def get_llm_port() -> LLMPort:
     client = get_llm_client()
     if client is None:
         raise RuntimeError(
-            "LLM client not initialized. " "Set LLM__API_KEY in environment or .env and restart."
+            "LLM client not initialized. Set LLM__API_KEY in environment or .env and restart."
         )
     return client
 

@@ -9,16 +9,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from starlette.responses import StreamingResponse
 
-from api.dependencies import get_chat_service
+from api.dependencies import get_chat_service, get_current_user
 from application.dto import ChatRequestDTO
 from application.services.chat_service import ChatApplicationService
 from core.i18n import t
 from core.response import success_response
 
-# TODO: Add authentication dependency when user/auth module is implemented.
-# The chat endpoint invokes paid LLM API calls and MUST be auth-gated
-# before exposing to non-internal traffic.
-router = APIRouter(tags=["聊天"])
+# 调用付费 LLM 的端点必须认证；细粒度 ownership 校验由下游项目按需补充
+router = APIRouter(tags=["聊天"], dependencies=[Depends(get_current_user)])
 
 
 @router.post(

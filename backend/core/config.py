@@ -136,6 +136,13 @@ class StorageSettings(BaseModel):
     required: bool = False
 
 
+class AuthSettings(BaseModel):
+    # JWT 签名使用顶层 SECRET_KEY
+    algorithm: str = "HS256"
+    access_token_ttl_seconds: int = 30 * 60
+    refresh_token_ttl_seconds: int = 7 * 24 * 60 * 60
+
+
 class MetricsSettings(BaseModel):
     enabled: bool = False
     access_token: Optional[str] = None
@@ -206,6 +213,7 @@ class Settings(BaseSettings):
         default=["*"], validation_alias=AliasChoices("CORS_ALLOW_HEADERS")
     )
 
+    auth: AuthSettings = Field(default_factory=AuthSettings)
     llm: LLMSettings = Field(default_factory=LLMSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)

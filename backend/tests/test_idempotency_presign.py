@@ -4,9 +4,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from api.dependencies import get_file_asset_service, get_idempotency_service
+from api.dependencies import get_current_user, get_file_asset_service, get_idempotency_service
 from api.routes.storage import router as storage_router
-from application.dto import FileAssetSummaryDTO
+from application.dto import FileAssetSummaryDTO, UserDTO
 from application.ports.idempotency import IdempotencyRecord, IdempotencyStore
 from application.ports.storage import PresignedURL
 from application.services.idempotency_service import IdempotencyService
@@ -141,6 +141,10 @@ def make_test_app(fake_service: FakeFileAssetService) -> FastAPI:
 
     app.dependency_overrides[get_file_asset_service] = lambda: fake_service
     app.dependency_overrides[get_idempotency_service] = lambda: idem
+    # storage 路由现在要求认证；测试里直接放行一个固定用户
+    app.dependency_overrides[get_current_user] = lambda: UserDTO(
+        id=1, username="tester", email="tester@example.com"
+    )
     return app
 
 

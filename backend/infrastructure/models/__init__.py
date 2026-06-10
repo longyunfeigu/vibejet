@@ -9,6 +9,7 @@ from .conversation import (
     AgentConfigModel,
 )
 from .mixins import TimestampMixin
+from .user import UserModel
 
 __all__ = [
     "Base",
@@ -19,4 +20,5 @@ __all__ = [
     "RunModel",
     "AgentConfigModel",
     "TimestampMixin",
+    "UserModel",
 ]

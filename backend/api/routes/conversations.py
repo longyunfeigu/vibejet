@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import get_conversation_service
+from api.dependencies import get_conversation_service, get_current_user
 from application.dto import (
     AgentConfigDTO,
     ConversationDTO,
@@ -31,10 +31,8 @@ from core.response import (
     success_response,
 )
 
-# TODO: Add authentication dependency (get_current_user) to all routes
-# when user/auth module is implemented. Currently matches project baseline
-# where no routes require auth (see files.py, storage.py).
-router = APIRouter(tags=["对话管理"])
+# 认证闸门：所有对话/Agent 配置端点要求登录；ownership 细粒度校验由下游项目补充
+router = APIRouter(tags=["对话管理"], dependencies=[Depends(get_current_user)])
 
 
 # ── Conversations ──────────────────────────────────────────────────

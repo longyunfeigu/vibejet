@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import (
+    get_current_user,
     get_file_asset_service,
 )
 from application.dto import (
@@ -24,9 +25,11 @@ from core.response import (
 from core.config import settings
 from core.i18n import t
 
+# 认证闸门：文件端点要求登录；ownership 细粒度校验由下游项目补充
 router = APIRouter(
     prefix="/files",
     tags=["文件管理"],
+    dependencies=[Depends(get_current_user)],
 )
 
 
