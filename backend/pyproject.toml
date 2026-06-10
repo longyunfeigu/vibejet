@@ -202,6 +202,8 @@ oss = ["oss2>=2.19.0,<3"]
 # Messaging (two alternative Kafka drivers; pick one)
 kafka = ["confluent-kafka>=2.3,<3"]
 aiokafka = ["aiokafka>=0.10,<1"]
+# LLM providers beyond OpenAI-compatible (openrouter/litellm reuse the core openai SDK)
+anthropic = ["anthropic>=0.40,<2"]
 # Async task queue
 celery = ["celery>=5.3.6,<6"]
 # gRPC server (grpc_main.py / grpc_app)
