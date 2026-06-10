@@ -12,7 +12,7 @@ This directory contains database migration files managed by Alembic.
 
 2. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   uv sync --extra dev
    ```
 
 ## Common Commands

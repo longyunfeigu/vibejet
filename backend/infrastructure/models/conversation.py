@@ -221,7 +221,8 @@ class AgentConfigModel(Base):
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
-    name = Column(String(100), nullable=False, unique=True, comment="配置名称（唯一）")
+    # 唯一性由 __table_args__ 中的唯一索引承担（与 baseline migration 对齐）
+    name = Column(String(100), nullable=False, comment="配置名称（唯一）")
     system_prompt = Column(Text, nullable=True, comment="系统提示词")
     model = Column(String(100), nullable=True, comment="使用的模型")
     temperature = Column(Float, nullable=True, comment="温度参数")

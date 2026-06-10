@@ -25,8 +25,9 @@ class UserModel(Base):
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
-    username = Column(String(50), nullable=False, unique=True, comment="用户名（唯一）")
-    email = Column(String(255), nullable=False, unique=True, comment="邮箱（唯一）")
+    # 唯一性由 __table_args__ 中的唯一索引承担（与 baseline migration 对齐）
+    username = Column(String(50), nullable=False, comment="用户名（唯一）")
+    email = Column(String(255), nullable=False, comment="邮箱（唯一）")
     hashed_password = Column(String(255), nullable=False, comment="密码哈希")
     full_name = Column(String(100), nullable=True, comment="显示名")
     is_active = Column(
