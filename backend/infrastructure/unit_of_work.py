@@ -23,6 +23,9 @@ from infrastructure.repositories.agent_config_repository import (
 from infrastructure.repositories.conversation_repository import (
     SQLAlchemyConversationRepository,
 )
+from infrastructure.repositories.document_repository import (
+    SQLAlchemyDocumentRepository,
+)
 from infrastructure.repositories.file_asset_repository import (
     SQLAlchemyFileAssetRepository,
 )
@@ -44,6 +47,7 @@ class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
     _REPOSITORY_FACTORIES: dict[str, Callable[[AsyncSession], Any]] = {
         "file_asset_repository": SQLAlchemyFileAssetRepository,
         "conversation_repository": SQLAlchemyConversationRepository,
+        "document_repository": SQLAlchemyDocumentRepository,
         "message_repository": SQLAlchemyMessageRepository,
         "run_repository": SQLAlchemyRunRepository,
         "agent_config_repository": SQLAlchemyAgentConfigRepository,

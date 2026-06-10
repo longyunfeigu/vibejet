@@ -1,6 +1,7 @@
 """Infrastructure models package exports."""
 
 from .base import Base, metadata
+from .document import DocumentModel
 from .file_asset import FileAssetModel
 from .conversation import (
     ConversationModel,
@@ -14,6 +15,7 @@ from .user import UserModel
 __all__ = [
     "Base",
     "metadata",
+    "DocumentModel",
     "FileAssetModel",
     "ConversationModel",
     "MessageModel",
