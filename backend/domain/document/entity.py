@@ -85,7 +85,9 @@ class Document(BaseEntity[int]):
             self.metadata = {**self.metadata, **metadata}
         self._touch()
 
-    def mark_failed(self, *, error_code: str, error_message: str, parser: Optional[str] = None) -> None:
+    def mark_failed(
+        self, *, error_code: str, error_message: str, parser: Optional[str] = None
+    ) -> None:
         self.status = "failed"
         self.error_code = error_code
         self.error_message = error_message

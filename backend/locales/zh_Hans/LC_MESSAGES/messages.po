@@ -203,3 +203,22 @@ msgstr "无权操作"
 
 msgid "ws.error.unknown_type"
 msgstr "未知的消息类型"
+
+# 文档解析
+msgid "document.not_found"
+msgstr "文档不存在"
+
+msgid "document.not_ready"
+msgstr "文档尚未解析完成"
+
+msgid "document.already_processing"
+msgstr "文档正在解析中，请稍后重试"
+
+msgid "document.create.success"
+msgstr "文档已创建，解析进行中"
+
+msgid "document.reparse.success"
+msgstr "文档已重新进入解析队列"
+
+msgid "document.delete.soft.success"
+msgstr "文档已标记删除"

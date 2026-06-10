@@ -203,3 +203,22 @@ msgstr "forbidden"
 
 msgid "ws.error.unknown_type"
 msgstr "unknown message type"
+
+# Document parsing
+msgid "document.not_found"
+msgstr "Document not found"
+
+msgid "document.not_ready"
+msgstr "Document is not ready yet"
+
+msgid "document.already_processing"
+msgstr "Document is already being processed"
+
+msgid "document.create.success"
+msgstr "Document created; parsing in progress"
+
+msgid "document.reparse.success"
+msgstr "Document re-queued for parsing"
+
+msgid "document.delete.soft.success"
+msgstr "Document soft-deleted"

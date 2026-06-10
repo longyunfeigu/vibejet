@@ -51,7 +51,9 @@ def test_happy_path_pending_parsing_ready() -> None:
 def test_failure_path_records_error_and_clears_on_retry() -> None:
     doc = _make_document()
     doc.start_parsing()
-    doc.mark_failed(error_code="document.parse.empty_content", error_message="no text", parser="markitdown")
+    doc.mark_failed(
+        error_code="document.parse.empty_content", error_message="no text", parser="markitdown"
+    )
     assert doc.status == "failed"
     assert doc.error_code == "document.parse.empty_content"
 

@@ -15,6 +15,7 @@ from api.middleware.locale import LocaleMiddleware
 from api.routes import auth as auth_routes
 from api.routes import chat as chat_routes
 from api.routes import conversations as conversations_routes
+from api.routes import documents as documents_routes
 from api.routes import files as files_routes
 from api.routes import health as health_routes
 from api.routes import metrics as metrics_routes
@@ -176,6 +177,7 @@ app.include_router(auth_routes.router, prefix="/api/v1")
 app.include_router(storage_routes.router, prefix="/api/v1")
 app.include_router(files_routes.router, prefix="/api/v1")
 app.include_router(conversations_routes.router, prefix="/api/v1")
+app.include_router(documents_routes.router, prefix="/api/v1")
 app.include_router(chat_routes.router, prefix="/api/v1")
 app.include_router(health_routes.router)
 app.include_router(metrics_routes.router)

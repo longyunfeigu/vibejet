@@ -48,9 +48,7 @@ class MarkitdownParser:
         content_type: Optional[str] = None,
         filename: Optional[str] = None,
     ) -> ParsedDocument:
-        markdown = await anyio.to_thread.run_sync(
-            self._convert_sync, data, content_type, filename
-        )
+        markdown = await anyio.to_thread.run_sync(self._convert_sync, data, content_type, filename)
         if len(markdown.strip()) < _MIN_MEANINGFUL_CHARS:
             raise DocumentParserError(
                 code="document.parse.empty_content",

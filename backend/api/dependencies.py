@@ -8,12 +8,14 @@ from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from application.dto import UserDTO
+from application.ports.document_parser import DocumentParserPort
 from application.ports.llm import LLMPort
 from application.ports.security import PasswordHasher, TokenProvider
 from application.ports.storage import StoragePort
 from application.services.auth_service import AuthApplicationService
 from application.services.chat_service import ChatApplicationService
 from application.services.conversation_service import ConversationApplicationService
+from application.services.document_service import DocumentApplicationService
 from application.services.file_asset_service import FileAssetApplicationService
 from application.services.idempotency_service import IdempotencyService
 from core.config import settings
@@ -21,6 +23,7 @@ from domain.common.exceptions import UnauthorizedException
 from infrastructure.adapters.idempotency_store import RedisIdempotencyStore
 from infrastructure.adapters.storage_port import StorageProviderPortAdapter
 from infrastructure.external.llm import get_llm_client
+from infrastructure.external.parsing import get_parser
 from infrastructure.external.storage import get_storage
 from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
@@ -101,6 +104,21 @@ async def get_file_asset_service(
     storage: StoragePort = Depends(get_storage_port),
 ) -> FileAssetApplicationService:
     return FileAssetApplicationService(uow_factory=SQLAlchemyUnitOfWork, storage=storage)
+
+
+async def get_document_parser() -> DocumentParserPort:
+    return get_parser()
+
+
+async def get_document_service(
+    storage: StoragePort = Depends(get_storage_port),
+    parser: DocumentParserPort = Depends(get_document_parser),
+) -> DocumentApplicationService:
+    return DocumentApplicationService(
+        uow_factory=SQLAlchemyUnitOfWork,
+        parser=parser,
+        storage=storage,
+    )
 
 
 async def get_idempotency_service() -> IdempotencyService:

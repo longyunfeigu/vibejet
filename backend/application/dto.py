@@ -360,3 +360,42 @@ class AgentConfigDTO(DTOBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Document DTOs ──────────────────────────────────────────────────
+
+
+class CreateDocumentDTO(DTOBase):
+    """Input for creating a document from an uploaded file asset."""
+
+    file_asset_id: int = Field(ge=1)
+    title: Optional[str] = Field(default=None, max_length=255)
+
+
+class DocumentDTO(DTOBase):
+    """Document detail DTO（不含 Markdown 正文，正文走 content 端点）。"""
+
+    id: int
+    owner_id: Optional[int]
+    file_asset_id: int
+    title: Optional[str]
+    source_filename: Optional[str]
+    content_type: Optional[str]
+    parser: Optional[str]
+    status: str
+    error_code: Optional[str]
+    error_message: Optional[str]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentContentDTO(DTOBase):
+    """Parsed document content (canonical Markdown)."""
+
+    id: int
+    status: str
+    parser: Optional[str]
+    markdown: str
