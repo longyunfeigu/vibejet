@@ -9,9 +9,14 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.common.exceptions import UserNotFoundException
+from domain.common.exceptions import (
+    UserAlreadyExistsException,
+    UsernameAlreadyExistsException,
+    UserNotFoundException,
+)
 from domain.user.entity import User
 from domain.user.repository import UserRepository
 from infrastructure.models.user import UserModel
@@ -52,7 +57,15 @@ class SQLAlchemyUserRepository(UserRepository):
             deleted_at=user.deleted_at,
         )
         self.session.add(model)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            # 应用层的唯一性预检在并发下存在 check-then-act 窗口；
+            # 唯一索引兜底后在这里映射回域异常（409），而不是裸 500
+            detail = str(exc.orig or exc)
+            if "ix_users_username" in detail or "username" in detail:
+                raise UsernameAlreadyExistsException(user.username) from exc
+            raise UserAlreadyExistsException(user.email) from exc
         await self.session.refresh(model)
         return self._to_entity(model)
 

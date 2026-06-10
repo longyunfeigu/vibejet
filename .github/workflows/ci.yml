@@ -35,7 +35,7 @@ jobs:
 
       - name: Audit dependencies
         run: |
-          uv export --no-emit-project --no-dev -o /tmp/requirements-audit.txt
+          uv export --no-emit-project --no-dev --all-extras -o /tmp/requirements-audit.txt
           uv run pip-audit -r /tmp/requirements-audit.txt
 
       - name: Detect changed Python files

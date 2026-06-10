@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from api.dependencies import get_auth_service, get_current_user
+from api.utils.rate_limit import rate_limit
 from application.dto import (
     LoginRequestDTO,
     RefreshRequestDTO,
@@ -28,6 +29,7 @@ router = APIRouter(prefix="/auth", tags=["认证"])
     "/register",
     summary="注册",
     response_model=ApiResponse[UserDTO],
+    dependencies=[Depends(rate_limit("auth:register"))],
 )
 async def register(
     payload: RegisterRequestDTO,
@@ -41,6 +43,7 @@ async def register(
     "/login",
     summary="登录（用户名或邮箱 + 密码）",
     response_model=ApiResponse[TokenPairDTO],
+    dependencies=[Depends(rate_limit("auth:login"))],
 )
 async def login(
     payload: LoginRequestDTO,
