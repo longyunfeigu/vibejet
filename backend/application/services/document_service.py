@@ -91,20 +91,14 @@ class DocumentApplicationService:
         Background-task entry: errors are persisted to the document record
         (failed + error_code), never raised to a requester.
         """
-        # 事务1：状态闸门 pending → parsing，并取出 storage key
+        # 事务1：原子认领（条件 UPDATE）pending/ready/failed → parsing，并取出 storage key。
+        # 并发调度同一文档时只有一个 worker 能认领成功，避免重复解析/重复计费。
         async with self._uow_factory() as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
+            doc = await uow.document_repository.try_mark_parsing(document_id)
             if doc is None:
-                logger.warning("document_process_missing", document_id=document_id)
-                return
-            if doc.status == "parsing":
-                # 并发保护是 best-effort：BackgroundTasks 单进程下足够；
-                # 多 worker 部署需在下游引入行锁或任务去重
-                logger.warning("document_process_already_parsing", document_id=document_id)
+                logger.warning("document_process_claim_failed", document_id=document_id)
                 return
             asset = await uow.file_asset_repository.get_by_id(doc.file_asset_id)
-            doc.start_parsing()
-            await uow.document_repository.update(doc)
             await uow.commit()
 
         parser_name = self._parser.name
@@ -232,12 +226,15 @@ class DocumentApplicationService:
     # ── 重解析与删除 ────────────────────────────────────────────────
 
     async def reset_for_reparse(self, document_id: int) -> DocumentDTO:
-        """ready/failed → pending（parsing 中抛 AlreadyProcessing）；调度由 API 层负责。"""
+        """ready/failed → pending；parsing 中抛 AlreadyProcessing，
+        但超过 parsing_stale_seconds 的孤儿任务允许强制恢复。调度由 API 层负责。"""
         async with self._uow_factory() as uow:
             doc = await uow.document_repository.get_by_id(document_id)
             if doc is None:
                 raise DocumentNotFoundException(document_id)
-            doc.reset_for_reparse()
+            doc.reset_for_reparse(
+                parsing_stale_after_seconds=settings.document.parsing_stale_seconds
+            )
             updated = await uow.document_repository.update(doc)
             return DocumentDTO.model_validate(updated)
 

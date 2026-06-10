@@ -13,7 +13,7 @@ from domain.document import Document, DocumentAlreadyProcessingException
 
 
 def _make_document(**overrides) -> Document:
-    defaults = dict(id=1, file_asset_id=10, source_filename="report.pdf")
+    defaults = {"id": 1, "file_asset_id": 10, "source_filename": "report.pdf"}
     defaults.update(overrides)
     return Document(**defaults)
 
@@ -87,3 +87,21 @@ def test_reset_for_reparse_rejected_while_parsing() -> None:
     doc.start_parsing()
     with pytest.raises(DocumentAlreadyProcessingException):
         doc.reset_for_reparse()
+
+
+def test_reset_for_reparse_allows_stale_parsing_recovery() -> None:
+    from datetime import timedelta
+
+    from domain.common.entity import utcnow
+
+    doc = _make_document()
+    doc.start_parsing()
+
+    # 未超时：仍拒绝
+    with pytest.raises(DocumentAlreadyProcessingException):
+        doc.reset_for_reparse(parsing_stale_after_seconds=900)
+
+    # 模拟孤儿任务：上次更新远早于阈值（如进程重启丢失 BackgroundTasks）
+    doc.updated_at = utcnow() - timedelta(seconds=1000)
+    doc.reset_for_reparse(parsing_stale_after_seconds=900)
+    assert doc.status == "pending"

@@ -95,15 +95,26 @@ class Document(BaseEntity[int]):
             self.parser = parser
         self._touch()
 
-    def reset_for_reparse(self) -> None:
-        """ready/failed/pending → pending（清空旧产物）；parsing 中禁止。"""
-        if self.status == "parsing":
+    def reset_for_reparse(self, *, parsing_stale_after_seconds: Optional[int] = None) -> None:
+        """ready/failed/pending → pending（清空旧产物）。
+
+        parsing 中默认禁止；但若提供 ``parsing_stale_after_seconds`` 且距上次更新
+        已超过该阈值，视为孤儿任务（如进程重启导致），允许强制重置恢复。
+        """
+        if self.status == "parsing" and not self._is_parsing_stale(parsing_stale_after_seconds):
             raise DocumentAlreadyProcessingException(self.id)
         self.status = "pending"
         self.content_md = None
         self.error_code = None
         self.error_message = None
         self._touch()
+
+    def _is_parsing_stale(self, stale_after_seconds: Optional[int]) -> bool:
+        if not stale_after_seconds:
+            return False
+        if self.updated_at is None:
+            return True
+        return (utcnow() - self.updated_at).total_seconds() > stale_after_seconds
 
     def soft_delete(self) -> None:
         self.deleted_at = utcnow()

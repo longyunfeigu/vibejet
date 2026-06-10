@@ -50,6 +50,15 @@ class FakeDocumentRepository:
             return None
         return doc
 
+    async def try_mark_parsing(self, document_id: int):
+        doc = self.items.get(document_id)
+        if doc is None or doc.deleted_at is not None or doc.status == "parsing":
+            return None
+        doc.status = "parsing"
+        doc.error_code = None
+        doc.error_message = None
+        return doc
+
     async def list(self, **kwargs):
         return list(self.items.values())
 

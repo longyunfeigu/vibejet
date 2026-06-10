@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.document import Document, DocumentNotFoundException, DocumentRepository
@@ -108,6 +109,26 @@ class SQLAlchemyDocumentRepository(SoftDeleteFilterMixin, DocumentRepository):
         await self.session.flush()
         await self.session.refresh(model)
         return self._to_entity(model)
+
+    async def try_mark_parsing(self, document_id: int) -> Optional[Document]:
+        """原子 check-and-set：仅当未在解析中时认领（条件 UPDATE，规避 check-then-act 竞态）。"""
+        result = await self.session.execute(
+            update(DocumentModel)
+            .where(
+                DocumentModel.id == document_id,
+                DocumentModel.status != "parsing",
+                DocumentModel.deleted_at.is_(None),
+            )
+            .values(
+                status="parsing",
+                error_code=None,
+                error_message=None,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        if (result.rowcount or 0) != 1:
+            return None
+        return await self.get_by_id(document_id)
 
     async def get_by_id(
         self, document_id: int, *, include_deleted: bool = False

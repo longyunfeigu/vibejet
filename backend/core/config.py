@@ -142,6 +142,9 @@ class DocumentSettings(BaseModel):
     parser: str = "markitdown"  # markitdown | textin
     # 单文件解析输入上限（防止超大文件拖垮 worker / 烧穿按页计费额度）
     max_parse_bytes: int = 50 * 1024 * 1024  # 50MB
+    # parsing 状态超过该秒数视为孤儿任务（如进程重启丢失 BackgroundTasks），
+    # 允许 reparse 强制恢复
+    parsing_stale_seconds: int = 900
     # TextIn 凭证（仅 parser=textin 时必填；长期有效，无刷新逻辑）
     textin_app_id: Optional[str] = None
     textin_secret_code: Optional[str] = None

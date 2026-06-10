@@ -27,6 +27,15 @@ class DocumentRepository(ABC):
     ) -> Optional[Document]: ...
 
     @abstractmethod
+    async def try_mark_parsing(self, document_id: int) -> Optional[Document]:
+        """原子认领解析：status ∉ {parsing} 时置为 parsing 并清空错误，返回更新后实体。
+
+        已是 parsing / 不存在 / 已软删 → 返回 None。
+        这是并发安全的 check-and-set，防止同一文档被重复解析（重复计费）。
+        """
+        ...
+
+    @abstractmethod
     async def list(
         self,
         *,

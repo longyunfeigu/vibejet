@@ -50,7 +50,9 @@
 
 ### POST /api/v1/documents/{id}/reparse
 
-重置为 pending 并重新调度解析。`parsing` 中调用 → `DOCUMENT_ALREADY_PROCESSING (60022)`。
+重置为 pending 并重新调度解析。`parsing` 中调用 → `DOCUMENT_ALREADY_PROCESSING (60022)`；
+但 `parsing` 超过 `DOCUMENT__PARSING_STALE_SECONDS`（默认 900s）视为孤儿任务
+（如进程重启丢失后台任务），允许强制重置恢复。
 
 ### DELETE /api/v1/documents/{id}
 
@@ -81,6 +83,7 @@
 |----------|------|------|
 | `DOCUMENT__PARSER` | `markitdown` | 解析器二选一：markitdown / textin，不混用不降级 |
 | `DOCUMENT__MAX_PARSE_BYTES` | 50MB | 单文件解析输入上限 |
+| `DOCUMENT__PARSING_STALE_SECONDS` | 900 | parsing 超时视为孤儿任务，允许 reparse 强制恢复 |
 | `DOCUMENT__TEXTIN_APP_ID` / `DOCUMENT__TEXTIN_SECRET_CODE` | - | parser=textin 时必填（缺失则启动失败） |
 | `DOCUMENT__TEXTIN_BASE_URL` | `https://api.textin.com` | TextIn 端点 |
 | `DOCUMENT__TEXTIN_TIMEOUT` | 120 | TextIn 请求超时（秒） |
@@ -90,5 +93,6 @@ markitdown 依赖 optional extra：`uv sync --extra documents`。
 ## 已知留白（与 files 模块一致）
 
 - 列表不做 owner 过滤、详情不做 ownership 校验 —— 下游项目需补 actor/ownership 检查
-- BackgroundTasks 为进程内执行：进程重启会令文档停留在 `parsing`，可用 reparse 端点恢复；
+- BackgroundTasks 为进程内执行：进程重启会令文档停留在 `parsing`，超过
+  `DOCUMENT__PARSING_STALE_SECONDS` 后可用 reparse 端点恢复；
   多副本部署应将 `process_document` 迁移到 Celery（service 方法可直接复用）
