@@ -1,6 +1,5 @@
 # input: parsing providers（markitdown 真实库 / textin httpx mock）
 # output: 文档解析 provider 行为测试
-# owner: wanhua.gu
 # pos: 后端测试 - 解析 provider 成功/失败/错误映射验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for document parsing providers."""
 

@@ -1,6 +1,5 @@
 # input: shared.codes.BusinessCode, domain.common.exceptions.BusinessException
 # output: 文档领域异常类（NotFound/NotReady/AlreadyProcessing）
-# owner: wanhua.gu
 # pos: 领域层 - 文档聚合异常定义；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain exceptions for the document aggregate."""
 

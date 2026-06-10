@@ -1,6 +1,5 @@
 # input: TextIn xParse HTTP API（x-ti-app-id / x-ti-secret-code 长期凭证），httpx
 # output: TextInParser（公有云解析 PDF/扫描件/Office → Markdown）
-# owner: wanhua.gu
 # pos: 基础设施层 - 文档解析 provider（TextIn 通用文档解析，按页计费）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Document parsing via TextIn (合合信息) general document parsing API.
 

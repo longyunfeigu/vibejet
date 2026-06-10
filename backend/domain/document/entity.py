@@ -1,6 +1,5 @@
 # input: domain.common（BaseEntity、异常），纯业务逻辑
 # output: Document 领域实体（文档解析聚合根，pending/parsing/ready/failed 状态机）
-# owner: wanhua.gu
 # pos: 领域层 - 文档聚合根（引用 file_asset，持有解析产物 Markdown）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entity for the document aggregate.
 

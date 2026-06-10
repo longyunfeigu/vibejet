@@ -1,6 +1,5 @@
 # input: domain.document 实体与异常
 # output: Document 状态机单元测试
-# owner: wanhua.gu
 # pos: 后端测试 - 文档聚合状态机行为验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Unit tests for the Document aggregate state machine."""
 

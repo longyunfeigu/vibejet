@@ -1,6 +1,5 @@
 # input: infrastructure/models/document.py ORM 定义（与之严格对齐）
 # output: documents 表 schema（迁移版本 0002）
-# owner: wanhua.gu
 # pos: 数据库迁移 - 0002 新增 documents 表（文档解析聚合）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """add documents table
 

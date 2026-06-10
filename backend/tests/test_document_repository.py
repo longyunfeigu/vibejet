@@ -1,6 +1,5 @@
 # input: SQLAlchemyDocumentRepository + 内存 SQLite（aiosqlite）
 # output: 文档仓储原子认领（try_mark_parsing）行为测试
-# owner: wanhua.gu
 # pos: 后端测试 - 文档仓储条件更新并发语义验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for SQLAlchemyDocumentRepository.try_mark_parsing (atomic claim)."""
 

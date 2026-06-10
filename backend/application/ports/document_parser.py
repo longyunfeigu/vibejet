@@ -1,6 +1,5 @@
 # input: 无（纯协议定义；具体实现见 infrastructure/external/parsing）
 # output: DocumentParserPort Protocol, ParsedDocument, DocumentParserError
-# owner: wanhua.gu
 # pos: 应用层端口 - 文档解析抽象接口（任意格式 → 规范化 Markdown）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application-owned document parser port (hexagonal architecture).
 

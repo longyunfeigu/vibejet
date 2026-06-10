@@ -1,6 +1,5 @@
 # input: SQLAlchemy Base, infrastructure.models.base
 # output: DocumentModel ORM 映射（documents 表）
-# owner: wanhua.gu
 # pos: 基础设施层 - 文档聚合 ORM 模型（解析状态 + Markdown 产物列）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Document database model definitions."""
 

@@ -1,6 +1,5 @@
 # input: DocumentUnitOfWork, DocumentParserPort, StoragePort, Document/FileAsset 领域实体
 # output: DocumentApplicationService 文档解析生命周期编排
-# owner: wanhua.gu
 # pos: 应用层服务 - 文档建档/异步解析/查询/重解析编排（外部 I/O 在事务外执行）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application layer orchestration for the document parse lifecycle.
 

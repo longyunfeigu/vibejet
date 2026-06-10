@@ -44,12 +44,11 @@ prompts as current requirements unless the user explicitly promotes them back in
 project.
 
 Known current gaps:
-- No production auth module is implemented. Scaffold routes such as files, storage, conversations,
-  and chat are not safe to expose as product endpoints until a downstream project adds actor,
-  ownership, and role/tenant checks.
-- `backend/alembic/versions/` has no tracked baseline migrations yet. Production schema changes
-  must be made through Alembic, not by relying on `create_tables()`.
-- `docs/project/data/` currently has no product schema contracts beyond its README.
+- JWT auth (login gate) is implemented, but scaffold routes such as files, storage,
+  conversations, chat, and documents only require login — they are not safe to expose as
+  product endpoints until a downstream project adds ownership and role/tenant checks.
+- Schema changes go through Alembic (baseline `0001` + incremental revisions are tracked in
+  `backend/alembic/versions/`); do not rely on `create_tables()` in production.
 
 ## Backend Architecture
 

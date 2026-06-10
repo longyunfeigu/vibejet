@@ -1,6 +1,5 @@
 # input: DocumentApplicationService（依赖注入）, FastAPI BackgroundTasks
 # output: /api/v1/documents 路由（建档/列表/详情/内容/重解析/软删）
-# owner: wanhua.gu
 # pos: 表示层 - 文档解析 HTTP 端点（异步解析调度 + 状态轮询）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """文档解析相关路由。
 
