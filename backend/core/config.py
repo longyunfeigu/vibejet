@@ -81,6 +81,8 @@ class RedisSettings(BaseModel):
     max_connections: int = 10
     default_ttl: int = 300
     namespace: str = "vibejet"
+    # 初始化失败时 fail-fast（True）还是降级继续启动（False）
+    required: bool = False
 
 
 class IdempotencySettings(BaseModel):
@@ -101,6 +103,8 @@ class LLMSettings(BaseModel):
     max_tokens: int = 4096
     timeout: int = 60
     max_retries: int = 2
+    # 初始化失败时 fail-fast（True）还是降级继续启动（False）
+    required: bool = False
 
 
 class StorageSettings(BaseModel):
@@ -128,6 +132,8 @@ class StorageSettings(BaseModel):
     validation_enabled: bool = False
     max_file_size: int = 100 * 1024 * 1024  # 100MB
     allowed_types: Optional[list[str]] = None
+    # 初始化失败时 fail-fast（True）还是降级继续启动（False）
+    required: bool = False
 
 
 class MetricsSettings(BaseModel):

@@ -63,9 +63,10 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def create_tables():
     """
-    创建所有表
+    创建所有表（仅供测试使用）
 
-    根据models中定义的所有模型创建对应的数据库表
+    生产/开发启动路径只走 Alembic 迁移（见 main.py lifespan）。
+    这里直接 create_all 会绕过迁移版本管理，导致 schema 双轨漂移。
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

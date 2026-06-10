@@ -1,15 +1,16 @@
-"""
-FastAPI应用主入口
-"""
+# input: core.config.settings, api 路由/中间件, infrastructure 外部客户端生命周期
+# output: FastAPI app（REST 入口，composition root）
+# owner: wanhua.gu
+# pos: 应用入口 - 中间件/路由/异常处理装配 + lifespan 资源生命周期；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+"""FastAPI应用主入口（composition root）。"""
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_swagger_ui_html
-from starlette.responses import HTMLResponse
 
-from api.middleware import LoggingMiddleware, RequestIDMiddleware, PrometheusMiddleware
+from api.docs import register_docs
+from api.middleware import LoggingMiddleware, PrometheusMiddleware, RequestIDMiddleware
 from api.middleware.locale import LocaleMiddleware
 from api.routes import chat as chat_routes
 from api.routes import conversations as conversations_routes
@@ -23,13 +24,11 @@ from core.i18n import t
 from core.logging_config import configure_logging, get_logger
 from core.observability import tracing as tracing_obs
 from core.response import success_response
-from infrastructure.database import create_tables, upgrade_schema_to_head
+from infrastructure.database import upgrade_schema_to_head
 from infrastructure.external.cache import init_redis_client, shutdown_redis_client
-from infrastructure.external.llm import (
-    init_llm_client,
-    shutdown_llm_client,
-)
+from infrastructure.external.llm import get_llm_client, init_llm_client, shutdown_llm_client
 from infrastructure.external.storage import (
+    get_storage_client,
     get_storage_config,
     init_storage_client,
     shutdown_storage_client,
@@ -40,67 +39,81 @@ configure_logging()
 logger = get_logger(__name__)
 
 
+async def _init_optional(name: str, *, required: bool, initializer) -> None:
+    """初始化一个可选外部依赖。
+
+    required=True 时初始化失败直接抛出（fail-fast），
+    否则降级为 error 日志并继续启动。
+    """
+    try:
+        await initializer()
+    except Exception as exc:
+        if required:
+            logger.error(f"{name}_init_failed", error=str(exc), required=True)
+            raise
+        logger.error(f"{name}_init_failed", error=str(exc), required=False)
+
+
+def _setup_tracing(app: FastAPI) -> None:
+    try:
+        tracing_obs.setup_tracing(
+            service_name=settings.PROJECT_NAME,
+            exporter=settings.tracing.exporter,
+            otlp_endpoint=settings.tracing.otlp_endpoint,
+            sample_rate=settings.tracing.sample_rate,
+        )
+        tracing_obs.instrument_app(app)
+        logger.info("tracing_initialized", exporter=settings.tracing.exporter)
+    except Exception as exc:
+        logger.warning("tracing_init_failed", error=str(exc))
+
+
+async def _migrate_schema() -> None:
+    # 数据库 schema 单轨制：只认 Alembic 迁移（开发环境可设 AUTO_RUN_MIGRATIONS=true）
+    if settings.AUTO_RUN_MIGRATIONS:
+        await upgrade_schema_to_head()
+        logger.info("database_migrated", message="Alembic upgraded to head at startup")
+    else:
+        logger.info(
+            "database_migrations_required",
+            message="Auto migration disabled; run `alembic upgrade head` before startup",
+        )
+
+
+async def _init_storage() -> None:
+    await init_storage_client()
+    config = get_storage_config()
+    logger.info(
+        "storage_initialized",
+        message="Storage service initialized",
+        provider=config.type,
+        bucket=config.bucket,
+    )
+    storage = get_storage_client()
+    if storage and await storage.health_check():
+        logger.info("storage_health_check_passed", message="Storage health check passed")
+
+
+async def _init_llm() -> None:
+    await init_llm_client()
+    if settings.llm.required and get_llm_client() is None:
+        raise RuntimeError("LLM__REQUIRED=true but LLM client not configured (LLM__API_KEY)")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     if settings.tracing.enabled:
-        try:
-            tracing_obs.setup_tracing(
-                service_name=settings.PROJECT_NAME,
-                exporter=settings.tracing.exporter,
-                otlp_endpoint=settings.tracing.otlp_endpoint,
-                sample_rate=settings.tracing.sample_rate,
-            )
-            tracing_obs.instrument_app(app)
-            logger.info("tracing_initialized", exporter=settings.tracing.exporter)
-        except Exception as exc:
-            logger.warning("tracing_init_failed", error=str(exc))
-    # 可配置的启动迁移策略：优先自动执行 Alembic 迁移
-    if settings.AUTO_RUN_MIGRATIONS:
-        await upgrade_schema_to_head()
-        logger.info("database_migrated", message="Alembic upgraded to head at startup")
-    elif settings.DEBUG:
-        await create_tables()
-        logger.info("database_initialized", message="Database tables created (development)")
-    else:
-        logger.info(
-            "database_migrations_required",
-            message="Auto migration is disabled in production, run Alembic before startup",
-        )
+        _setup_tracing(app)
+
+    await _migrate_schema()
+
     if settings.redis.url:
-        try:
-            await init_redis_client()
-            logger.info("redis_cache_initialized", message="Redis cache initialized")
-        except Exception as exc:
-            logger.error("redis_cache_init_failed", error=str(exc))
-
-    # 初始化存储服务（根据配置自动选择 provider；本地为默认）
-    try:
-        await init_storage_client()
-        config = get_storage_config()
-        logger.info(
-            "storage_initialized",
-            message="Storage service initialized",
-            provider=config.type,
-            bucket=config.bucket,
+        await _init_optional(
+            "redis_cache", required=settings.redis.required, initializer=init_redis_client
         )
-        # 执行健康检查
-        from infrastructure.external.storage import get_storage_client
-
-        storage = get_storage_client()
-        if storage and await storage.health_check():
-            logger.info("storage_health_check_passed", message="Storage health check passed")
-    except Exception as exc:
-        logger.error(
-            "storage_init_failed",
-            error=str(exc),
-        )
-
-    # 初始化 LLM 客户端
-    try:
-        await init_llm_client()
-    except Exception as exc:
-        logger.error("llm_init_failed", error=str(exc))
+    await _init_optional("storage", required=settings.storage.required, initializer=_init_storage)
+    await _init_optional("llm", required=settings.llm.required, initializer=_init_llm)
 
     yield
     # 关闭时的清理工作
@@ -123,8 +136,8 @@ app = FastAPI(
     version=settings.VERSION,
     debug=settings.DEBUG,
     lifespan=lifespan,
-    description="基于DDD架构的Fastapi骨架",
-    docs_url=None,  # 使用自定义 Swagger UI 以支持国际化
+    description="基于DDD架构的FastAPI模板",
+    docs_url=None,  # 使用自定义 Swagger UI 以支持国际化（见 api/docs.py）
     redoc_url="/redoc",
 )
 
@@ -154,6 +167,8 @@ if settings.metrics.enabled:
 # 注册全局异常处理器
 register_exception_handlers(app)
 
+# 注册自定义 Swagger UI（/docs）
+register_docs(app)
 
 # 注册路由
 app.include_router(storage_routes.router, prefix="/api/v1")
@@ -190,79 +205,3 @@ if __name__ == "__main__":
         workers=1 if settings.RELOAD else settings.WORKERS,
         log_level="debug" if settings.DEBUG else "info",
     )
-
-
-# 自定义 Swagger UI（支持国际化）
-def _map_locale_to_swagger_lang(locale: str) -> str:
-    """将后端 locale 映射为 Swagger UI 支持的语言代码。"""
-    if not locale:
-        return "en"
-    tag = locale.replace("_", "-").lower()
-    # 常见映射（根据 Swagger UI 语言包）
-    if tag in {"zh", "zh-cn", "zh-hans"}:
-        return "zh-CN"
-    if tag in {"zh-tw", "zh-hant"}:
-        return "zh-TW"
-    if tag in {"en", "en-us", "en-gb"}:
-        return "en"
-    # 其他语言可按需扩展
-    return "en"
-
-
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html(request: Request) -> HTMLResponse:
-    # 由 LocaleMiddleware 解析的语言，或从查询参数获取
-    try:
-        current = getattr(request.state, "locale", None)
-    except Exception:
-        current = None
-    lang = _map_locale_to_swagger_lang(str(current or "en"))
-
-    base = get_swagger_ui_html(
-        openapi_url=app.openapi_url,
-        title=f"{settings.PROJECT_NAME} - API Docs",
-        swagger_ui_parameters={
-            # 关键：传入语言
-            "lang": lang,
-            # 常用增强参数（可按需调整）
-            "persistAuthorization": True,
-            "displayRequestDuration": True,
-        },
-    )
-    # 注入 requestInterceptor：为“Try it out”请求附带语言信息
-    try:
-        content = base.body.decode("utf-8")
-    except Exception:
-        content = str(base.body)
-    injection = (
-        "requestInterceptor: function(req){\n"
-        "  try {\n"
-        "    const url = new URL(req.url, window.location.origin);\n"
-        "    const params = new URLSearchParams(window.location.search);\n"
-        "    const lang = params.get('lang') || localStorage.getItem('docs_lang') || '%s';\n"
-        "    if (lang) {\n"
-        "      req.headers = req.headers || {};\n"
-        "      req.headers['X-Lang'] = lang;\n"
-        "      url.searchParams.set('lang', lang);\n"
-        "      req.url = url.toString();\n"
-        "    }\n"
-        "  } catch (e) {}\n"
-        "  return req;\n"
-        "},"
-    ) % (lang,)
-    content = content.replace("SwaggerUIBundle({", "SwaggerUIBundle({\n  " + injection, 1)
-    # 记住当前语言（刷新仍能保留）
-    remember_lang_script = (
-        "<script>\n"
-        "(function(){\n"
-        "  try {\n"
-        "    var p = new URLSearchParams(window.location.search);\n"
-        "    var l = p.get('lang');\n"
-        "    if (l) localStorage.setItem('docs_lang', l);\n"
-        "  } catch (e) {}\n"
-        "})();\n"
-        "</script>"
-    )
-    content = content.replace("</body>", remember_lang_script + "\n</body>")
-    # 返回新的 HTMLResponse，避免沿用旧的 Content-Length 头
-    return HTMLResponse(content=content, status_code=base.status_code)
