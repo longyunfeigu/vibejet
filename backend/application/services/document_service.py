@@ -86,13 +86,13 @@ class DocumentApplicationService:
     # ── 异步解析（worker 入口） ──────────────────────────────────────
 
     async def process_document(self, document_id: int) -> None:
-        """Parse one document: pending/failed → parsing → ready/failed.
+        """Parse one document: pending → parsing → ready/failed.
 
         Background-task entry: errors are persisted to the document record
         (failed + error_code), never raised to a requester.
         """
-        # 事务1：原子认领（条件 UPDATE）pending/ready/failed → parsing，并取出 storage key。
-        # 并发调度同一文档时只有一个 worker 能认领成功，避免重复解析/重复计费。
+        # 事务1：原子认领（条件 UPDATE）pending → parsing，并取出 storage key。
+        # 并发/排队重复调度同一文档时只有一个 worker 能认领成功，避免重复解析/重复计费。
         async with self._uow_factory() as uow:
             doc = await uow.document_repository.try_mark_parsing(document_id)
             if doc is None:
@@ -100,17 +100,24 @@ class DocumentApplicationService:
                 return
             asset = await uow.file_asset_repository.get_by_id(doc.file_asset_id)
             await uow.commit()
+        # 认领 token：落盘时校验行仍属于本次认领，防止 stale 恢复后僵尸任务覆写新结果
+        claimed_at = doc.updated_at
 
         parser_name = self._parser.name
+        max_bytes = int(settings.document.max_parse_bytes or 0)
         try:
             if asset is None:
                 raise DocumentParserError(
                     code="document.parse.file_asset_missing",
                     message=f"关联的文件资产不存在: {doc.file_asset_id}",
                 )
+            # 下载前先用文件资产元数据拦截超大文件，避免整对象读入内存后才发现超限
+            if max_bytes and asset.size and asset.size > max_bytes:
+                raise FileTooLargeException(size=asset.size, max_size=max_bytes)
+
             # 事务外：下载 + 解析（慢 I/O 不占数据库连接/事务）
             data = await self._storage.download(asset.key)
-            max_bytes = int(settings.document.max_parse_bytes or 0)
+            # 兜底：防 size 元数据失真
             if max_bytes and len(data) > max_bytes:
                 raise FileTooLargeException(size=len(data), max_size=max_bytes)
 
@@ -127,12 +134,16 @@ class DocumentApplicationService:
                 error_code=exc.code,
                 error=exc.message,
             )
-            await self._finalize_failed(document_id, code=exc.code, message=exc.message)
+            doc.mark_failed(error_code=exc.code, error_message=exc.message, parser=parser_name)
+            await self._finalize(doc, claimed_at=claimed_at)
             return
         except FileTooLargeException as exc:
-            await self._finalize_failed(
-                document_id, code="document.parse.too_large", message=exc.message
+            doc.mark_failed(
+                error_code="document.parse.too_large",
+                error_message=exc.message,
+                parser=parser_name,
             )
+            await self._finalize(doc, claimed_at=claimed_at)
             return
         except Exception as exc:  # noqa: BLE001 - worker 入口必须兜底记录
             logger.error(
@@ -142,39 +153,37 @@ class DocumentApplicationService:
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
-            await self._finalize_failed(
-                document_id, code="document.parse.internal_error", message=str(exc)
+            doc.mark_failed(
+                error_code="document.parse.internal_error",
+                error_message=str(exc),
+                parser=parser_name,
             )
+            await self._finalize(doc, claimed_at=claimed_at)
             return
 
         # 事务2：落盘解析产物
-        async with self._uow_factory() as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                logger.warning("document_process_vanished", document_id=document_id)
-                return
-            doc.mark_ready(
-                content_md=parsed.markdown,
+        doc.mark_ready(content_md=parsed.markdown, parser=parser_name, metadata=parsed.metadata)
+        if await self._finalize(doc, claimed_at=claimed_at):
+            logger.info(
+                "document_parse_ready",
+                document_id=document_id,
                 parser=parser_name,
-                metadata=parsed.metadata,
+                chars=len(parsed.markdown),
             )
-            await uow.document_repository.update(doc)
-            await uow.commit()
-        logger.info(
-            "document_parse_ready",
-            document_id=document_id,
-            parser=parser_name,
-            chars=len(parsed.markdown),
-        )
 
-    async def _finalize_failed(self, document_id: int, *, code: str, message: str) -> None:
+    async def _finalize(self, doc: Document, *, claimed_at) -> bool:
+        """条件落盘：认领已失效（stale 恢复后被新任务接管/已软删）则丢弃本次结果。"""
         async with self._uow_factory() as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                return
-            doc.mark_failed(error_code=code, error_message=message, parser=self._parser.name)
-            await uow.document_repository.update(doc)
+            updated = await uow.document_repository.update_if_claimed(doc, claimed_at=claimed_at)
             await uow.commit()
+        if not updated:
+            logger.warning(
+                "document_parse_result_discarded",
+                document_id=doc.id,
+                parser=self._parser.name,
+                reason="claim_superseded_or_deleted",
+            )
+        return updated
 
     # ── 查询 ────────────────────────────────────────────────────────
 

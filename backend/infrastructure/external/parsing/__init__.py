@@ -34,7 +34,7 @@ def create_parser() -> DocumentParserPort:
     # settings 校验保证 parser ∈ {markitdown, textin}
     from .providers.markitdown import MarkitdownParser
 
-    return MarkitdownParser()
+    return MarkitdownParser(timeout=doc.markitdown_timeout)
 
 
 def get_parser() -> DocumentParserPort:
@@ -45,4 +45,9 @@ def get_parser() -> DocumentParserPort:
     return _parser
 
 
-__all__ = ["create_parser", "get_parser"]
+async def init_parser() -> None:
+    """Lifespan 探测：构造一次解析器，把缺依赖/缺凭证暴露在启动期而不是首个请求。"""
+    get_parser()
+
+
+__all__ = ["create_parser", "get_parser", "init_parser"]

@@ -28,10 +28,20 @@ class DocumentRepository(ABC):
 
     @abstractmethod
     async def try_mark_parsing(self, document_id: int) -> Optional[Document]:
-        """原子认领解析：status ∉ {parsing} 时置为 parsing 并清空错误，返回更新后实体。
+        """原子认领解析：仅 status == pending 时置为 parsing 并清空错误，返回更新后实体。
 
-        已是 parsing / 不存在 / 已软删 → 返回 None。
-        这是并发安全的 check-and-set，防止同一文档被重复解析（重复计费）。
+        非 pending（含 parsing/ready/failed）/ 不存在 / 已软删 → 返回 None。
+        所有合法调度路径（建档、reparse、stale 恢复）都先重置为 pending，
+        因此收紧到 pending 可同时挡住并发认领与排队后的串行重复认领（重复计费）。
+        """
+        ...
+
+    @abstractmethod
+    async def update_if_claimed(self, document: Document, *, claimed_at) -> bool:
+        """条件落盘：仅当行仍处于本次认领（status=parsing 且 updated_at=claimed_at）时整行更新。
+
+        防止僵尸 worker（stale 恢复后迟到的旧任务）覆写新一轮解析结果。
+        返回 False 表示认领已失效，调用方应丢弃本次结果。
         """
         ...
 

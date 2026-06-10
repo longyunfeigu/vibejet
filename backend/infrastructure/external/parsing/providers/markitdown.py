@@ -31,7 +31,7 @@ class MarkitdownParser:
 
     name = "markitdown"
 
-    def __init__(self) -> None:
+    def __init__(self, *, timeout: int = 600) -> None:
         try:
             from markitdown import MarkItDown
         except ImportError as exc:  # pragma: no cover - exercised only without extra
@@ -40,6 +40,8 @@ class MarkitdownParser:
             ) from exc
         # enable_plugins=False：只用内置转换器，不加载第三方插件入口
         self._md = MarkItDown(enable_plugins=False)
+        # 病态文件可能让转换跑到 parsing_stale_seconds 之外，触发僵尸任务；必须有界
+        self._timeout = timeout
 
     async def parse(
         self,
@@ -48,7 +50,18 @@ class MarkitdownParser:
         content_type: Optional[str] = None,
         filename: Optional[str] = None,
     ) -> ParsedDocument:
-        markdown = await anyio.to_thread.run_sync(self._convert_sync, data, content_type, filename)
+        try:
+            with anyio.fail_after(self._timeout):
+                markdown = await anyio.to_thread.run_sync(
+                    self._convert_sync, data, content_type, filename
+                )
+        except TimeoutError as exc:
+            # 注意：超时只取消等待，工作线程无法被杀死，会继续跑完后被丢弃
+            raise DocumentParserError(
+                code="document.parse.timeout",
+                message=f"markitdown 解析超时（>{self._timeout}s）",
+                details={"filename": filename, "content_type": content_type},
+            ) from exc
         if len(markdown.strip()) < _MIN_MEANINGFUL_CHARS:
             raise DocumentParserError(
                 code="document.parse.empty_content",
@@ -63,8 +76,7 @@ class MarkitdownParser:
     def _convert_sync(
         self, data: bytes, content_type: Optional[str], filename: Optional[str]
     ) -> str:
-        from markitdown import StreamInfo
-        from markitdown._exceptions import MarkItDownException
+        from markitdown import MarkItDownException, StreamInfo
 
         ext = splitext(filename or "")[1] or None
         stream_info = StreamInfo(

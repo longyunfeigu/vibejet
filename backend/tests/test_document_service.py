@@ -29,6 +29,7 @@ class FakeDocumentRepository:
     def __init__(self) -> None:
         self.items: dict[int, Document] = {}
         self._next_id = 1
+        self._claims: dict[int, object] = {}
 
     async def create(self, document: Document) -> Document:
         document.id = self._next_id
@@ -51,13 +52,27 @@ class FakeDocumentRepository:
         return doc
 
     async def try_mark_parsing(self, document_id: int):
+        from application.utils.time import utcnow
+
         doc = self.items.get(document_id)
-        if doc is None or doc.deleted_at is not None or doc.status == "parsing":
+        # 与 SQL 实现对齐：仅 pending 可认领
+        if doc is None or doc.deleted_at is not None or doc.status != "pending":
             return None
         doc.status = "parsing"
         doc.error_code = None
         doc.error_message = None
+        doc.updated_at = utcnow()
+        self._claims[document_id] = doc.updated_at
         return doc
+
+    async def update_if_claimed(self, document: Document, *, claimed_at) -> bool:
+        stored = self.items.get(document.id)
+        if stored is None or stored.deleted_at is not None:
+            return False
+        if self._claims.get(document.id) != claimed_at:
+            return False
+        self.items[document.id] = document
+        return True
 
     async def list(self, **kwargs):
         return list(self.items.values())
@@ -312,3 +327,43 @@ async def test_get_document_not_found() -> None:
     service, _, _ = _build_service(parser=FakeParser())
     with pytest.raises(DocumentNotFoundException):
         await service.get_document(123)
+
+
+async def test_process_document_rejects_oversize_before_download(monkeypatch) -> None:
+    """asset.size 超限时在 download 之前拦截（FakeStorage 为空，若尝试下载会 KeyError）。"""
+    from core.config import settings
+
+    parser = FakeParser(result=ParsedDocument(markdown="# x"))
+    service, documents, assets = _build_service(parser=parser)  # 无 blob
+    asset = _seed_asset(assets)
+    asset.size = 100
+    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+
+    monkeypatch.setattr(settings.document, "max_parse_bytes", 5)
+    await service.process_document(dto.id)
+
+    doc = documents.items[dto.id]
+    assert doc.status == "failed"
+    assert doc.error_code == "document.parse.too_large"
+    assert parser.calls == []
+
+
+async def test_zombie_result_discarded_after_stale_recovery() -> None:
+    """旧任务认领后，stale 恢复 + 新任务重新认领；旧任务结果落盘必须被丢弃。"""
+    parser = FakeParser(result=ParsedDocument(markdown="# old"))
+    service, documents, assets = _build_service(parser=parser, blobs={"uploads/10.pdf": b"x"})
+    _seed_asset(assets)
+    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+
+    # 旧任务认领
+    old_doc = await documents.try_mark_parsing(dto.id)
+    old_claim = old_doc.updated_at
+
+    # stale 恢复 + 新任务重新认领（claims 被覆盖）
+    old_doc.status = "pending"
+    new_doc = await documents.try_mark_parsing(dto.id)
+    assert new_doc is not None
+
+    # 旧任务迟到的落盘被拒绝
+    old_doc.mark_ready(content_md="# zombie", parser="fake")
+    assert await documents.update_if_claimed(old_doc, claimed_at=old_claim) is False

@@ -86,6 +86,11 @@ class TextInParser:
                 details={"filename": filename},
             ) from exc
 
+        return self._to_parsed_document(resp, filename=filename)
+
+    def _to_parsed_document(
+        self, resp: httpx.Response, *, filename: Optional[str]
+    ) -> ParsedDocument:
         if resp.status_code != 200:
             raise DocumentParserError(
                 code="document.parse.textin_http_error",
@@ -93,7 +98,8 @@ class TextInParser:
                 details={"status_code": resp.status_code, "filename": filename},
             )
 
-        payload: dict[str, Any] = resp.json()
+        payload = self._decode_payload(resp, filename=filename)
+
         code = payload.get("code")
         if code != 200:
             # 保留 TextIn 业务码（如 40101 凭证错误），便于排障
@@ -118,3 +124,18 @@ class TextInParser:
         if payload.get("x_request_id"):
             metadata["textin_request_id"] = payload["x_request_id"]
         return ParsedDocument(markdown=markdown, metadata=metadata)
+
+    @staticmethod
+    def _decode_payload(resp: httpx.Response, *, filename: Optional[str]) -> dict[str, Any]:
+        """出口代理/网关可能劫持为 200 + HTML；畸形响应必须保留 textin 归因而非裸异常上抛。"""
+        try:
+            payload = resp.json()
+            if not isinstance(payload, dict):
+                raise ValueError(f"unexpected payload type: {type(payload).__name__}")
+        except ValueError as exc:
+            raise DocumentParserError(
+                code="document.parse.textin_invalid_response",
+                message=f"TextIn 返回了无法解析的响应: {exc}",
+                details={"body_prefix": resp.text[:200], "filename": filename},
+            ) from exc
+        return payload

@@ -111,12 +111,15 @@ class SQLAlchemyDocumentRepository(SoftDeleteFilterMixin, DocumentRepository):
         return self._to_entity(model)
 
     async def try_mark_parsing(self, document_id: int) -> Optional[Document]:
-        """原子 check-and-set：仅当未在解析中时认领（条件 UPDATE，规避 check-then-act 竞态）。"""
+        """原子 check-and-set：仅 pending 可认领（条件 UPDATE，规避 check-then-act 竞态）。
+
+        收紧到 pending 同时挡住并发认领与"排队任务在前序完成后从 ready 再次认领"。
+        """
         result = await self.session.execute(
             update(DocumentModel)
             .where(
                 DocumentModel.id == document_id,
-                DocumentModel.status != "parsing",
+                DocumentModel.status == "pending",
                 DocumentModel.deleted_at.is_(None),
             )
             .values(
@@ -129,6 +132,29 @@ class SQLAlchemyDocumentRepository(SoftDeleteFilterMixin, DocumentRepository):
         if (result.rowcount or 0) != 1:
             return None
         return await self.get_by_id(document_id)
+
+    async def update_if_claimed(self, document: Document, *, claimed_at) -> bool:
+        """条件落盘：行仍属于本次认领（status=parsing 且 updated_at 未被他人改写）才更新。"""
+        result = await self.session.execute(
+            update(DocumentModel)
+            .where(
+                DocumentModel.id == document.id,
+                DocumentModel.status == "parsing",
+                DocumentModel.updated_at == claimed_at,
+                DocumentModel.deleted_at.is_(None),
+            )
+            .values(
+                title=document.title,
+                parser=document.parser,
+                status=document.status,
+                content_md=document.content_md,
+                error_code=document.error_code,
+                error_message=document.error_message,
+                extra_metadata=document.metadata or {},
+                updated_at=document.updated_at,
+            )
+        )
+        return (result.rowcount or 0) == 1
 
     async def get_by_id(
         self, document_id: int, *, include_deleted: bool = False

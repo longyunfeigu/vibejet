@@ -72,9 +72,10 @@
 |------------|------|
 | `document.parse.empty_content` | 未提取到有效文本（markitdown 遇扫描件的典型结果） |
 | `document.parse.unsupported_format` | 解析器不支持的格式 |
-| `document.parse.too_large` | 超过 `DOCUMENT__MAX_PARSE_BYTES` |
+| `document.parse.timeout` | markitdown 本地转换超时（`DOCUMENT__MARKITDOWN_TIMEOUT`） |
+| `document.parse.too_large` | 超过 `DOCUMENT__MAX_PARSE_BYTES`（优先用文件资产 size 在下载前拦截） |
 | `document.parse.file_asset_missing` | 建档后文件资产被删除 |
-| `document.parse.textin_error` / `textin_timeout` / `textin_http_error` / `textin_network_error` | TextIn 调用失败（details 含 TextIn 原始码） |
+| `document.parse.textin_error` / `textin_timeout` / `textin_http_error` / `textin_network_error` / `textin_invalid_response` | TextIn 调用失败（details 含 TextIn 原始码或响应片段） |
 | `document.parse.internal_error` | 未预期异常兜底 |
 
 ## 配置
@@ -84,6 +85,8 @@
 | `DOCUMENT__PARSER` | `markitdown` | 解析器二选一：markitdown / textin，不混用不降级 |
 | `DOCUMENT__MAX_PARSE_BYTES` | 50MB | 单文件解析输入上限 |
 | `DOCUMENT__PARSING_STALE_SECONDS` | 900 | parsing 超时视为孤儿任务，允许 reparse 强制恢复 |
+| `DOCUMENT__MARKITDOWN_TIMEOUT` | 600 | markitdown 本地转换超时（秒，应明显小于 stale 阈值） |
+| `DOCUMENT__REQUIRED` | false | 启动期解析器初始化失败 fail-fast（true）还是降级（false） |
 | `DOCUMENT__TEXTIN_APP_ID` / `DOCUMENT__TEXTIN_SECRET_CODE` | - | parser=textin 时必填（缺失则启动失败） |
 | `DOCUMENT__TEXTIN_BASE_URL` | `https://api.textin.com` | TextIn 端点 |
 | `DOCUMENT__TEXTIN_TIMEOUT` | 120 | TextIn 请求超时（秒） |

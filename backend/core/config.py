@@ -145,6 +145,10 @@ class DocumentSettings(BaseModel):
     # parsing 状态超过该秒数视为孤儿任务（如进程重启丢失 BackgroundTasks），
     # 允许 reparse 强制恢复
     parsing_stale_seconds: int = 900
+    # markitdown 本地转换超时（应明显小于 parsing_stale_seconds）
+    markitdown_timeout: int = 600
+    # 初始化失败时 fail-fast（True）还是降级继续启动（False）
+    required: bool = False
     # TextIn 凭证（仅 parser=textin 时必填；长期有效，无刷新逻辑）
     textin_app_id: Optional[str] = None
     textin_secret_code: Optional[str] = None

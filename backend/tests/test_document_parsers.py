@@ -111,3 +111,38 @@ async def test_textin_empty_markdown_rejected() -> None:
 def test_textin_requires_credentials() -> None:
     with pytest.raises(RuntimeError):
         TextInParser(app_id="", secret_code="")
+
+
+async def test_textin_non_json_response_is_mapped() -> None:
+    """出口代理劫持为 200 + HTML 时，必须映射为带归因的 ParserError 而非裸异常。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>Gateway error</html>")
+
+    parser, _ = _textin_parser_with(handler)
+    with pytest.raises(DocumentParserError) as exc_info:
+        await parser.parse(b"%PDF-fake", filename="a.pdf")
+    assert exc_info.value.code == "document.parse.textin_invalid_response"
+    assert "Gateway" in exc_info.value.details["body_prefix"]
+
+
+async def test_textin_non_dict_json_is_mapped() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=["not", "a", "dict"])
+
+    parser, _ = _textin_parser_with(handler)
+    with pytest.raises(DocumentParserError) as exc_info:
+        await parser.parse(b"%PDF-fake", filename="a.pdf")
+    assert exc_info.value.code == "document.parse.textin_invalid_response"
+
+
+async def test_markitdown_parse_timeout_is_mapped() -> None:
+    """转换线程超时必须映射为 document.parse.timeout（线程本身不可取消，仅丢弃等待）。"""
+    import time
+
+    parser = MarkitdownParser(timeout=1)
+    parser._convert_sync = lambda data, ct, fn: time.sleep(5) or ""  # type: ignore[method-assign]
+
+    with pytest.raises(DocumentParserError) as exc_info:
+        await parser.parse(b"slow", content_type="text/plain", filename="slow.txt")
+    assert exc_info.value.code == "document.parse.timeout"

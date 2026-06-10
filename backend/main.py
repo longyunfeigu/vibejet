@@ -29,6 +29,7 @@ from core.response import success_response
 from infrastructure.database import upgrade_schema_to_head
 from infrastructure.external.cache import init_redis_client, shutdown_redis_client
 from infrastructure.external.llm import get_llm_client, init_llm_client, shutdown_llm_client
+from infrastructure.external.parsing import init_parser
 from infrastructure.external.storage import (
     get_storage_client,
     get_storage_config,
@@ -116,6 +117,9 @@ async def lifespan(app: FastAPI):
         )
     await _init_optional("storage", required=settings.storage.required, initializer=_init_storage)
     await _init_optional("llm", required=settings.llm.required, initializer=_init_llm)
+    await _init_optional(
+        "document_parser", required=settings.document.required, initializer=init_parser
+    )
 
     yield
     # 关闭时的清理工作
