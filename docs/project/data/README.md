@@ -1,7 +1,8 @@
 # Data Contracts
 
-There are no current product-specific persistent schema contracts in the
-`vibejet` base library.
+Current foundation schema contracts:
+
+- [document.md](document.md) — `documents` 表（文档解析聚合，migration 0002）
 
 When a reusable platform schema becomes part of the foundation, document it in
 this directory alongside the Alembic migration that creates it. Downstream
