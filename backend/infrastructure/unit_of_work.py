@@ -1,19 +1,30 @@
-"""SQLAlchemy Unit of Work 实现"""
+# input: SQLAlchemy AsyncSession 工厂, infrastructure.repositories 各仓储实现
+# output: SQLAlchemyUnitOfWork（仓储懒实例化的事务边界实现）
+# owner: wanhua.gu
+# pos: 基础设施层 - UoW 具体实现；新聚合只需在 _REPOSITORY_FACTORIES 加一行；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+"""SQLAlchemy Unit of Work 实现。
+
+仓储通过 ``_REPOSITORY_FACTORIES`` 注册表 + ``__getattr__`` 懒实例化：
+- 每个 UoW 只构造实际被访问的仓储
+- 新增聚合只需要在注册表中加一行，不需要改动任何方法
+"""
 
 from __future__ import annotations
 
-from typing import Optional, Callable
-import inspect
+from typing import Any, Callable, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports.unit_of_work import AbstractUnitOfWork
 from infrastructure.database import AsyncSessionLocal
-from infrastructure.repositories.file_asset_repository import (
-    SQLAlchemyFileAssetRepository,
+from infrastructure.repositories.agent_config_repository import (
+    SQLAlchemyAgentConfigRepository,
 )
 from infrastructure.repositories.conversation_repository import (
     SQLAlchemyConversationRepository,
+)
+from infrastructure.repositories.file_asset_repository import (
+    SQLAlchemyFileAssetRepository,
 )
 from infrastructure.repositories.message_repository import (
     SQLAlchemyMessageRepository,
@@ -21,13 +32,19 @@ from infrastructure.repositories.message_repository import (
 from infrastructure.repositories.run_repository import (
     SQLAlchemyRunRepository,
 )
-from infrastructure.repositories.agent_config_repository import (
-    SQLAlchemyAgentConfigRepository,
-)
 
 
 class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
     """基于SQLAlchemy的Unit of Work"""
+
+    # 仓储注册表：属性名 -> 以 session 为构造参数的工厂
+    _REPOSITORY_FACTORIES: dict[str, Callable[[AsyncSession], Any]] = {
+        "file_asset_repository": SQLAlchemyFileAssetRepository,
+        "conversation_repository": SQLAlchemyConversationRepository,
+        "message_repository": SQLAlchemyMessageRepository,
+        "run_repository": SQLAlchemyRunRepository,
+        "agent_config_repository": SQLAlchemyAgentConfigRepository,
+    }
 
     def __init__(
         self,
@@ -40,47 +57,41 @@ class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
         self._session_factory = session_factory
         self._external_session = session
         self.session: Optional[AsyncSession] = session
-        self.file_asset_repository = None  # type: ignore[assignment]
+
+    def __getattr__(self, name: str) -> Any:
+        # 仅在实例属性缺失时触发：按注册表懒实例化仓储并缓存
+        factory = self._REPOSITORY_FACTORIES.get(name)
+        if factory is None:
+            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+        session = self.__dict__.get("session")
+        if session is None:
+            raise RuntimeError("UnitOfWork not entered. Use `async with uow_factory() as uow:`")
+        repo = factory(session)
+        setattr(self, name, repo)
+        return repo
 
     async def __aenter__(self) -> "SQLAlchemyUnitOfWork":
         if self.session is None:
             self.session = self._session_factory()
-        self.file_asset_repository = SQLAlchemyFileAssetRepository(self.session)
-        self.register_repository("file_asset_repository", self.file_asset_repository)
-        self.conversation_repository = SQLAlchemyConversationRepository(self.session)
-        self.register_repository("conversation_repository", self.conversation_repository)
-        self.message_repository = SQLAlchemyMessageRepository(self.session)
-        self.register_repository("message_repository", self.message_repository)
-        self.run_repository = SQLAlchemyRunRepository(self.session)
-        self.register_repository("run_repository", self.run_repository)
-        self.agent_config_repository = SQLAlchemyAgentConfigRepository(self.session)
-        self.register_repository("agent_config_repository", self.agent_config_repository)
         # 仅在非只读模式下显式开启事务
         if not self._readonly:
-            self._transaction = await self.session.begin()
+            await self.session.begin()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         try:
             await super().__aexit__(exc_type, exc, tb)
         finally:
-            # 事务在 commit/rollback 后通常会结束，这里仅在仍然活动时做安全关闭
-            tx = getattr(self, "_transaction", None)
-            if tx is not None and getattr(tx, "is_active", False):
-                close = getattr(tx, "close", None)
-                if callable(close):
-                    res = close()
-                    if inspect.isawaitable(res):
-                        await res
-            if self._external_session is None and self.session is not None:
-                await self.session.close()
-                self.session = None
-            self.file_asset_repository = None  # type: ignore[assignment]
-            self.conversation_repository = None  # type: ignore[assignment]
-            self.message_repository = None  # type: ignore[assignment]
-            self.run_repository = None  # type: ignore[assignment]
-            self.agent_config_repository = None  # type: ignore[assignment]
-            self._repositories.clear()
+            if self.session is not None:
+                # commit/rollback 后事务通常已结束；只读模式下这里收掉隐式事务
+                if self.session.in_transaction():
+                    await self.session.rollback()
+                if self._external_session is None:
+                    await self.session.close()
+                    self.session = None
+            # 丢弃绑定在已关闭 session 上的仓储缓存
+            for repo_name in self._REPOSITORY_FACTORIES:
+                self.__dict__.pop(repo_name, None)
 
     async def commit(self) -> None:
         if self._readonly:

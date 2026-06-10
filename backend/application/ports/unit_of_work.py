@@ -1,14 +1,18 @@
+# input: 无外部依赖（纯抽象）
+# output: AbstractUnitOfWork 事务边界抽象
+# owner: wanhua.gu
+# pos: 应用层端口 - 事务生命周期抽象，保持 repository-agnostic；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application-layer Unit of Work port.
 
 This base owns transaction lifecycle behavior only. Concrete repository
-attributes are intentionally typed at each application service boundary so a
-new module does not require changing one global UoW interface.
+attributes are intentionally typed at each application service boundary
+(via service-local ``Protocol``\\ s) so a new module does not require
+changing one global UoW interface.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class AbstractUnitOfWork(ABC):
@@ -17,7 +21,6 @@ class AbstractUnitOfWork(ABC):
     def __init__(self, *, readonly: bool = False) -> None:
         self._committed = False
         self._readonly = readonly
-        self._repositories: dict[str, Any] = {}
 
     async def __aenter__(self) -> "AbstractUnitOfWork":
         return self
@@ -39,9 +42,3 @@ class AbstractUnitOfWork(ABC):
     async def rollback(self) -> None:
         """Roll back the current transaction."""
         ...
-
-    def register_repository(self, name: str, repo: Any) -> None:
-        self._repositories[name] = repo
-
-    def get_repository(self, name: str) -> Any:
-        return self._repositories.get(name)
