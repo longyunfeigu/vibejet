@@ -2,12 +2,20 @@
 # output: ChatApplicationService 聊天用例编排（流式 + 非流式）
 # owner: unknown
 # pos: 应用层服务 - 核心聊天流程编排，发消息→创建Run→调LLM→流式返回；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-"""Application service for the chat workflow (send message → LLM → stream response)."""
+"""Application service for the chat workflow (send message → LLM → stream response).
+
+Transaction shape (deliberate): three short UoWs instead of one long one so the
+DB transaction is never held open across the LLM call —
+phase 1 persist user message + create run / phase 2 call LLM (no tx) /
+phase 3 persist assistant message + finalize run.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
-from typing import AsyncIterator, Callable, Protocol
+from dataclasses import dataclass
+from typing import AsyncIterator, Callable, Optional, Protocol
 
 from application.dto import ChatRequestDTO, MessageDTO_Agent, RunDTO
 from application.ports.llm import LLMMessage, LLMPort, LLMResponse
@@ -36,6 +44,16 @@ class ChatUnitOfWork(Protocol):
     async def commit(self) -> None: ...
 
 
+@dataclass
+class _StartedRun:
+    """Phase-1 result: everything later phases need, detached from the UoW."""
+
+    run_id: int
+    user_message_id: int
+    model: Optional[str]
+    llm_messages: list[LLMMessage]
+
+
 class ChatApplicationService:
     """Orchestrates sending a message to LLM and streaming the response."""
 
@@ -47,7 +65,10 @@ class ChatApplicationService:
         self._uow_factory = uow_factory
         self._llm = llm
 
-    async def _load_history(self, uow, conversation_id: int) -> list[LLMMessage]:
+    # ------------------------------------------------------------------
+    # Shared phases
+    # ------------------------------------------------------------------
+    async def _load_history(self, uow: ChatUnitOfWork, conversation_id: int) -> list[LLMMessage]:
         """Load conversation messages as LLMMessage list (newest N, ordered chronologically)."""
         # 长对话上下文窗口：拿最近 N 条而不是最早 N 条
         messages = await uow.message_repository.list_recent_by_conversation(
@@ -55,16 +76,8 @@ class ChatApplicationService:
         )
         return [LLMMessage(role=m.role, content=m.content) for m in messages]
 
-    async def send_message_stream(
-        self,
-        conversation_id: int,
-        dto: ChatRequestDTO,
-    ) -> AsyncIterator[str]:
-        """Send a user message and stream the assistant response as SSE events.
-
-        Yields SSE-formatted strings: `data: {...}\\n\\n`
-        """
-        # Phase 1: persist user message and create run
+    async def _start_run(self, conversation_id: int, dto: ChatRequestDTO) -> _StartedRun:
+        """Phase 1: validate conversation, persist user message, create run, build LLM context."""
         async with self._uow_factory() as uow:
             conv = await uow.conversation_repository.get_by_id(conversation_id)
             if conv is None:
@@ -75,7 +88,6 @@ class ChatApplicationService:
             model = dto.model or conv.model
             now = utcnow()
 
-            # Create user message
             user_msg = Message(
                 id=None,
                 conversation_id=conversation_id,
@@ -85,7 +97,6 @@ class ChatApplicationService:
             )
             user_msg = await uow.message_repository.create(user_msg)
 
-            # Create run
             run = Run(
                 id=None,
                 conversation_id=conversation_id,
@@ -96,26 +107,84 @@ class ChatApplicationService:
             )
             run = await uow.run_repository.create(run)
 
-            # Load history for LLM context
             history = await self._load_history(uow, conversation_id)
-
             await uow.commit()
 
-        run_id = run.id
-        user_msg_id = user_msg.id
-
-        # Build LLM messages
         llm_messages: list[LLMMessage] = []
-        # Add system prompt if present
         if conv.system_prompt:
             llm_messages.append(LLMMessage(role="system", content=conv.system_prompt))
         llm_messages.extend(history)
 
-        # Yield user message event
+        assert run.id is not None and user_msg.id is not None
+        return _StartedRun(
+            run_id=run.id,
+            user_message_id=user_msg.id,
+            model=model,
+            llm_messages=llm_messages,
+        )
+
+    async def _finalize_run(
+        self,
+        started: _StartedRun,
+        conversation_id: int,
+        *,
+        content: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        total_tokens: int,
+    ) -> tuple[Message, Optional[Run]]:
+        """Phase 3: persist assistant message and mark run completed."""
+        async with self._uow_factory() as uow:
+            assistant_msg = Message(
+                id=None,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=content,
+                run_id=started.run_id,
+                token_count=completion_tokens,
+                created_at=utcnow(),
+            )
+            assistant_msg = await uow.message_repository.create(assistant_msg)
+
+            run_entity = await uow.run_repository.get_by_id(started.run_id)
+            if run_entity:
+                run_entity.mark_completed(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                )
+                await uow.run_repository.update(run_entity)
+
+            await uow.commit()
+        return assistant_msg, run_entity
+
+    async def _fail_run(self, run_id: int, error: str) -> None:
+        """Mark a run as failed (best effort, used on LLM errors and stream aborts)."""
+        async with self._uow_factory() as uow:
+            run_entity = await uow.run_repository.get_by_id(run_id)
+            if run_entity and run_entity.status == "running":
+                run_entity.mark_failed(error)
+                await uow.run_repository.update(run_entity)
+            await uow.commit()
+
+    # ------------------------------------------------------------------
+    # Use cases
+    # ------------------------------------------------------------------
+    async def send_message_stream(
+        self,
+        conversation_id: int,
+        dto: ChatRequestDTO,
+    ) -> AsyncIterator[str]:
+        """Send a user message and stream the assistant response as SSE events.
+
+        Yields SSE-formatted strings: `data: {...}\\n\\n`
+        """
+        started = await self._start_run(conversation_id, dto)
+
         yield _sse_event(
             "message_created",
             {
-                "message_id": user_msg_id,
+                "message_id": started.user_message_id,
                 "role": "user",
             },
         )
@@ -128,8 +197,8 @@ class ChatApplicationService:
 
         try:
             async for chunk in self._llm.stream(
-                llm_messages,
-                model=model,
+                started.llm_messages,
+                model=started.model,
                 temperature=dto.temperature,
                 max_tokens=dto.max_tokens,
             ):
@@ -147,16 +216,22 @@ class ChatApplicationService:
                     completion_tokens = chunk.completion_tokens
                     total_tokens = chunk.total_tokens
 
+        except (asyncio.CancelledError, GeneratorExit):
+            # 客户端断连：CancelledError/GeneratorExit 是 BaseException，
+            # 不收尾的话 Run 会永远停留在 running。shield 保证收尾写库不被二次取消打断。
+            logger.warning("llm_stream_cancelled", run_id=started.run_id)
+            try:
+                await asyncio.shield(self._fail_run(started.run_id, "stream cancelled by client"))
+            except Exception as cleanup_exc:  # pragma: no cover - best effort
+                logger.error(
+                    "llm_stream_cancel_cleanup_failed",
+                    run_id=started.run_id,
+                    error=str(cleanup_exc),
+                )
+            raise
         except Exception as exc:
-            logger.error("llm_stream_failed", error=str(exc), run_id=run_id)
-            # Persist failure
-            async with self._uow_factory() as uow:
-                run_entity = await uow.run_repository.get_by_id(run_id)
-                if run_entity:
-                    run_entity.mark_failed(str(exc))
-                    await uow.run_repository.update(run_entity)
-                await uow.commit()
-
+            logger.error("llm_stream_failed", error=str(exc), run_id=started.run_id)
+            await self._fail_run(started.run_id, str(exc))
             yield _sse_event(
                 "error", {"message": "An error occurred while generating the response."}
             )
@@ -164,28 +239,14 @@ class ChatApplicationService:
             return
 
         # Phase 3: persist assistant message and complete run
-        async with self._uow_factory() as uow:
-            assistant_msg = Message(
-                id=None,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=full_content,
-                run_id=run_id,
-                token_count=completion_tokens,
-                created_at=utcnow(),
-            )
-            assistant_msg = await uow.message_repository.create(assistant_msg)
-
-            run_entity = await uow.run_repository.get_by_id(run_id)
-            if run_entity:
-                run_entity.mark_completed(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                )
-                await uow.run_repository.update(run_entity)
-
-            await uow.commit()
+        assistant_msg, _ = await self._finalize_run(
+            started,
+            conversation_id,
+            content=full_content,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
 
         yield _sse_event(
             "message_complete",
@@ -198,7 +259,7 @@ class ChatApplicationService:
         yield _sse_event(
             "run_complete",
             {
-                "run_id": run_id,
+                "run_id": started.run_id,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
@@ -212,87 +273,30 @@ class ChatApplicationService:
         dto: ChatRequestDTO,
     ) -> dict:
         """Send a user message and return the full assistant response (non-streaming)."""
-        # Phase 1: persist user message and create run
-        async with self._uow_factory() as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
-            if not conv.is_active():
-                raise ConversationArchivedException(conversation_id)
-
-            model = dto.model or conv.model
-            now = utcnow()
-
-            user_msg = Message(
-                id=None,
-                conversation_id=conversation_id,
-                role="user",
-                content=dto.message,
-                created_at=now,
-            )
-            user_msg = await uow.message_repository.create(user_msg)
-
-            run = Run(
-                id=None,
-                conversation_id=conversation_id,
-                status="running",
-                model=model,
-                started_at=now,
-                created_at=now,
-            )
-            run = await uow.run_repository.create(run)
-
-            history = await self._load_history(uow, conversation_id)
-            await uow.commit()
-
-        run_id = run.id
-
-        llm_messages: list[LLMMessage] = []
-        if conv.system_prompt:
-            llm_messages.append(LLMMessage(role="system", content=conv.system_prompt))
-        llm_messages.extend(history)
+        started = await self._start_run(conversation_id, dto)
 
         # Phase 2: call LLM
         try:
             response: LLMResponse = await self._llm.generate(
-                llm_messages,
-                model=model,
+                started.llm_messages,
+                model=started.model,
                 temperature=dto.temperature,
                 max_tokens=dto.max_tokens,
             )
         except Exception as exc:
-            logger.error("llm_generate_failed", error=str(exc), run_id=run_id)
-            async with self._uow_factory() as uow:
-                run_entity = await uow.run_repository.get_by_id(run_id)
-                if run_entity:
-                    run_entity.mark_failed(str(exc))
-                    await uow.run_repository.update(run_entity)
-                await uow.commit()
+            logger.error("llm_generate_failed", error=str(exc), run_id=started.run_id)
+            await self._fail_run(started.run_id, str(exc))
             raise LLMProviderException(str(exc))
 
         # Phase 3: persist assistant message and complete run
-        async with self._uow_factory() as uow:
-            assistant_msg = Message(
-                id=None,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=response.content,
-                run_id=run_id,
-                token_count=response.completion_tokens,
-                created_at=utcnow(),
-            )
-            assistant_msg = await uow.message_repository.create(assistant_msg)
-
-            run_entity = await uow.run_repository.get_by_id(run_id)
-            if run_entity:
-                run_entity.mark_completed(
-                    prompt_tokens=response.prompt_tokens,
-                    completion_tokens=response.completion_tokens,
-                    total_tokens=response.total_tokens,
-                )
-                await uow.run_repository.update(run_entity)
-
-            await uow.commit()
+        assistant_msg, run_entity = await self._finalize_run(
+            started,
+            conversation_id,
+            content=response.content,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            total_tokens=response.total_tokens,
+        )
 
         return {
             "message": MessageDTO_Agent.model_validate(assistant_msg).model_dump(),
