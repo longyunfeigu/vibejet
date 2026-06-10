@@ -15,14 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements first (for better layer caching)
-COPY requirements.txt .
+# Copy only dependency manifests first (for better layer caching).
+# pyproject.toml + uv.lock are the single source of truth for dependencies.
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies to a virtual environment
+# Install Python dependencies to a virtual environment.
+# Add optional integrations as extras, e.g. --extra s3 --extra celery
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip uv && \
+    uv export --frozen --no-emit-project --no-dev -o /tmp/requirements.txt && \
+    pip install --no-cache-dir -r /tmp/requirements.txt
 
 # ============================================================================
 # Stage 2: Runtime - Minimal production image
@@ -77,9 +80,11 @@ FROM runtime as development
 
 USER root
 
-# Install development dependencies
-COPY requirements-dev.txt .
-RUN pip install --no-cache-dir -r requirements-dev.txt
+# Install development dependencies (dev extra from pyproject)
+COPY pyproject.toml uv.lock ./
+RUN pip install --no-cache-dir uv && \
+    uv export --frozen --no-emit-project --extra dev -o /tmp/requirements-dev.txt && \
+    pip install --no-cache-dir -r /tmp/requirements-dev.txt
 
 # Install git for pre-commit
 RUN apt-get update && apt-get install -y --no-install-recommends \

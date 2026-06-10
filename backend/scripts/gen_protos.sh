@@ -18,7 +18,7 @@ command -v python3 >/dev/null 2>&1 || PY_BIN="python"
   $(find "$proto_dir" -name "*.proto" -print)
 
 # Post-process precisely: in each *_pb2_grpc.py, make only its sibling *_pb2 import relative.
-# Example in user_pb2_grpc.py: from forge.v1 import user_pb2 as x  ->  from . import user_pb2 as x
+# Example in foo_pb2_grpc.py: from pkg.v1 import foo_pb2 as x  ->  from . import foo_pb2 as x
 fix_count=0
 while IFS= read -r -d '' file; do
   base="$(basename "$file")"

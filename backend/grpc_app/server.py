@@ -1,26 +1,35 @@
+# input: core.config.settings.grpc, grpc_app 拦截器, grpc 健康检查服务
+# output: create_server() gRPC aio server 工厂（含拦截器/TLS/健康检查）
+# owner: wanhua.gu
+# pos: gRPC 服务 - server 骨架装配；业务 service 在此注册；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+"""gRPC aio server skeleton.
+
+This template ships no business gRPC service. To add one:
+1. Put your `.proto` under `grpc_app/protos/<pkg>/` and run `scripts/gen_protos.sh`
+2. Implement the servicer under `grpc_app/services/`
+3. Register it below in `create_server()` (see the marked extension point)
+"""
+
 from __future__ import annotations
 
-from typing import Sequence
 import os
 import sys
+from typing import Sequence
+
 import grpc
-from grpc_health.v1 import health, health_pb2_grpc, health_pb2
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 from core.config import settings
 from core.logging_config import get_logger
-from grpc_app.interceptors.request_id import RequestIdInterceptor
-from grpc_app.interceptors.logging import LoggingInterceptor
 from grpc_app.interceptors.exceptions import ExceptionMappingInterceptor
+from grpc_app.interceptors.logging import LoggingInterceptor
+from grpc_app.interceptors.request_id import RequestIdInterceptor
 
-# Ensure generated root is importable as top-level package `forge`
-# so that generated imports like `from forge.v1 import user_pb2` work.
+# Make `grpc_app/generated` importable as a top-level root so generated stubs
+# (which import sibling packages absolutely) resolve correctly.
 _gen_root = os.path.join(os.path.dirname(__file__), "generated")
 if _gen_root not in sys.path:
     sys.path.insert(0, _gen_root)
-
-from grpc_app.generated.forge.v1 import profile_pb2_grpc
-from grpc_app.services.profile_service import ProfileService
-
 
 logger = get_logger(__name__)
 
@@ -37,14 +46,17 @@ async def create_server() -> grpc.aio.Server:
     ]
     server = grpc.aio.server(interceptors=interceptors, options=options)
 
-    # Register services
-    profile_pb2_grpc.add_ProfileServiceServicer_to_server(ProfileService(), server)
+    # --- Extension point: register business services here ---------------
+    # from grpc_app.generated.<pkg> import <svc>_pb2_grpc
+    # from grpc_app.services.<svc>_service import <Svc>Service
+    # <svc>_pb2_grpc.add_<Svc>ServiceServicer_to_server(<Svc>Service(), server)
+    # health_svc.set("<pkg>.<Svc>Service", health_pb2.HealthCheckResponse.SERVING)
+    # ---------------------------------------------------------------------
 
     # Health service
     health_svc = health.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_svc, server)
     health_svc.set("", health_pb2.HealthCheckResponse.SERVING)
-    health_svc.set("forge.v1.ProfileService", health_pb2.HealthCheckResponse.SERVING)
 
     # Bind address
     address = f"{settings.grpc.host}:{settings.grpc.port}"

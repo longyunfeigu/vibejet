@@ -16,7 +16,7 @@ from .beat import CELERY_BEAT_SCHEDULE
 CELERY_IMPORTS = ("infrastructure.tasks.tasks",)
 
 
-celery_app = Celery("fastapi_forge")
+celery_app = Celery("vibejet")
 
 celery_app.conf.update(
     # Connection endpoints – fall back to env variables when settings omit them.
