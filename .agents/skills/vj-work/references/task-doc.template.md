@@ -150,10 +150,12 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
     禁止 AI 默认风格：紫/蓝渐变背景、三等份 feature 卡片、Inter 字体、通用 glassmorphism。
 
 ──────────── 出口：DESIGN.md 一致性核对清单（按 UI class 触发）────────────
-UI-critical：完成前逐条核对 + 桌面/移动截图佐证。
+UI-critical：开工前先取视觉锚点（vj-design-md-matcher 参考图 / design-taste skill）；完成前逐条核对 + 桌面/移动截图；**门面屏（login/首屏/landing/app-shell/导航/theme/视觉重构）截图后必须过独立设计评审 gate（见 `.claude/rules/frontend.md` §门面屏富度 Gate）——非自评**。
 UI-functional：核对实际相关项 + targeted browser check 或局部截图。
 UI-trivial：不强制截图；仍不得违反已列 DESIGN.md 硬约束。
-凡【2】列到的章节，下列对应项必须勾选；不适用的标 N/A 并说明。仅"无溢出/五态"不算通过。
+凡【2】列到的章节，下列对应项必须勾选；不适用的标 N/A 并说明。**下面的核对项多为"没犯禁"，只查它们=会放过"空/丑"——门面屏另需满足正向存在性 gate（下方 ★ 项）。仅"无溢出/五态"不算通过。**
+  ★ 正向存在性（门面屏，空了就 FAIL）：品牌/价值区刻意构图（mark+产品名+≥2 价值点+克制几何/纹理，非一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量
+  ★ 独立评审：门面屏截图过 `design-review` 或 fresh-eyes 子代理，按 §Richness Floor 产出具体缺陷 + pass/fail；红了迭代到过
   □ 壳形态：符合 §App Shell —— admin 工作流=左 sidebar(248px)，员工答题=顶栏；**本页角色对应的壳形态对了吗**
   □ 主色：主操作=深青 primary(`#0F3D3E`)；蓝仅用于链接/焦点/信息；页面无蓝/紫主按钮（§Color L144）
   □ 背景：浅 canvas(`#F8FAFC`)/白 surface；**无渐变/blob/暗色整壳/glassmorphism**（§Color L148, §Do/Don't）

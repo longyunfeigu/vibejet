@@ -322,9 +322,14 @@ UI class：
 
 执行要求：
 
-- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist 与 Screen 合同；不满足先修。
+- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；**开工前先取具体视觉锚点**（`vj-design-md-matcher` 选/生成参考图，或 `design-taste-frontend`/`high-end-visual-design` skill 范式），不许照散文搭最小骨架；桌面+移动截图；**截图后过独立设计评审 gate（见下）**——不满足先修。
 - functional：读相关 pattern/token/source pointer；若属于 frontend-composition，做 Screen-level browser check；否则做 targeted browser check 或局部截图；验证 loading/error/empty/success/permission 中实际相关状态。
 - trivial：不强制截图；跑 typecheck/test/lint 或 Unit Verification。
+
+**门面屏富度 gate（critical 且属 front-of-house / 视觉重构 / app-shell·导航·theme，强制，见 `.claude/rules/frontend.md` §门面屏富度 Gate）**：
+- 自评 checklist 只查"没犯禁"（无渐变/glass/色块/裸 hex），**不计入通过**——它抓不住"空/丑"。
+- Done 判据改为**正向存在性**（空了就 FAIL）：品牌区刻意构图（mark+产品名+≥2 价值点+克制几何/纹理，非一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量。
+- **评审不许自评**：截图后必须过一道*独立* gate——跑 `design-review` skill 或新开 fresh-eyes 子代理，对桌面+移动截图按 DESIGN §Richness Floor/§Reference Skeletons 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
 
 如果 task 文档与 `DESIGN.md` 冲突，以 `DESIGN.md` 原文为准；缺设计合同且属于 UI-critical，STOP。
 如果 task 文档与 `docs/project/ui/` catalog 冲突，以已同步 catalog 为整屏体验真相源；若 catalog 缺失则以当前 plan §4 UI delta 为临时真相源。合同缺失或明显不覆盖当前 Route 时，STOP 回到 vj-epic-plan 修正并同步 catalog。
