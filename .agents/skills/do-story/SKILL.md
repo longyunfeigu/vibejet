@@ -285,7 +285,7 @@ phase_name: "Design"
 
 ### Step 1: Triage 分级
 
-回答 CLAUDE.md 中的 Triage 八问，确定 Flow：
+回答 `docs/tasks/plans/TEMPLATE.md` 的 Triage 八问，确定 Flow：
 
 1. 是否只服务一个明确的用户目标？
 2. 是否只影响一个业务模块？

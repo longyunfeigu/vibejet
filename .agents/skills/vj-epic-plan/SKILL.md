@@ -161,7 +161,7 @@ Epic ID（设计稿路径用）: {epic-N}
 
 ### Phase 3：Triage + Review Gate
 
-按 `CLAUDE.md` 的 Triage 规则,scope = 本 Epic:
+按 `docs/tasks/plans/TEMPLATE.md` 的 Triage 规则,scope = 本 Epic:
 
 1. 回答 8 问 → 判 **Flow A / B / C**(强制升级条件:改 DB migration、改公共 API 契约、改权限/安全、引入外部系统/异步、复杂状态机/幂等/事务、需求不清、跨 BC → 至少 Flow B)。
 2. 在 `Appendix A. Triage 审计` 填**风险审计 + 来源索引**：Flow 分级、强制升级触发、影响范围、关键约束来源、Scope Challenge。不要展开硬约束 / 隐含约束长清单；执行相关约束在 Appendix C / task docs / `_execution_context.md` 中按 Unit 投影。

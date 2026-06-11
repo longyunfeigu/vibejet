@@ -1,6 +1,6 @@
 <!-- input: 仓库目录结构与各层 README -->
 <!-- output: 核心目录导航索引（@README 引用） -->
-<!-- pos: 结构导览入口；一旦我被更新，务必更新我的开头注释以及所属文件夹的md -->
+<!-- pos: 结构导览入口（架构规则统一在 AGENTS.md，本文件只做 README 索引）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md -->
 
 ---
 paths:
@@ -9,13 +9,12 @@ paths:
 
 # 项目结构导航
 
-本项目采用 **DDD + 六边形架构**，理解项目时优先从下列核心目录 README 开始阅读。
+本项目采用 **DDD + 六边形架构**。依赖方向、层级职责与架构约束统一见 AGENTS.md 的
+Backend Architecture 节（本文件不重复维护）。理解项目时优先从下列核心目录 README 开始阅读。
 
 ## 核心目录索引
 
 ### 后端（Python）
-
-依赖方向：`api/ → application/ → domain/ ← infrastructure/`
 
 - @backend/README.md - 后端根目录：入口、运行方式与分层概览
 - @backend/domain/README.md - 领域层：纯业务逻辑、实体、仓储接口
@@ -35,22 +34,6 @@ paths:
 
 - @docs/README.md - 设计与使用文档索引
 
-### 前端（占位）
+### 前端
 
 - @frontend/README.md - 前端目录当前状态与约定
-
-## 层级职责速查
-
-| 层级 | 允许导入 | 禁止导入 |
-|------|----------|----------|
-| domain | 仅标准库 | application, infrastructure, api |
-| application | domain | infrastructure 具体实现 |
-| infrastructure | domain, application.ports | - |
-| api | application, core | domain 直接访问 |
-
-## 关键架构约束
-
-1. **Domain 纯净**：domain 层不含任何框架代码、数据库访问
-2. **依赖反转**：infrastructure 实现 domain 定义的接口
-3. **端口适配器**：application 定义 ports，infrastructure 提供 adapters
-4. **事务边界**：仅在 application service 中管理 UnitOfWork

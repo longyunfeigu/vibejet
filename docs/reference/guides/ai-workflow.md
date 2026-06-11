@@ -171,8 +171,8 @@ vj-product-requirements
 
 ## 4. Plan 应该怎么用
 
-Plan 文件放在 `docs/tasks/plans/`。如果该目录下存在 `TEMPLATE.md`，优先沿用模板；
-否则按 `CLAUDE.md` 的 Plan 文件规范创建。
+Plan 文件放在 `docs/tasks/plans/`，按该目录下的 `TEMPLATE.md` 创建
+（§0 Triage 8 问 → Flow A/B/C → 分层填写）。
 
 ### Flow A / B / C
 
