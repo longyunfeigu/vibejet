@@ -39,7 +39,7 @@ AI coding 质量主要来自四件事：
 - **Backend by capability, frontend by experience**。前端 Epic 执行时必须消费 task docs / `_execution_context.md` 中的 Screen context，以及 `docs/project/ui/` catalog（必要时回看 plan §4 delta 与 Appendix D lanes）：先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI。不要等所有后端 100% 完成才开始前端，也不要把前端散进每个 Story 局部做。
 - **禁止孤立 UI 片段**。UI Unit / task 若属于 Screen composition，必须读同屏 sibling Units、Route 目标文件、Screen regions、API-for-UI 与 Screen done；不得为了当前 Unit 新增脱离 Screen Contract 的单页、卡片堆、表单堆或按钮堆。
 - **前端质量 = 富度（防空）+ 工艺（防挤）+ 屏型对的闸**。UI Unit 执行须守 `.claude/rules/frontend.md` 的富度铁律（R0–R4：先分屏型、按页面体验地图建整屏、不空屏、走参考、不堆孤卡）与工艺铁律（C1–C5：间距分层、字重色阶层次、边框/accent 克制）；间距数值以 `DESIGN.md` §Spacing Hierarchy 为准。**admin/后台屏几乎都是 operational**：不调 `design-taste-frontend`（对后台 out-of-scope），craft 真相源 = `frontend-dev-guidelines/resources/dense-ui-craft.md`，出口走 frontend.md B 轨客观硬线。规则条目以 frontend.md 为唯一真相源，本 skill 不复述。
-- **UI-critical 屏的出口闸判定独立于实现，且 orchestrator commit 前必须真看截图**。每个 UI-critical / operational screen 标 done / commit 前：(1) 必须有真实桌面截图；(2) B 轨 pass/fail 由**非实现该屏的一方**产出——orchestrator 亲自看截图，或派独立 visual-audit subagent（输入仅截图 + 该屏 frontend.md B 轨 checklist + 一张同类密集后台参考；**不给实现代码、不给实现 subagent 的小结**），返回带**截图实测**占比（首屏最大空容器高度占比、页框 padding、最小区块 gap）的 pass/fail；(3) 第一性原理 6「orchestrator 只 ingest 小结、不读 transcript」**不豁免看 UI 截图**——截图是轻量 artifact，UI-critical 屏严禁仅凭实现 subagent 的文字小结就 commit。自评 "passes" 不构成过闸。这把独立判定从 Phase 3 末的 cross-screen polish 提前到每屏 done（翻车实证见 memory `frontend-taste-gate-not-checklist`：规则本就精确，洞在自评 + 没人看像素）。
+- **UI-critical 屏的出口闸判定独立于实现，且 orchestrator commit 前必须真看截图**。每个 UI-critical / operational screen 标 done / commit 前：(1) 必须有真实桌面截图；(2) B 轨 pass/fail 由**非实现该屏的一方**产出——orchestrator 亲自看截图，或派独立 visual-audit subagent（输入仅截图 + 该屏 frontend.md B 轨 checklist + 一张同类密集后台参考；**不给实现代码、不给实现 subagent 的小结**），返回带**截图实测**占比（首屏最大空容器高度占比、页框 padding、最小区块 gap）的 pass/fail；(3) 第一性原理 6「orchestrator 只 ingest 小结、不读 transcript」**不豁免看 UI 截图**——截图是轻量 artifact，UI-critical 屏严禁仅凭实现 subagent 的文字小结就 commit。自评 "passes" 不构成过闸。该屏存在已批准参考图（参考图前置闸产物或屏型金标准）时，审计输入必须升级为「实现截图 ↔ 参考图并排对照」，偏差清单按"参考图里有而实现里没有/走样"逐项列——审计从主观判美丑降级为客观找图差。这把独立判定从 Phase 3 末的 cross-screen polish 提前到每屏 done（翻车实证见 memory `frontend-taste-gate-not-checklist`：规则本就精确，洞在自评 + 没人看像素）。
 - **subagent 任务必须自包含**。不得依赖父 agent Phase 0/1 的隐式上下文。即使运行时支持 `fork_context` / isolation，也必须显式传 Unit Context Packet 或 `_execution_context.md` 路径 + Unit ID。
 - **高风险自动 strict**。命中 strict trigger 时不得为了速度降级；不确定风险等级时按 strict 或精准补读 source pointer。
 - **KISS / YAGNI**。只实现 Unit 要求，匹配既有约定，不引入投机抽象或无关重构。
@@ -194,7 +194,7 @@ Non-goals:
 Risk class:
 UI class: none | trivial | functional | critical
 Execution lane: contract | backend-api-capability | frontend-composition | e2e-polish | legacy-unit
-Screen context: none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done / catalog source / app shell + 全局导航契约 (该屏套在哪个共享外壳/导航里；source: DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件)
+Screen context: none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done / catalog source / app shell + 全局导航契约 (该屏套在哪个共享外壳/导航里；source: DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件) / Reference image (已批准参考图路径；UI-critical 必填，继承屏型金标准时填 golden 路径)
 Test policy: test-first | test-with-implementation | verification-only
 System-wide check: none | direct-neighbors | risk-triggered-two-hop
 ```
@@ -279,7 +279,7 @@ subagent prompt 必须自包含，至少包含：
 - task doc path。
 - `_execution_context.md` path。
 - Unit ID 与完整 Unit Context Packet。
-- 如果是 UI task：Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done / sibling Units / **所属 app shell + 全局导航契约**（DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件——告知子代理该屏套在哪个外壳、复用哪个共享 layout，不得自造导航 frame）。
+- 如果是 UI task：Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done / sibling Units / **所属 app shell + 全局导航契约**（DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件——告知子代理该屏套在哪个外壳、复用哪个共享 layout，不得自造导航 frame）/ **Reference image 路径**（有则必传：实现目标 = 复刻该图 + 接真实数据，再按 Screen Contract 补交互与状态，不是照散文自由发挥）。
 - write scope：允许修改的路径。
 - Verification command。
 - source pointer fallback 规则。
@@ -351,7 +351,7 @@ UI class：
 
 执行要求：
 
-- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；**开工前先取具体视觉锚点**（`vj-design-md-matcher` 选/生成参考图，或 `design-taste-frontend`/`high-end-visual-design` skill 范式），不许照散文搭最小骨架；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist 与 Screen 合同 + `frontend.md` 出口闸对应轨（operational 屏 = B 轨客观硬线，不接受无对照的主观 pass）；**截图后过独立设计评审 gate（见下）**——不满足先修。
+- critical：读 DESIGN.md 对应锚点原文 + `docs/project/ui/` catalog / task Screen context；**开工前先过参考图前置闸**（见 Frontend composition gate：已批准参考图或继承屏型金标准；无任何闸产物时才退 `design-taste-frontend`/`high-end-visual-design` 范式兜底），不许照散文搭最小骨架；桌面+移动截图；逐条核对 task 注入的 DESIGN.md checklist 与 Screen 合同 + `frontend.md` 出口闸对应轨（operational 屏 = B 轨客观硬线，不接受无对照的主观 pass）；**截图后过独立设计评审 gate（见下）**——不满足先修。
 - functional：读相关 pattern/token/source pointer；若属于 frontend-composition，做 Screen-level browser check；否则做 targeted browser check 或局部截图；验证 loading/error/empty/success/permission 中实际相关状态。
 - trivial：不强制截图；跑 typecheck/test/lint 或 Unit Verification。
 
@@ -373,6 +373,14 @@ UI class：
 - `docs/project/ui/` catalog source 或 plan delta source 明确。
 - 目标 route/component 文件已读取；若不存在，明确新建位置与路由注册方式。
 - Screen done 可浏览器验证。
+- **参考图前置闸（fast/strict 均不豁免）**：UI class = critical 的屏开工前必须存在已批准参考图
+  `docs/reference/research/designs/{epic-id}/{screen-id}.png`。缺失时：在 Phase 2 审批点用该屏
+  Screen Contract + `DESIGN.md` token 渲染一次性 HTML 并截图作为参考图候选，STOP 给人批
+  （复用 approval gate 机制，批图是秒级操作）；批准后才进 composition wave。
+  范围控制：仅 front-of-house 屏 + 每个屏型的第一张屏需新出参考图；同屏型后续屏直接继承
+  屏型金标准（`docs/reference/research/designs/golden/`，由 `vj-design-md-matcher` Phase 4.5 产出）
+  + `DESIGN.md` §Reference Skeletons，不重复出图、不重复审批。
+  参考图一律 HTML 直出，禁止生图模型画 UI（实测：文字糊、方向坍缩、AI 模板味）。
 
 不满足时不要“先随便做 UI”；补 `_execution_context.md` 或停止回到 plan。
 
@@ -389,6 +397,7 @@ UI class：
 - Verification 失败：修复最多 3 次；仍失败则 STOP，报告最后输出、已试方案、阻塞的下游 Unit。
 - 复用 / 高风险流程 / forbidden fallback 冲突：执行期发现 plan 要求不可满足时，不得把 mock、简化实现、过期缓存、默认值或替代算法当成功路径；切 strict。strict 后仍无法满足则 STOP，并报告需要回到 vj-epic-plan / 用户决策的点。
 - subagent 报错/超时/空小结：重派一次；仍失败则该 Unit blocked，不合并其分支，报告下游影响。
+- 参考图缺失且无法现场渲染（Playwright/浏览器不可用、或审批不可达）：降级为“屏型金标准 + DESIGN.md §Reference Skeletons 文字契约”执行，并在变更叙事中记录降级原因；不得静默跳过参考图闸，也不得因此阻塞非 UI Unit。
 - merge 冲突：先 rebase 执行分支到 integration base 后重跑 Verification；仍冲突则 STOP，禁止 `-X ours/theirs` 盲猜。
 - worktree 创建失败：确认 `.vj/` 已忽略并重试一次；仍失败则 STOP 或明确 fallback 到当前 worktree-only docs 操作，不直接改主仓库代码。
 

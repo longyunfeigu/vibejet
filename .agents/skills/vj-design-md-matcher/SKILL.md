@@ -142,6 +142,39 @@ Before writing `docs/project/DESIGN.md`, show the 3-reference recommendation and
 
 If the user rejects one reference, replace only that reference and keep the rest stable.
 
+### Phase 4.5: Render Direction Candidates (pixel-level decision)
+
+Text summaries only confirm reference *sources*; the visual direction itself must be chosen from
+rendered pixels. Text underdetermines pixels — two implementations can both "satisfy" the same
+prose and look completely different. Do not skip this phase and synthesize DESIGN.md from text.
+
+1. Pick one anchor screen: the highest-frequency core operational screen in the PRD
+   (prefer the table-list / console archetype).
+2. Produce one throwaway HTML per candidate direction — same screen content and information
+   architecture, different skin only:
+   - Self-contained single files (inline CSS, realistic mock data, all states: ok / loading /
+     failed / queued) written to `docs/reference/research/designs/candidates/`, plus an
+     `index.html` side-by-side comparison page.
+   - **Never use an image-generation model to render UI candidates.** Verified failure modes:
+     garbled small text, direction collapse toward a generic mean, AI-template look. Image
+     models are only allowed in the optional mood-asset substep below.
+3. Confirm with the user:
+   - If Playwright/browser tooling is available, attach desktop screenshots; otherwise ask the
+     user to open `index.html` directly — the HTML itself is the artifact, screenshots are only
+     a viewing convenience. Tooling unavailability never blocks this phase.
+   - The user picks one direction; apply feedback and re-render at most one more round.
+4. Persist the winner as the golden standard: screenshot to
+   `docs/reference/research/designs/golden/{archetype}.png` (when screenshots cannot be
+   produced, keep the winning `.html` as the golden source).
+5. Optional mood-asset substep (brand-heavy front-of-house products only):
+   - Generate brand photography / texture assets (never UI mockups) with an image-generation
+     tool (e.g. codex CLI imagegen), extract the dominant palette from the image pixels, and
+     feed palette + assets into the chosen direction and DESIGN.md; assets may be embedded
+     into pages directly as hero visuals or section textures.
+   - If codex/imagegen is unavailable, times out, or quota is exhausted: skip this substep and
+     derive the palette from the matched references instead. This substep must never block the
+     main flow.
+
 ### Phase 5: Generate Project DESIGN.md
 
 Write `docs/project/DESIGN.md` with these sections:
@@ -161,6 +194,7 @@ Write `docs/project/DESIGN.md` with these sections:
 ## Data-Dense UI Rules
 ## Richness Floor by Screen-Type
 ## Reference Skeletons (per screen archetype)
+## Golden Screens
 ## Accessibility Rules
 ## Do / Don't
 ## Downstream Prompt Base
@@ -176,11 +210,18 @@ Rules for generation:
 - `Richness Floor by Screen-Type`: for each screen archetype present in the PRD (front-of-house / dashboard / table-list / detail-reading / form-wizard), state a one-line **floor** (the minimum intentional composition, not an upper bound). Make clear richness = deliberate composition + identity + hierarchy, not decoration.
 - `Reference Skeletons (per screen archetype)`: **do not discard the matched references' composition after extracting tokens.** Distill each selected reference's *structure and density* into a concrete per-archetype skeleton (regions, order, density), re-skinned with this file's tokens — so the executor copies a good skeleton instead of inventing a minimal one. Include a project-specific skeleton for the product's primary login/auth screen when the PRD has one.
 - Include states for loading, empty, error, disabled, selected, dirty, saved, review-needed, and destructive actions when relevant.
+- `Golden Screens`: list the golden screenshot/HTML paths per screen archetype produced in
+  Phase 4.5 (and mood assets if any), and state explicitly that downstream implementation must
+  treat **token text spec + golden pixels** as a dual-channel source of truth — text alone
+  underdetermines pixels, so executors and visual auditors must compare against the golden
+  image, not only the prose.
 - The `Downstream Prompt Base` must be reusable by `vj-ui-mock` or frontend work and must explicitly say to follow this `DESIGN.md`.
 
 ## Outputs
 
 - Recommendation summary in chat.
+- Direction candidate HTMLs under `docs/reference/research/designs/candidates/` and the chosen
+  golden screen under `docs/reference/research/designs/golden/` (Phase 4.5).
 - `docs/project/DESIGN.md` after confirmation or explicit proceed.
 - Optional retrieval JSON when requested:
 
