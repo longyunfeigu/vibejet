@@ -159,3 +159,4 @@ logs/*
 # Local AI skill workspaces (runtime artifacts, do not track)
 .superpowers/
 .hex-skills/
+.vj/

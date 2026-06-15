@@ -60,6 +60,4 @@ this base library.
 
 ## 模块索引
 
-There are no current product-specific API modules in this base library. The
-previous internal exam-platform contracts were archived under
-`docs/archive/exam-platform/project/api/`.
+There are no current product-specific API modules in this base library.
