@@ -53,10 +53,11 @@ run-story
 vj-product-requirements
 -> vj-architecture
 -> vj-epic-story
--> vj-ui-mock（前端项目：先 Phase A 出全局设计基座，再按 Epic 出每屏 v0 提示词）
+-> vj-epic-plan（前端项目同步 Screen Contract）
+-> vj-work
 ```
 
-产出物通常是下游应用自己的需求、架构增量和 Story/Epic 文档。`vibejet` 基础库不长期保留具体产品 PRD 或业务 Epic。
+产出物通常是当前项目的需求、架构增量和 Story/Epic 文档；若在下游产品仓库使用，则落在下游仓库自己的 `docs/` 下。
 
 适用场景：
 - 新需求还没拆解
@@ -205,13 +206,82 @@ Plan 文件放在 `docs/tasks/plans/`，按该目录下的 `TEMPLATE.md` 创建
   - 同步写入 `docs/project/data/{module}.md`
   - 如果当前项目维护数据模块索引，同时更新对应索引；没有索引时不要引用已归档的历史 overview
 
-## 5. 前端设计图怎么接入
+## 5. 前端设计怎么接入
 
-设计图的**生产**用 `vj-ui-mock`：
+前端设计生产端拆进主链路，并分成两条轨道。这里的原则是：**Screen Contract 完整度强制，ui-* skill 调用按缺口强制触发**。不要为了形式固定跑满所有 UI skill；也不能在字段缺失时跳过或自由发挥。
 
-- Phase A 产出全局设计基座 `docs/project/design_guidelines.md`（信息架构 / 导航骨架 / 设计系统 / 三态约定）
-- Phase B 按 Epic/Story 产出每屏 v0/Lovable 提示词，落盘到 `docs/reference/research/designs/{epic-id}/{story-id}-{page}.prompt.md`，并回填 Story 的 `### 设计参考`
-- 你把提示词粘进 v0/Lovable 出图后，将截图保存为同目录 `{story-id}-{page}.png`
+### 5.1 产品/品牌方向轨（低频）
+
+当项目缺 `docs/project/DESIGN.md`、`DESIGN.md` 明显过期、品牌感不清、登录/落地/首个空态没有 golden screen，或用户明确要求“整体 UI 更好看 / 更有品牌感”时，必须先补产品/品牌方向：
+
+```text
+产品级 ui-requirement-brief
+-> vj-design-md-matcher
+-> docs/project/DESIGN.md
+-> docs/reference/research/designs/golden/
+```
+
+这一轨解决“这个产品应该长什么样”：品牌气质、颜色/字体/间距/圆角/阴影、屏型富度地板、Reference Skeletons、front-of-house 的品牌表达和 golden screens。它不是每个 Story 都跑，也不在 `vj-work` 执行期临时跑。
+
+### 5.2 单屏体验轨（按缺口强制）
+
+每个 UI Screen 都必须有完整页面体验地图 / Screen Contract：
+
+```text
+Screen type
+Route
+Role
+Primary Job
+Regions
+Information Priority
+Key States
+Richness Floor
+Forbidden Patterns
+API-for-UI
+Screen done
+Design source pointers
+```
+
+缺哪个维度，就必须调用对应 skill 补齐：
+
+| 缺口 | 强制补齐方式 |
+|------|--------------|
+| 产品/品牌方向、登录/落地页 golden 缺失 | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
+| 单屏目标、模块顺序、信息层级不清 | `ui-page-goal-structure` |
+| loading / empty / error / disabled / permission 等状态不清 | `ui-state-coverage` |
+| 复杂操作流不清 | `ui-user-journey-audit` |
+| UI 截图完成后视觉不稳定或 UI-critical 屏验收 | `ui-visual-consistency-audit` |
+| 可复用组件需要沉淀规格 | `ui-component-spec-audit` |
+| 交付研发/QA 前规格不完整 | `ui-handoff-readiness-check` |
+
+复杂操作流不按页面名称枚举，按流程特征判定。命中任一项，就必须补 `ui-user-journey-audit`：
+
+- 用户需要连续完成 2 步以上。
+- 中途有权限、资格、库存、余额、次数、审核、风控或依赖数据判断。
+- 有提交、保存、发布、支付、删除、审批等不可轻易撤销动作。
+- 需要 loading / success / error / retry / rollback / cancel / back / resume 等恢复路径。
+- 操作结果会改变业务状态，或影响其他用户 / 下游流程。
+
+登录、注册、提交、审核、支付、上传、发布、导入、开通、邀请、删除等只是常见示例，不是白名单。
+
+清楚的屏不重复跑；不清楚的屏必须补齐。典型链路是：
+
+```text
+vj-epic-story 生成/检查页面体验地图
+-> 缺字段时调用对应 ui-* skill 回填
+-> vj-epic-plan 投影为 Screen Contract
+-> vj-work 按合同整屏实现
+```
+
+### 5.3 稳定合同
+
+- `docs/project/DESIGN.md` 是视觉与品牌合同，包含 token、屏型富度地板、Reference Skeletons、Do / Don't。
+- `docs/reference/research/designs/golden/` 是屏型金标准，尤其用于 login / signup / landing / 首个空态和核心 operational screen。
+- `docs/project/ui/surfaces.md` 是 Screen Contract：route、screen type、primary job、regions、states、API-for-UI、screen done、richness floor、forbidden patterns。
+- `docs/project/ui/routes.md` 是路由、导航、守卫和入口合同。
+- `vj-feature` / `vj-epic-story` 先判定走产品/品牌方向轨、单屏体验轨、两者都需要，或不需要 UI 前置。
+- `vj-epic-plan` 把页面体验地图投影成 Screen Contract 并同步 `docs/project/ui/`；如果方向源缺失，先把 `ui-requirement-brief -> vj-design-md-matcher` 列为待办/阻塞，不在 plan 里发明风格。
+- `vj-work` 读取 `DESIGN.md + golden + docs/project/ui/` 实现整屏，并用截图 + 独立视觉审查过 gate。
 
 下面是 `do-story` 对 UI 设计图的**发现**顺序：
 
@@ -235,6 +305,13 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 ```
 
 如果自动发现失败，但你又要求“按设计稿还原”，那就需要手动给路径或 URL，不要让 AI 猜。
+
+即使没有外部设计图，前端 Story 也不能退化成 AC 最小实现：
+
+- `front-of-house`（login / signup / landing / 空首屏 / 营销页）必须有品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认可操作态和三态；禁止单一居中表单卡。
+- `operational`（dashboard / table-list / detail / form / settings）必须有主数据容器、工具条/筛选、统计或摘要、行/批量操作和三态；禁止孤立卡片堆和巨型录入框当主视觉。
+- 如果 `DESIGN.md` 或 golden screen 缺失，不能指望 `ui-page-goal-structure` / `ui-state-coverage` 让 UI 自动变好看；它们只补单屏体验合同。先补产品/品牌方向轨，再进单屏实现。
+- `vj-work` 完成 UI-critical 屏前必须保留桌面 + 移动截图，并由非实现者或 `ui-visual-consistency-audit` 做 pass/fail。
 
 ## 6. 多窗口 / 并行开发怎么做
 
@@ -296,8 +373,8 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 
 这几点必须记住：
 
-- 当前 `frontend/` 默认不是可编辑源码目录，不要假设存在 `frontend/src/`
-- 需要真实前端代码改动时，先确认正确的前端 workspace
+- 当前仓库包含可编辑的 `frontend/src/`，前端实现按 `AGENTS.md` 的 React + TypeScript + Vite + Tailwind + shadcn 约束执行。
+- 需要真实前端代码改动时，先确认目标 Route / Screen Contract / 设计来源是否齐备。
 - `story-verify-fix` 可以做运行时验证和视觉检查，但不替代缺失的前端源码
 
 ## 9. 一句话决策表
@@ -306,7 +383,8 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 |------------------|--------|
 | 已有 Story，想按默认链路一路做完 | `run-story` |
 | 只有产品想法，还没拆 Story | `vj-product-requirements -> vj-architecture -> vj-epic-story` |
-| 已有 Epic/Story，要出前端设计基座与每屏提示词 | `vj-ui-mock` |
+| 项目整体缺品牌/视觉方向，或登录/落地页缺 golden | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
+| 已有 Epic/Story，要补前端设计合同 | `vj-epic-plan` 同步 `docs/project/ui/`；单屏缺结构/状态时强制用对应 `ui-*` skill 补齐 |
 | 普通 Story 实现 | `do-story` |
 | 复杂 Story，需要参考开源 | `story-reference-impl` |
 | 实现完成后验证当前 Story | `story-verify-fix` |
@@ -324,7 +402,8 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
   vj-product-requirements
   -> vj-architecture
   -> vj-epic-story
-  -> vj-ui-mock（前端项目，可选）
+  -> vj-epic-plan（前端项目同步 Screen Contract）
+  -> vj-work
 
 开始做 Story:
   run-story

@@ -217,8 +217,10 @@ Epic 3: ...
 前端设计轨道判定：
 
 - **产品/品牌方向轨（低频）**：当 `docs/project/DESIGN.md` 缺失、明显过期、品牌方向不清、front-of-house 屏没有 golden reference、或用户要求整体视觉重设时，停止把 UI Story 直接推进实现；把缺口列入 Batch Question，建议先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`。
-- **单屏体验轨（高频）**：当 `DESIGN.md` 已有且当前只是新增/重做具体 Screen 时，不跑 `vj-design-md-matcher`；用 `ui-page-goal-structure` / `ui-state-coverage` 的口径补页面目标、信息层级与状态覆盖。
+- **单屏体验轨（高频）**：当 `DESIGN.md` 已有且当前只是新增/重做具体 Screen 时，不跑 `vj-design-md-matcher`；先检查页面体验地图完整度，缺页面目标/信息层级/模块顺序时强制补 `ui-page-goal-structure`，缺状态覆盖时强制补 `ui-state-coverage`，命中复杂操作流判定时强制补 `ui-user-journey-audit`。
 - 两条轨道可以都需要：例如新产品第一次做登录页，先定产品级 `DESIGN.md/golden login`，再对登录页做单屏结构与状态覆盖。
+
+复杂操作流不按页面名枚举。命中任一项就强制补 `ui-user-journey-audit`：连续 2 步以上；中途有权限/资格/库存/余额/次数/审核/风控/依赖数据判断；有提交/保存/发布/支付/删除/审批等不可轻易撤销动作；需要 retry/rollback/cancel/back/resume 恢复路径；结果会改变业务状态或影响其他用户/下游流程。登录、注册、提交、审核、支付、上传、发布、导入、开通、邀请、删除等只是示例，不是白名单。
 
 **重要规则**：
 - 标 `⚠️` 的字段表示"从全局推断而来"，**必须在 Batch Question 里让用户确认/修正，不能默认接受**
@@ -249,6 +251,7 @@ Epic 3: ...
 - 单个 Story 内的小流程可以在 Story AC 中覆盖；跨 Story 的端到端路径必须落在 Epic 的 `## 用户旅程`
 - 涉及前端的旅程步骤必须有页面/入口；没有明确页面时标 `⚠️ 推断` 并在 Batch Question 让用户确认
 - 前端 Epic 必须有 `## 页面体验地图`；后端/纯能力 Epic 可省略并说明 N/A
+- 前端 Epic 的页面体验地图完整度是 BLOCKING：每个 UI Screen 必须覆盖屏型、Route/入口、主任务、区域、信息优先级、关键状态、富度地板、禁止项和设计来源。缺字段时必须回到对应 `ui-*` skill 或 Batch Question 补齐，不得写“实现时确定”。
 - 前端 Epic 的每个页面必须判定屏型：`front-of-house | operational | mixed`。登录、注册、landing、空首屏默认 `front-of-house`；dashboard、table-list、detail、form、settings 默认 `operational`。不确定时标 `⚠️ 推断` 并在 Batch Question 让用户确认。
 - front-of-house 页面必须在页面体验地图写清：产品身份/品牌区、价值点或信任点、视觉锚点、主 CTA 默认可操作态、禁止“裸居中卡 / 大面积空白背景 / 只有表单无品牌”。
 - operational 页面必须在页面体验地图写清：主数据容器、工具条/筛选、统计或摘要、行/批量操作、三态与密度要求，禁止“孤立卡片堆 / 巨型录入框当主视觉 / 无数据表或无主内容锚点”。
@@ -550,7 +553,7 @@ grep -nE "^### Story.*(和| 和 |&|\+|,)" <生成的 epic md>
 3. 非功能性需求 → 性能、安全、可用性
 4. **项目设计合同** → 优先 `docs/project/DESIGN.md`；旧路径 `docs/project/design_guidelines.md` 仅作 fallback
 5. **页面体验地图** → 页面职责、主/次操作、关键状态、信息优先级、体验护栏
-6. **UI workflow skills（按缺口触发）** → 产品/品牌方向缺口用产品级 `ui-requirement-brief -> vj-design-md-matcher`；单屏结构缺口用 `ui-page-goal-structure`；状态缺口用 `ui-state-coverage`；复杂流程用 `ui-user-journey-audit`
+6. **UI workflow skills（按缺口触发）** → 产品/品牌方向缺口用产品级 `ui-requirement-brief -> vj-design-md-matcher`；单屏结构缺口用 `ui-page-goal-structure`；状态缺口用 `ui-state-coverage`；命中复杂操作流判定时用 `ui-user-journey-audit`
 7. **设计稿匹配**（自动检查） → 前端交互与 UI 状态
 
 **设计稿自动检查**：
@@ -663,7 +666,7 @@ Epic 2: 商品目录 (P0, 4 Story, 展开模式)
    - [ ] 所有 PRD 功能需求都有对应 Story
    - [ ] **EARS 反向追溯**（BLOCKING）：本 Epic 每条 EARS `If-Then`（不期望行为）/ `While`（状态驱动）子句都映射到 ≥1 条 Error/Edge AC（空映射=缺口，补齐或显式标 N/A + 理由）
    - [ ] **旅程完整性**（BLOCKING）：每个 Epic 有 `## 用户旅程` section；主旅程每一步都有对应 Story；分支与异常旅程每一项都有 Story 或 Edge/Error AC 映射（缺步骤=漏 Story/AC，回 Phase 3/4）
-   - [ ] **前端体验完整性**（BLOCKING，前端 Epic）：有 `## 页面体验地图`；每个 UI Story 都映射到页面/区域；每个页面/区域至少覆盖主操作、关键状态、信息优先级；控件细节未写进 Story 主体
+   - [ ] **前端体验完整性**（BLOCKING，前端 Epic）：有 `## 页面体验地图`；每个 UI Story 都映射到页面/区域；每个页面/区域覆盖屏型、Route/入口、主任务、区域、信息优先级、关键状态、富度地板、禁止项和设计来源；缺口已用对应 `ui-*` skill 或 Batch Question 补齐；控件细节未写进 Story 主体
    - [ ] Story 遵循 INVEST 原则
    - [ ] 验收标准按 4 分类组织（Happy / Edge / Error / Integration），覆盖度自检通过（含 Step 0 派生）
    - [ ] 行为 AC 总数 ≤7（见 Phase 4）；FE AC 单独计数且未承载新增业务行为
@@ -776,7 +779,7 @@ done
 7. **用户旅程必须显式输出**：每个 Epic 必须有 `## 用户旅程`，以客户方用户视角描述端到端路径；主旅程映射 Story，分支/异常旅程映射 Story 或 Edge/Error AC；它属于 WHAT 层，`vj-epic-plan` 只能引用，不重新生成
 8. **页面体验地图前端必填**：前端 Epic 必须有 `## 页面体验地图`，把页面职责、屏型、主/次操作、关键状态、信息优先级、体验护栏、品牌/富度要求和禁止项传给 `vj-epic-plan`；后端 Epic 可标 N/A
 9. **DESIGN.md 是设计合同**：前端相关输出优先引用 `docs/project/DESIGN.md`；`docs/project/design_guidelines.md` 只做旧路径 fallback；两者都存在时以 `DESIGN.md` 为准。前端 Epic 缺 `DESIGN.md` 时不得假装已有设计合同，必须在 Batch Question 里标为待补设计合同或使用最小 DESIGN.md 草案待审批。
-10. **UI workflow skills 按轨道触发**：不要固定串行所有 UI skills。产品/品牌方向缺失时，用产品级 `ui-requirement-brief -> vj-design-md-matcher` 生成 / 更新 `DESIGN.md` 与 golden screens；单屏体验缺口用单屏级 `ui-requirement-brief`（可选）+ `ui-page-goal-structure` + `ui-state-coverage`；复杂操作流再用 `ui-user-journey-audit`。这些产物进入页面体验地图和前端 AC，不生成外部 v0/Lovable 提示词作为必经步骤。
+10. **UI workflow skills 按缺口强制触发**：不要固定串行所有 UI skills，但页面体验地图完整度不可选。产品/品牌方向缺失时，用产品级 `ui-requirement-brief -> vj-design-md-matcher` 生成 / 更新 `DESIGN.md` 与 golden screens；单屏目标/结构缺口强制用 `ui-page-goal-structure`；状态覆盖缺口强制用 `ui-state-coverage`；命中复杂操作流判定时强制用 `ui-user-journey-audit`。这些产物进入页面体验地图和前端 AC，不生成外部 v0/Lovable 提示词作为必经步骤。
 11. **Story 不是点击脚本**：Story 主体写可交付能力；按钮、下拉框、左侧菜单等控件细节只写进前端 AC，且必须有 Browser 断言
 12. **Feature Bundling 禁止**：Story 标题禁止用 "和 / & / + / ," 连接两个独立能力（见 Phase 3）
 13. **行为 AC 总数硬上限 ≤7**：超过必须拆 Story，不允许通过删类别压缩；前端 AC 单独计数，若承载新增业务行为则回流到行为 AC 或拆 Story（见 Phase 4）

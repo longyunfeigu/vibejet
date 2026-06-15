@@ -12,7 +12,7 @@ description: 以一个 Epic（含若干 Story）为单元生成适合人工 Revi
 - 本 skill 负责 **HOW**：人工 Review 摘要、待审批决策、Triage 分级、跨 Story 共享设计（ERD/流程/本 Epic UI Surface delta）、跨 Epic 契约（Consumes；对下游契约写入 catalog 而非 plan）、每个 Story 的实现单元、**Story/Unit 依赖图、可选 task 执行投影与并行波次**、关键决策（带 Rejected），以及项目级 API / Data / UI catalog 同步。
 - **产出执行投影**：Phase 5 plan 定稿后，一并生成 per-task 执行文档（`work_dir` 下 7 段文档 + `_ledger.md`），供 `vj-work` 直接装载执行——避免执行期重做投影。
 - 执行（落地代码）交给 `vj-work` / `run-epic`。
-- 前端设计生产已纳入主链路。本 skill 消费两类设计输入：产品/品牌方向源（`docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，通常由产品级 `ui-requirement-brief -> vj-design-md-matcher` 产出）和单屏体验源（`vj-epic-story` 页面体验地图 + 按需 `ui-page-goal-structure` / `ui-state-coverage` 产物），生成 Screen Contract 并同步到 `docs/project/ui/`。
+- 前端设计生产已纳入主链路。本 skill 消费两类设计输入：产品/品牌方向源（`docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，通常由产品级 `ui-requirement-brief -> vj-design-md-matcher` 产出）和单屏体验源（`vj-epic-story` 页面体验地图 + 按缺口强制触发的 `ui-page-goal-structure` / `ui-state-coverage` / `ui-user-journey-audit` 产物），生成 Screen Contract 并同步到 `docs/project/ui/`。
 
 **协作链**：
 ```
@@ -31,6 +31,7 @@ vj-product-requirements → vj-architecture → api-design → data-model
 - **Task done 不等于 Unit done**：task 只能表示局部执行完成；Story AC 的闭环验收仍以 Unit 为准。若 `U2 Depends U1`，U2 的任一 task 不得早于 U1 全部 task 完成后启动，避免技术层半成品越过产品依赖。
 - **前端按体验交付，不按 Story 拼 UI**：前端 Epic 必须先在 §4 写清 UI Surface Delta，并同步到 `docs/project/ui/` catalog（Screen/Route、角色任务、区域、状态、覆盖 Unit、API-for-UI、Screen done 信号）。Story/Unit 继续负责验收追踪；UI 执行以 Screen 为组织单位，禁止为当前 Story 临时堆一个孤立按钮、表单、卡片或页面。
 - **Screen Contract 是 UI 执行合同**：前端 Epic 的每个 Screen 必须有 `screen type`（front-of-house / operational / mixed）、Route、Primary Job、Role、Regions、Key States、Information Priority、Richness Floor、Forbidden Patterns、Covered Units、API-for-UI、Screen done、Design source pointers。缺任一关键字段，不得生成 frontend-composition task；回到 Story / plan 修正。
+- **强制完整度，不强制跑满 skill**：清楚的 Screen 不重复跑 UI skill；但任何 Screen Contract 字段缺失时，必须按缺口补齐对应 skill 或待审批决策，不能让 `vj-work` 实现时自由发挥。
 - **先有方向，再有单屏合同**：`DESIGN.md` / golden screens 是产品级品牌与视觉方向；页面体验地图和 Screen Contract 是单屏结构与状态合同。若 `DESIGN.md` 缺失/过期、品牌方向不清、或 login/signup/landing/首个空态缺 golden reference，本 skill 不得靠 plan 文案补审美；必须把“先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`”列为待审批决策或阻塞项。若方向源已稳定，只补单屏结构/状态，不重跑 matcher。
 - **front-of-house 特别约束**：login、signup、landing、空首屏、营销页默认 UI-critical。Screen Contract 必须显式要求品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认可操作态、三态；明确禁止裸居中表单、左侧/背景纯空白、无品牌概念。
 - **operational 特别约束**：dashboard、table-list、detail、form、settings 默认 operational。Screen Contract 必须显式要求主数据容器、工具条/筛选、统计或摘要、行/批量操作、loading/empty/error；明确禁止孤立卡片堆、巨型录入框当主视觉、无主内容锚点。
@@ -162,7 +163,7 @@ Epic ID（设计稿路径用）: {epic-N}
 - **复用锚点**：Agent C 产出，分”直接复用 / 需改造 / 不应重建”。优先找现有业务模块 / domain service / application use case、repository / DTO / response envelope / shared util、项目已有第三方依赖、官方 SDK / API / 标准协议、成熟开源库；能复用时在 Appendix C `Patterns` / `Approach` 写清复用对象，禁止重写 auth、permission、crypto、payment、scoring、parser、timezone、serialization、route generation、API client、response envelope、migration helper、design-system component 等已有权威实现。
 - **设计上下文**（前端 Epic）：项目设计合同来源（优先 `docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，fallback `docs/project/design_guidelines.md`）、`docs/project/ui/` 既有 surface/route catalog、epic.md 的页面体验地图、Agent C 产出的设计稿文件列表，或”暂无”
 - **UI Surface / Screen delta**（前端 Epic）：从既有 UI catalog + epic.md 页面体验地图 + Story AC + API/Data Delta 推导本 Epic 新增/更新的 Screen 列表、每屏屏型、主任务、覆盖 Unit、屏内区域、信息优先级、富度地板、禁止项、数据/操作合同、关键状态与 Screen done 信号；若无法推导，列为待审批决策，不自由发挥。
-- **UI workflow skill input**（前端 Epic）：先判轨道。产品/品牌方向缺口（缺 `DESIGN.md`、品牌感不清、front-of-house 无 golden、用户要求整体视觉升级）→ 标记需先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`，不要在 plan 里临时发明风格；单屏结构/状态缺口（已有方向源，但某 Route 的主任务、区域、状态、富度地板或禁止项不清）→ 按需补跑 `ui-page-goal-structure` / `ui-state-coverage` 的检查口径；流程复杂再补 `ui-user-journey-audit`。结果只进入 Screen Contract，不生成 v0/Lovable 提示词。
+- **UI workflow skill input**（前端 Epic）：先判轨道。产品/品牌方向缺口（缺 `DESIGN.md`、品牌感不清、front-of-house 无 golden、用户要求整体视觉升级）→ 标记需先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`，不要在 plan 里临时发明风格；单屏结构/状态缺口（已有方向源，但某 Route 的主任务、区域、状态、富度地板或禁止项不清）→ 强制补 `ui-page-goal-structure` / `ui-state-coverage` 的检查口径；命中复杂操作流判定时强制补 `ui-user-journey-audit`。复杂操作流按特征判定，不按页面名白名单：连续 2 步以上、存在权限/资格/库存/余额/次数/审核/风控/依赖数据判断、不可轻易撤销动作、恢复路径，或会改变业务状态/影响下游。结果只进入 Screen Contract，不生成 v0/Lovable 提示词。
 - **institutional learnings**：Agent D 产出，或”暂无相关沉淀”
 - **隐含约束小结**：综合以上，列出计划阶段需遵守的非显式约束
 
@@ -232,6 +233,7 @@ Epic ID（设计稿路径用）: {epic-N}
    - [ ] UI Surface / route delta 已列出目标 catalog 文件；无 UI delta 时未创建空文档
    - [ ] (5+ 新概念)§4 术语表已填；(前端 Epic)§4 设计上下文只留指针 + 现状冲突 / 契约（**未复制 DESIGN.md 约束原文**），页面体验约束已关联到 UI Unit
    - [ ] (前端 Epic)已判定 UI 轨道：产品/品牌方向源缺失时已列出产品级 `ui-requirement-brief -> vj-design-md-matcher` 待办/阻塞；方向源稳定时只补单屏结构/状态，不重跑 matcher
+   - [ ] (前端 Epic)Screen Contract 完整度已过 gate；缺目标/结构已补 `ui-page-goal-structure`，缺状态已补 `ui-state-coverage`，命中复杂操作流判定时已补 `ui-user-journey-audit`，或作为待审批决策明确阻塞
    - [ ] (前端 Epic)§4 已填写 UI Surface Delta / Screen Contract：每个新增/更新 Screen 有 Route / Screen type / Primary Job / Role / Covered Units / Regions / Information Priority / Richness Floor / Forbidden Patterns / States / API-for-UI / Screen done；无 Screen 合同不得生成 UI task
    - [ ] (front-of-house Screen)品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认态、禁止裸居中卡已写进 Screen Contract；若缺 golden reference，已标记需先补产品/品牌方向轨
    - [ ] (operational Screen)主数据容器、工具条/筛选、统计或摘要、行/批量操作、三态与密度要求已写进 Screen Contract
