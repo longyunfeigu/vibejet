@@ -107,7 +107,9 @@ Epic ID（设计稿路径用）: {epic-N}
    - 优先检查并读取 `docs/project/DESIGN.md`，提取与本 Epic 相关的颜色、字体、密度、组件、布局、状态、Do/Don't 和响应式约束。
    - 若 `DESIGN.md` 不存在，再检查 `docs/project/design_guidelines.md`，标注为"fallback 旧路径"。
    - 读取 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`（若存在），列出与本 Epic 路由/角色/流程相关的既有 Surface，标注“直接复用 / 更新 / 新增”。
-   - 扫描 `docs/reference/research/designs/{Epic ID}/`，列出存在的设计稿与 vj-ui-mock 产出的提示词文件；无则记"暂无设计稿"。
+   - 扫描 `docs/reference/research/designs/golden/` 与 `docs/reference/research/designs/{Epic ID}/`，列出存在的 golden screen、设计稿、参考截图、HTML 参考或人工提供的提示词文件；无则记"暂无设计稿"。
+   - 若 `DESIGN.md` 缺失/过期、品牌方向不清，或 login/signup/landing/首个空态缺 golden reference，标记“产品/品牌方向轨未就绪：需先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`”，不要用单屏 skill 发明全局风格。
+   - 若页面体验地图缺少 Screen type、状态覆盖、富度地板或禁止项，标记需要按 `ui-page-goal-structure` / `ui-state-coverage` 的口径补齐，不要发明视觉细节。
 
 结构化输出：
 
@@ -122,9 +124,10 @@ Epic ID（设计稿路径用）: {epic-N}
 
 **设计上下文**（前端 Epic，否则省略）
 - 项目设计合同：`docs/project/DESIGN.md` 是否存在；若存在，列 5-8 条与本 Epic 直接相关的约束。
+- Golden screens：`docs/reference/research/designs/golden/` 是否存在；列与本 Epic 屏型相关的参考，或标记缺口。
 - fallback：`docs/project/design_guidelines.md` 是否使用；只有 DESIGN.md 缺失时才使用。
 - UI catalog：`docs/project/ui/surfaces.md` / `routes.md` 是否存在；相关 Surface / Route 列表与复用/更新/新增建议。
-- 设计稿 / 提示词：找到的文件列表，或"暂无设计稿"。
+- 设计稿 / 参考：找到的文件列表，或"暂无设计稿"。
 
 **扫描覆盖范围**
 列出实际扫描了哪些目录/路径。

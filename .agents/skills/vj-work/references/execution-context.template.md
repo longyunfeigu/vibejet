@@ -25,9 +25,9 @@
 
 > Fill for frontend epics. Source truth is `docs/project/ui/` catalog when present; otherwise current plan §4 `UI Surface Delta` and Appendix D `Execution lanes / Frontend composition waves`.
 
-| Screen ID | Route | Primary Job | Covered Units | API-for-UI / Data Contract | Frontend start condition | Screen done | Source |
-|-----------|-------|-------------|---------------|----------------------------|--------------------------|-------------|--------|
-| `{screen-id}` | `{route}` | `{job}` | `{U1,U2}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` | `{docs/project/ui/... or plan §4 delta}` |
+| Screen ID | Route | Screen type | Primary Job | Covered Units | Regions | Information Priority | Richness Floor | Forbidden Patterns | API-for-UI / Data Contract | Frontend start condition | Screen done | Source |
+|-----------|-------|-------------|-------------|---------------|---------|----------------------|----------------|--------------------|----------------------------|--------------------------|-------------|--------|
+| `{screen-id}` | `{route}` | `{front-of-house/operational/mixed}` | `{job}` | `{U1,U2}` | `{regions}` | `{P0/P1/P2}` | `{minimum composition}` | `{forbidden}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` | `{docs/project/ui/... or plan §4 delta}` |
 
 | Lane | Wave | Scope | Done signal |
 |------|------|-------|-------------|

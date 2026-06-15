@@ -119,21 +119,25 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
        §Color Tokens(L103-148)、§Typography(L150-207)、§Do/Don't(L505-524) —— 按本 Unit 实际涉及面填}}
 
 【3】从上述章节**逐字摘录**对本 Unit 起决定作用的硬约束句（带行号，禁改写）：
-    {{例：- "Use a persistent left sidebar for admin workflows."（DESIGN.md L213）
-       - "Primary action uses primary, not blue."（DESIGN.md L144）
-       - "Never use gradient or blob backgrounds for app screens."（DESIGN.md L148）}}
+    {{例：- "A front-of-house screen must communicate what the product is before asking the user to act."（DESIGN.md 实际行号）
+       - "Do not ship a front-of-house screen as only a centered login form."（DESIGN.md 实际行号）
+       - "Every data-backed screen must define loading / empty / error / success states."（DESIGN.md 实际行号）}}
 
 【4】页面体验地图：读并遵循 epic.md `## 页面体验地图` 中本 Unit 对应页面/区域：
-    页面职责、主操作、次操作、关键状态、信息优先级、体验护栏。
+    页面职责、屏型、主操作、次操作、关键状态、信息优先级、体验护栏、品牌/富度要求、禁止项。
 
 【5】UI Surface / Route：读并遵循 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`；若尚未同步，临时读 plan §4 `UI Surface Delta` 与 `Frontend Composition Policy`。
     {{Screen ID: screen-...}}
     {{Route: /...}}
+    {{Screen type: front-of-house / operational / mixed}}
     {{Primary Job / Role: ...}}
     {{本 task lane: backend/API capability | frontend screen composition | e2e polish}}
     {{本 Unit 在该 Screen 中负责: 区域 / 状态 / 操作 / 数据}}
     {{同屏 sibling Units: U...；实现时不得破坏这些区域与主流程}}
     {{Regions / IA: 左/中/右或上下区域、主要列表/表单/分析面板等}}
+    {{Information priority: P0 / P1 / P2}}
+    {{Richness floor: ...}}
+    {{Forbidden patterns: ...}}
     {{API-for-UI / Data Contract: endpoints、关键字段、状态枚举、错误语义、mock/real adapter 切换}}
     {{Catalog source: docs/project/ui/surfaces.md / docs/project/ui/routes.md；若尚未同步，写 plan §4 UI delta}}
     {{Screen done: 浏览器可验证的整屏完成信号}}
@@ -154,16 +158,16 @@ UI-critical：完成前逐条核对 + 桌面/移动截图佐证。
 UI-functional：核对实际相关项 + targeted browser check 或局部截图。
 UI-trivial：不强制截图；仍不得违反已列 DESIGN.md 硬约束。
 凡【2】列到的章节，下列对应项必须勾选；不适用的标 N/A 并说明。仅"无溢出/五态"不算通过。
-  □ 壳形态：符合 §App Shell —— admin 工作流=左 sidebar(248px)，员工答题=顶栏；**本页角色对应的壳形态对了吗**
-  □ 主色：主操作=深青 primary(`#0F3D3E`)；蓝仅用于链接/焦点/信息；页面无蓝/紫主按钮（§Color L144）
-  □ 背景：浅 canvas(`#F8FAFC`)/白 surface；**无渐变/blob/暗色整壳/glassmorphism**（§Color L148, §Do/Don't）
-  □ 圆角：卡片/面板 ≤8px、输入 6px（§Radius L282-287）
-  □ 字阶：页头 page-title(24/650)、分区 section-title(18)、正文 14/1.55；无 hero 大字、不随视口缩放（§Typography L203-207）
-  □ 间距：用 §Spacing 刻度；无 landing 级 96px 大留白（§Spacing L269）
-  □ 数据即界面：列表/队列优先表格，不是每条记录一张大卡（§Data-Dense, Don't L524）
-  □ 语义色：success/warning/danger/ai 仅用于状态；AI 暂存内容视觉上"未确认"（§Do/Don't L513）
+  □ 壳形态：符合 Screen Contract / routes catalog 的 shell、导航、角色守卫；不得自造导航 frame
+  □ 主色：主操作使用 DESIGN.md 定义的 primary / accent token；状态色只用于状态，不把蓝/紫等任意色当默认主按钮
+  □ 背景：使用 DESIGN.md 定义的 canvas / surface / muted token；无默认渐变、blob、暗色整壳或 glassmorphism
+  □ 圆角：卡片、面板、输入、按钮遵循 DESIGN.md 的 radius 规则；无混乱半径体系
+  □ 字阶：遵循 DESIGN.md 字阶；一屏字号角色不超过 4 档；不随视口缩放
+  □ 间距：遵循 DESIGN.md §Spacing Hierarchy；页框、区块、容器、组件四层间距清楚
+  □ 数据即界面：operational 屏以表格/列表/统计/筛选等主数据容器为视觉锚点，不把每条记录做成大卡
+  □ 语义色：success/warning/destructive/info 仅用于状态；未确认/草稿/AI 暂存内容必须视觉上可区分
   □ 五态完整：空 / 加载 / 错误 / 成功 / 无权限
-  □ Screen 合同：当前 Route 的 Primary Job、Regions、Key States、Screen done 与 `docs/project/ui/` catalog 或 plan §4 UI delta 一致；同屏 sibling Unit 的主流程未被破坏
+  □ Screen 合同：当前 Route 的 Screen type、Primary Job、Regions、Information Priority、Richness Floor、Forbidden Patterns、Key States、Screen done 与 `docs/project/ui/` catalog 或 plan §4 UI delta 一致；同屏 sibling Unit 的主流程未被破坏
   □ API-for-UI：前端只消费合同字段 / 状态 / 错误语义；缺字段时回补 API 合同或 mock adapter，不在 UI 内硬编码临时假数据
   □ 截图/浏览器检查：按 UI class 执行；无文字溢出、无元素重叠、主操作首屏可见，且与 DESIGN.md + 页面体验地图一致
 -->

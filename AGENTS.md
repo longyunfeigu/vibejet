@@ -18,7 +18,7 @@ vibejet/
 ├── docs/              # Project facts, reusable references, archives, and task assets
 │   ├── project/       # Current architecture, API conventions, and reusable data contracts
 │   ├── reference/     # ADRs, guides, manuals, research notes
-│   ├── archive/       # Historical/downstream product docs, not current baseline
+│   ├── archive/       # Historical / superseded docs, not current baseline
 │   └── tasks/         # Active epics/stories and implementation plans
 ├── .agents/skills/    # Repo-local AI workflow skills
 └── docker-compose.yml
@@ -34,16 +34,13 @@ vibejet/
 
 ## Current Baseline
 
-`vibejet` is currently maintained as a FastAPI foundation library and application scaffold, not
-as a concrete product domain. Current project facts live under `docs/project/`; archived
-downstream-product material lives under `docs/archive/` (e.g. `docs/archive/exam-platform/`).
-Treat archived PRDs, epics, API contracts, data models, and design prompts as historical context
-only, unless the user explicitly promotes them back into the active project.
+`vibejet` is a full-stack application with a Python backend (`backend/`) and a React frontend
+(`frontend/`). Current project facts live under `docs/project/`.
 
 Known current gaps:
-- JWT auth (login gate) is implemented, but scaffold routes such as files, storage,
-  conversations, chat, and documents only require login — they are not safe to expose as
-  product endpoints until a downstream project adds ownership and role/tenant checks.
+- JWT auth (login gate) is implemented, but routes such as files, storage, conversations, chat,
+  and documents only require login — they are not safe to expose as product endpoints until
+  ownership and role/tenant checks are added.
 - Schema changes go through Alembic (baseline `0001` + incremental revisions are tracked in
   `backend/alembic/versions/`); do not rely on `create_tables()` in production.
 
@@ -126,6 +123,8 @@ See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflo
 Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when they match the task:
 
 - `vj-feature` — 给已有项目追加功能：澄清需求，生成/追加 Epic+Story，可选同步 PRD，路由到实现
+- `vj-design-md-matcher` — 产品/品牌方向轨：当 `DESIGN.md` 缺失/过期、品牌感不清、front-of-house 无 golden screen，或用户要求整体视觉升级时，先用产品级 `ui-requirement-brief` 明确方向，再生成 `docs/project/DESIGN.md` + golden references；不用于日常单屏结构/状态补全
+- `ui-requirement-brief` / `ui-page-goal-structure` / `ui-state-coverage` / `ui-visual-consistency-audit` — 前端设计生产与审查辅助：产品级 brief 喂 `vj-design-md-matcher`；单屏级 brief 喂 `ui-page-goal-structure` / `ui-state-coverage` 产出页面体验地图和状态覆盖；稳定合同写入 `docs/project/DESIGN.md` 与 `docs/project/ui/`，由 `vj-epic-plan` / `vj-work` 消费
 - `run-story` — Preferred single-entry Story workflow: route implementation, verify, review, and risk-based QA
 - `do-story` — Standard Story implementation from Story file or Story description
 - `story-reference-impl` — Complex Story that needs research against open source or framework implementations
@@ -149,14 +148,14 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
 | 永久基线 | `docs/project/architecture.md`（1 份 repo 级） | 有架构影响时更新 |
 | 永久基线 | `AGENTS.md`（`CLAUDE.md` 经 `@AGENTS.md` 导入） | 规则变更时更新 |
 | 永久基线 | `docs/project/*.md` | 对应项目事实或设计契约变化时更新 |
-| 历史归档 | `docs/archive/` | 下游产品/过期计划需要保留但不再作为当前基线时 |
+| 历史归档 | `docs/archive/` | 过期/被取代的文档需要保留但不再作为当前基线时 |
 | 执行基线 | `docs/tasks/plans/TEMPLATE.md` | Plan 结构变更时更新 |
 | 审查基线 | `docs/reference/guides/review-checklist-python-fastapi.md` | review 规则变更时更新 |
 | 执行计划 | `docs/tasks/plans/{date}-{story-id}-{slug}.md` | 每次 feature 实现时 |
 | 设计参考 | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
 | 按需生成/更新 | `docs/project/api/{module}.md` | 由 `api-design` skill 在公共接口契约变化时增量更新 |
 | 按需生成/更新 | `docs/project/data/{module}.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
-| 按需生成 | 下游应用 PRD | 由 `vj-product-requirements` 在具体产品仓库中生成后维护；不作为 vibejet 基础库常驻文档 |
+| 按需生成/更新 | `docs/project/requirements.md`（PRD） | 由 `vj-product-requirements` 生成；需求变化时更新 |
 
 重要边界：
 - 当对应 `docs/project/api/{module}.md` 或 `docs/project/data/{module}.md` 不存在时，AI 不能声称"实现违反了这些文档"；
@@ -319,7 +318,6 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 - Plan template: `docs/tasks/plans/TEMPLATE.md`
 - Review checklist: `docs/reference/guides/review-checklist-python-fastapi.md`
 - Verify-fix design: `docs/reference/guides/story-verify-fix-design.md`
-- Archived exam-platform docs: `docs/archive/exam-platform/`
 - Skills: `.agents/skills/`
 
 ## Tooling Note

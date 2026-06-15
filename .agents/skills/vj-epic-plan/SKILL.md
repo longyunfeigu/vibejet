@@ -12,6 +12,7 @@ description: 以一个 Epic（含若干 Story）为单元生成适合人工 Revi
 - 本 skill 负责 **HOW**：人工 Review 摘要、待审批决策、Triage 分级、跨 Story 共享设计（ERD/流程/本 Epic UI Surface delta）、跨 Epic 契约（Consumes；对下游契约写入 catalog 而非 plan）、每个 Story 的实现单元、**Story/Unit 依赖图、可选 task 执行投影与并行波次**、关键决策（带 Rejected），以及项目级 API / Data / UI catalog 同步。
 - **产出执行投影**：Phase 5 plan 定稿后，一并生成 per-task 执行文档（`work_dir` 下 7 段文档 + `_ledger.md`），供 `vj-work` 直接装载执行——避免执行期重做投影。
 - 执行（落地代码）交给 `vj-work` / `run-epic`。
+- 前端设计生产已纳入主链路。本 skill 消费两类设计输入：产品/品牌方向源（`docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，通常由产品级 `ui-requirement-brief -> vj-design-md-matcher` 产出）和单屏体验源（`vj-epic-story` 页面体验地图 + 按需 `ui-page-goal-structure` / `ui-state-coverage` 产物），生成 Screen Contract 并同步到 `docs/project/ui/`。
 
 **协作链**：
 ```
@@ -29,6 +30,10 @@ vj-product-requirements → vj-architecture → api-design → data-model
 - **Task 是执行投影，不是新需求层**：默认 `1 Unit = 1 task`。只在依赖、文件隔离、验证边界和并行收益都清楚时拆 task；“这个 Unit 同时有前端和后端”不是拆分理由。前端 Epic 只有在 UI Surface Delta / catalog 明确要求按 Screen/Route 聚合实现时，才允许生成 Screen composition task；该 task 必须列 Covered Units、Screen done 与每个 Unit 的 UI AC 回指，不能变成新需求层。
 - **Task done 不等于 Unit done**：task 只能表示局部执行完成；Story AC 的闭环验收仍以 Unit 为准。若 `U2 Depends U1`，U2 的任一 task 不得早于 U1 全部 task 完成后启动，避免技术层半成品越过产品依赖。
 - **前端按体验交付，不按 Story 拼 UI**：前端 Epic 必须先在 §4 写清 UI Surface Delta，并同步到 `docs/project/ui/` catalog（Screen/Route、角色任务、区域、状态、覆盖 Unit、API-for-UI、Screen done 信号）。Story/Unit 继续负责验收追踪；UI 执行以 Screen 为组织单位，禁止为当前 Story 临时堆一个孤立按钮、表单、卡片或页面。
+- **Screen Contract 是 UI 执行合同**：前端 Epic 的每个 Screen 必须有 `screen type`（front-of-house / operational / mixed）、Route、Primary Job、Role、Regions、Key States、Information Priority、Richness Floor、Forbidden Patterns、Covered Units、API-for-UI、Screen done、Design source pointers。缺任一关键字段，不得生成 frontend-composition task；回到 Story / plan 修正。
+- **先有方向，再有单屏合同**：`DESIGN.md` / golden screens 是产品级品牌与视觉方向；页面体验地图和 Screen Contract 是单屏结构与状态合同。若 `DESIGN.md` 缺失/过期、品牌方向不清、或 login/signup/landing/首个空态缺 golden reference，本 skill 不得靠 plan 文案补审美；必须把“先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`”列为待审批决策或阻塞项。若方向源已稳定，只补单屏结构/状态，不重跑 matcher。
+- **front-of-house 特别约束**：login、signup、landing、空首屏、营销页默认 UI-critical。Screen Contract 必须显式要求品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认可操作态、三态；明确禁止裸居中表单、左侧/背景纯空白、无品牌概念。
+- **operational 特别约束**：dashboard、table-list、detail、form、settings 默认 operational。Screen Contract 必须显式要求主数据容器、工具条/筛选、统计或摘要、行/批量操作、loading/empty/error；明确禁止孤立卡片堆、巨型录入框当主视觉、无主内容锚点。
 - **Backend by capability, frontend by experience**：前端质量优先的 Epic 不要求“所有后端 100% 完成后才写前端”，但必须先稳定对应 Screen 的 API / 状态 / 数据合同。执行波次应显式拆成：UI surface/API contract → backend/API capability → frontend screen composition → E2E polish。某个 Screen 依赖的合同稳定后即可进入该 Screen 的整体实现。
 - **不预规划 work-time 能现读的（§4 / Appendix B / C 通用判据）**：一条信息值得进 plan，必须满足之一——①需要用户拍的**岔路**；②并行 Unit 必须共享的**契约**；③只有站在整个 epic 才看得见的**事实**（迁移顺序、下游消费者）。**单个 Unit 的执行 agent 读代码 / 读 `DESIGN.md` 就能拿到、且无歧义的事实**（现有 pattern、DESIGN.md 约束原文、单文件现状）**不要 copy 进 plan**——vj-work 现读更新鲜，也避免与真相源漂移、避免把残缺子集当完整 spec。plan 唯一不可替代之处，是“一个脑子同时看所有 Unit”把共享决策与冲突钉死，免得并行隔离子代理各读各的、各判各的。
 - **复用优先只做有用声明**：不新增固定 Reuse Scout 章节。Phase 2 codebase-scout 负责发现复用锚点；Appendix C 的 `Patterns` / `Approach` 只在有明确对象时写“复用什么 / 不重写什么”。优先级：现有业务模块、repo-local shared util、项目已有依赖、官方 SDK / API / 标准协议、成熟开源库，最后才写最小新代码。
@@ -102,6 +107,7 @@ docs/project/
 - `data/{module}.md`：模块范围、ERD、表字段、索引 / 约束、一致性、migration / 回滚。
 - `ui/surfaces.md`：跨 Epic 稳定 Screen 合同。每个 Surface 记录 route、role、primary job、regions、key states、API-for-UI、screen done、introduced/updated by。
 - `ui/routes.md`：路由树、角色守卫、导航入口、占位页面与后续 Epic 填充关系。
+- `ui/surfaces.md` 对 front-of-house / operational 都必须记录屏型、富度地板和禁止项；这些字段是 `vj-work` 判断 UI-critical 与截图 gate 的输入。
 
 ---
 
@@ -127,7 +133,7 @@ Epic: epic-{N}-{slug}
 上游依赖 Epic: {epic-N 列表，无则”无”}
 是否前端 Epic: {true/false，依据 epic.md 中的技术层判断}
 Epic ID（设计稿路径用）: {epic-N}
-设计来源候选: docs/project/DESIGN.md（优先）/ docs/project/design_guidelines.md（fallback）/ docs/reference/research/designs/{Epic ID}/
+设计来源候选: docs/project/DESIGN.md（优先）/ docs/reference/research/designs/golden/（屏型金标准）/ docs/project/design_guidelines.md（fallback）/ docs/reference/research/designs/{Epic ID}/
 ```
 
 #### 2.1 并行派发研究代理
@@ -154,8 +160,9 @@ Epic ID（设计稿路径用）: {epic-N}
 - **架构与契约**：Agent A 产出的相关架构约定、现有 API / Data / UI 契约、硬约束清单
 - **上游 Consumes**：Agent B 读 catalog 产出的 Consumes 列表，每项真相来源指向 `docs/project/api|data|ui/`；catalog 缺失时声明（可能上游未实现 / 未同步）
 - **复用锚点**：Agent C 产出，分”直接复用 / 需改造 / 不应重建”。优先找现有业务模块 / domain service / application use case、repository / DTO / response envelope / shared util、项目已有第三方依赖、官方 SDK / API / 标准协议、成熟开源库；能复用时在 Appendix C `Patterns` / `Approach` 写清复用对象，禁止重写 auth、permission、crypto、payment、scoring、parser、timezone、serialization、route generation、API client、response envelope、migration helper、design-system component 等已有权威实现。
-- **设计上下文**（前端 Epic）：项目设计合同来源（优先 `docs/project/DESIGN.md`，fallback `docs/project/design_guidelines.md`）、`docs/project/ui/` 既有 surface/route catalog、epic.md 的页面体验地图、Agent C 产出的设计稿文件列表，或”暂无”
-- **UI Surface / Screen delta**（前端 Epic）：从既有 UI catalog + epic.md 页面体验地图 + Story AC + API/Data Delta 推导本 Epic 新增/更新的 Screen 列表、每屏主任务、覆盖 Unit、数据/操作合同、关键状态与 Screen done 信号；若无法推导，列为待审批决策，不自由发挥。
+- **设计上下文**（前端 Epic）：项目设计合同来源（优先 `docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，fallback `docs/project/design_guidelines.md`）、`docs/project/ui/` 既有 surface/route catalog、epic.md 的页面体验地图、Agent C 产出的设计稿文件列表，或”暂无”
+- **UI Surface / Screen delta**（前端 Epic）：从既有 UI catalog + epic.md 页面体验地图 + Story AC + API/Data Delta 推导本 Epic 新增/更新的 Screen 列表、每屏屏型、主任务、覆盖 Unit、屏内区域、信息优先级、富度地板、禁止项、数据/操作合同、关键状态与 Screen done 信号；若无法推导，列为待审批决策，不自由发挥。
+- **UI workflow skill input**（前端 Epic）：先判轨道。产品/品牌方向缺口（缺 `DESIGN.md`、品牌感不清、front-of-house 无 golden、用户要求整体视觉升级）→ 标记需先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`，不要在 plan 里临时发明风格；单屏结构/状态缺口（已有方向源，但某 Route 的主任务、区域、状态、富度地板或禁止项不清）→ 按需补跑 `ui-page-goal-structure` / `ui-state-coverage` 的检查口径；流程复杂再补 `ui-user-journey-audit`。结果只进入 Screen Contract，不生成 v0/Lovable 提示词。
 - **institutional learnings**：Agent D 产出，或”暂无相关沉淀”
 - **隐含约束小结**：综合以上，列出计划阶段需遵守的非显式约束
 
@@ -181,7 +188,7 @@ Epic ID（设计稿路径用）: {epic-N}
 3. **跨 Epic 契约（§3，Flow B/C）——单一真相源 = catalog，不在 plan 写 Provides 表**：
    - `Consumes`：本 Epic 依赖的上游契约子集，**真相来源 = catalog**（`docs/project/api|data|ui/{module-or-file}.md`），由 Phase 2 Agent B 读 catalog 生成。
    - **不写 Provides 表**：本 Epic 对下游的稳定契约只写进 catalog（§5 Catalog Sync 列出目标文件，catalog 文档以「契约状态 / introduced by Epic N」标出处）；**跨切面义务 / 不变量**（如 R1.x：某类记录必须经某机制关联某字段，读代码 / 读单模块 catalog 不一定看得出）写进 `docs/project/data/overview.md` 跨模块段、`docs/project/api/conventions.md` 或 `docs/project/ui/surfaces.md`。避免 plan 与 catalog 双写漂移、下游不必翻旧 plan。
-4. **共享设计**（§4，**人工 review 主面**——用户唯一逐图看的章节，与 Flow 无关）：术语表（5+ 新概念时）、跨 Story 数据模型 ERD（只画本 Epic 拥有 + Consumes 子集，字段内联 `约束→需求`）、核心流程时序图（participant=代码落点、关键步骤内联 R-ID、AI / 外部调用失败用 `✋ + alt / else`、覆盖跨 Story 接力与状态交接）、设计上下文（前端 Epic：**指针 + 现状冲突 / 契约**——“UI Unit 以 DESIGN.md + docs/project/ui 为准”一行、与现状的冲突、跨 UI Unit 要统一的设计契约、来自 epic.md 的页面体验约束；**不复制 DESIGN.md 约束原文**，执行时 vj-work 直接读）、**UI Surface Delta**（前端 Epic 必填：本 Epic 新增/更新的 Screen/Route、角色主任务、覆盖 Unit、屏内区域、关键状态、API-for-UI、Screen done；稳定版本同步到 `docs/project/ui/`）。**把 §2 的已定关键决策内联标注到对应图**（ERD 字段注 / 时序图步骤注，如 `status "无 exp → D1"`），让用户“扫图 = 看见并批准方向”。**这些内容保留在正文，不能下沉或删除**；说人话的预算优先花在这里的图注与术语；字段名 / prompt 可在实现时微调。
+4. **共享设计**（§4，**人工 review 主面**——用户唯一逐图看的章节，与 Flow 无关）：术语表（5+ 新概念时）、跨 Story 数据模型 ERD（只画本 Epic 拥有 + Consumes 子集，字段内联 `约束→需求`）、核心流程时序图（participant=代码落点、关键步骤内联 R-ID、AI / 外部调用失败用 `✋ + alt / else`、覆盖跨 Story 接力与状态交接）、设计上下文（前端 Epic：**指针 + 现状冲突 / 契约**——“产品/品牌方向以 DESIGN.md + golden 为准；单屏执行以 docs/project/ui Screen Contract 为准”一行、与现状的冲突、跨 UI Unit 要统一的设计契约、来自 epic.md 的页面体验约束；**不复制 DESIGN.md 约束原文**，执行时 vj-work 直接读）、**UI Surface Delta / Screen Contract**（前端 Epic 必填：本 Epic 新增/更新的 Screen/Route、屏型、角色主任务、覆盖 Unit、屏内区域、信息优先级、富度地板、禁止项、关键状态、API-for-UI、Screen done；稳定版本同步到 `docs/project/ui/`）。**把 §2 的已定关键决策内联标注到对应图**（ERD 字段注 / 时序图步骤注，如 `status "无 exp → D1"`），让用户“扫图 = 看见并批准方向”。**这些内容保留在正文，不能下沉或删除**；说人话的预算优先花在这里的图注与术语；字段名 / prompt 可在实现时微调。
    - **高风险流程补充规则**：命中状态机、并发、计费、权限、判分、AI 评估、事务 / 幂等等风险时，§4 或对应 Unit 的 Appendix C `Approach` 必须写业务伪代码、Mermaid `stateDiagram` / `sequenceDiagram` 或不变量。目的先是给人 Review 业务真相，其次才是给 vj-work 执行上下文；不要把它写成语言级实现伪代码。
 5. **API / Schema / UI Delta + Catalog Sync 计划**（§5）：
    - API contract 有变化：填写 API Delta；列出将同步的 `docs/project/api/conventions.md`（仅全局约定变化时）与每个受影响模块的 `docs/project/api/{module}.md`。
@@ -224,7 +231,10 @@ Epic ID（设计稿路径用）: {epic-N}
    - [ ] Schema / persistence delta 已列出目标 catalog 文件；无 data delta 时未创建空文档
    - [ ] UI Surface / route delta 已列出目标 catalog 文件；无 UI delta 时未创建空文档
    - [ ] (5+ 新概念)§4 术语表已填；(前端 Epic)§4 设计上下文只留指针 + 现状冲突 / 契约（**未复制 DESIGN.md 约束原文**），页面体验约束已关联到 UI Unit
-   - [ ] (前端 Epic)§4 已填写 UI Surface Delta：每个新增/更新 Screen 有 Route / Primary Job / Role / Covered Units / Regions / States / API-for-UI / Screen done；无 Screen 合同不得生成 UI task
+   - [ ] (前端 Epic)已判定 UI 轨道：产品/品牌方向源缺失时已列出产品级 `ui-requirement-brief -> vj-design-md-matcher` 待办/阻塞；方向源稳定时只补单屏结构/状态，不重跑 matcher
+   - [ ] (前端 Epic)§4 已填写 UI Surface Delta / Screen Contract：每个新增/更新 Screen 有 Route / Screen type / Primary Job / Role / Covered Units / Regions / Information Priority / Richness Floor / Forbidden Patterns / States / API-for-UI / Screen done；无 Screen 合同不得生成 UI task
+   - [ ] (front-of-house Screen)品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认态、禁止裸居中卡已写进 Screen Contract；若缺 golden reference，已标记需先补产品/品牌方向轨
+   - [ ] (operational Screen)主数据容器、工具条/筛选、统计或摘要、行/批量操作、三态与密度要求已写进 Screen Contract
    - [ ] (改 schema 或多 Story 交付)Appendix E 回滚 / 撤销策略已填
    - [ ] 待审批项已问用户 **或**（无人值守时）已转为“假设待审批” + Confidence，无未标注的隐性猜测
    - [ ] Triage Flow 与填写深度一致
@@ -253,7 +263,7 @@ Epic ID（设计稿路径用）: {epic-N}
    - 启用 task 级拆分时，必须同步生成 **task 级 DAG / 波次 / 共享文件冲突表** 写入 `_ledger.md`，标明每个 task 回指哪个 Unit，并明确 “task done != Unit done”。Task 波次不得越过 Unit 依赖。
    - 不满足上述条件时禁止拆分，避免 Unit 级 Appendix D 与 task 执行波次错位。
    - 生成内容:按 `task_docs.template`(`references/task-doc.template.md`)**投影自 Appendix C**(Goal/Files/Approach/Patterns/Test scenarios/Verification),不重新发明 HOW;「变更叙事」段保留 `_(待执行)_` 占位,由 vj-work 按 fast/strict 记录策略回写（fast 可 Phase 4 统一回写, strict 每 Unit 回写）。若 Appendix C 声明复用对象、高风险业务流程图 / 伪代码或禁止 fallback/mock/简化实现，必须原样投影进 task 文档的 Technical Approach / Execution note，不新增字段。
-   - **UI Unit 检测 + Design / Screen context 注入**:某 Unit 的 `Files:` 含 `.tsx`、或路径含 `routes/`/`features/`/`components/` → 判为 UI Unit,把模板末尾「附:UI Unit Design / Screen context 注入块」原样复制进该 task 文档的 `## 3. Technical Approach` 段末，并填入本 Epic 对应的 `DESIGN.md` / fallback 来源、`docs/project/ui/` catalog 指针、页面体验地图条目、UI Surface Delta 中的 Screen ID / Route / 覆盖 sibling Units / 屏内区域 / API-for-UI / Screen done / 需覆盖的 UI 状态。非 UI Unit 不注入。
+   - **UI Unit 检测 + Design / Screen context 注入**:某 Unit 的 `Files:` 含 `.tsx`、或路径含 `routes/`/`features/`/`components/` → 判为 UI Unit,把模板末尾「附:UI Unit Design / Screen context 注入块」原样复制进该 task 文档的 `## 3. Technical Approach` 段末，并填入本 Epic 对应的 `DESIGN.md` / fallback 来源、`docs/project/ui/` catalog 指针、页面体验地图条目、UI Surface Delta 中的 Screen ID / Route / Screen type / Primary Job / 覆盖 sibling Units / 屏内区域 / 信息优先级 / 富度地板 / 禁止项 / API-for-UI / Screen done / 需覆盖的 UI 状态。非 UI Unit 不注入。
    - **Frontend composition task 投影**:若同一 Screen 覆盖多个 UI Unit，task 文档必须标明这是“Screen composition”还是“backend/API capability”。Screen composition task 可以覆盖多个 Unit 的 UI AC，但 Unit done 仍需回指各自 Story AC / Verification；不得为每个 Story 生成互相割裂的页面片段。
    - 生成 `_ledger.md`:默认波次计划直接来自 §6/Appendix D，且 T-ID 与 Unit 一一对应；若启用 task 级拆分，则 `_ledger.md` 必须改用 task 级波次，并保留 Unit→Task 映射表。
    - **不提交、不开 worktree**:本 skill 只写盘,与 plan 一样留未提交态。分支决策、`_execution_context.md`、docs-context 提交与 worktree 创建由 vj-work 按 execution mode 负责（fast 不审批,但若执行 worktree 需要读取 task/context 文件则自动提交可见上下文; strict 动代码前提交）。

@@ -45,6 +45,7 @@ description: Use when PRD and Architecture already exist and need to be decompos
    - **推荐**: `docs/project/api/` → 模块化接口定义（`conventions.md` + `{module}.md`）
    - **推荐**: `docs/project/data/` → 模块化数据结构（`overview.md` + `{module}.md`）
    - **推荐（前端 Epic）**: `docs/project/DESIGN.md` → 项目级设计系统合同；旧路径 `docs/project/design_guidelines.md` 仅作 fallback
+   - **推荐（前端 Epic）**: `docs/project/ui/` → Screen / Route / 导航 / 状态合同；不存在时本 skill 必须从页面体验地图生成初始候选，交给 `vj-epic-plan` 写入 catalog
    - **推荐**: `docs/reference/research/designs/` → UI 设计稿（按 Epic 子目录组织）
    - 必需文档缺失 → 报错终止
 5. **约束提取**（自动）：
@@ -204,6 +205,21 @@ Epic 3: ...
 
 > 注：不再抽取「成功标准」与「风险」——epic 级完成判据由 Story AC 承载，失败模式 / 不变量由 Step 3 System-Wide 承载（见重要规则 §21）。
 
+前端 Epic 额外抽取：
+
+| 字段 | 主源 | 备源 | 找不到的标记 |
+|------|------|------|--------------|
+| **屏型** | DESIGN.md / UI brief / 路由语义 | 从 route 和任务推断：login/landing=front-of-house，dashboard/list/detail/form/settings=operational | ⚠️ 推断 |
+| **首屏品牌/任务要求** | UI brief / PRD 页面描述 / DESIGN.md §Richness Floor | 从用户旅程推断 | front-of-house **❓ 必问** |
+| **状态覆盖** | PRD 异常流 / 接口状态 / ui-state-coverage | 从 EARS If/While 与数据源推断 | ⚠️ 推断 |
+| **参考来源** | docs/reference/research/designs/ / 用户 URL 或截图 | DESIGN.md §Reference Skeletons | ⚠️ 推断 |
+
+前端设计轨道判定：
+
+- **产品/品牌方向轨（低频）**：当 `docs/project/DESIGN.md` 缺失、明显过期、品牌方向不清、front-of-house 屏没有 golden reference、或用户要求整体视觉重设时，停止把 UI Story 直接推进实现；把缺口列入 Batch Question，建议先跑产品级 `ui-requirement-brief -> vj-design-md-matcher`。
+- **单屏体验轨（高频）**：当 `DESIGN.md` 已有且当前只是新增/重做具体 Screen 时，不跑 `vj-design-md-matcher`；用 `ui-page-goal-structure` / `ui-state-coverage` 的口径补页面目标、信息层级与状态覆盖。
+- 两条轨道可以都需要：例如新产品第一次做登录页，先定产品级 `DESIGN.md/golden login`，再对登录页做单屏结构与状态覆盖。
+
 **重要规则**：
 - 标 `⚠️` 的字段表示"从全局推断而来"，**必须在 Batch Question 里让用户确认/修正，不能默认接受**
 - 标 `❓` 的字段表示"完全找不到，必须用户提供"
@@ -225,7 +241,7 @@ Epic 3: ...
 - **Mermaid 概览**：用 `flowchart LR` 画端到端主路径，节点用客户可理解的业务语言，不画 API / 表 / 服务内部调用
 - **主旅程**：角色完成核心目标的正常路径，按时间顺序写 `步骤 / 页面或入口 / 客户方用户行为 / 系统响应 / 覆盖 Story或AC`
 - **分支与异常旅程**：未登录、无权限、数据为空、重复操作、下游失败、非法输入等路径，写 `场景 / 页面或入口 / 用户行为 / 系统响应 / 覆盖 Story 或 AC`
-- **页面体验地图**（仅前端 Epic）：每个页面/区域一行，写页面职责、主操作、次操作、关键状态、信息优先级、体验护栏；这不是设计稿，也不是控件清单
+- **页面体验地图**（仅前端 Epic）：每个页面/区域一行，写页面职责、屏型、主操作、次操作、关键状态、信息优先级、体验护栏、品牌/富度要求、禁止项；这不是设计稿，也不是控件清单
 
 **映射要求**：
 - 每个主旅程步骤必须映射到至少 1 个 Story；映射不到 = 缺 Story，回 Phase 3 拆分
@@ -233,6 +249,10 @@ Epic 3: ...
 - 单个 Story 内的小流程可以在 Story AC 中覆盖；跨 Story 的端到端路径必须落在 Epic 的 `## 用户旅程`
 - 涉及前端的旅程步骤必须有页面/入口；没有明确页面时标 `⚠️ 推断` 并在 Batch Question 让用户确认
 - 前端 Epic 必须有 `## 页面体验地图`；后端/纯能力 Epic 可省略并说明 N/A
+- 前端 Epic 的每个页面必须判定屏型：`front-of-house | operational | mixed`。登录、注册、landing、空首屏默认 `front-of-house`；dashboard、table-list、detail、form、settings 默认 `operational`。不确定时标 `⚠️ 推断` 并在 Batch Question 让用户确认。
+- front-of-house 页面必须在页面体验地图写清：产品身份/品牌区、价值点或信任点、视觉锚点、主 CTA 默认可操作态、禁止“裸居中卡 / 大面积空白背景 / 只有表单无品牌”。
+- operational 页面必须在页面体验地图写清：主数据容器、工具条/筛选、统计或摘要、行/批量操作、三态与密度要求，禁止“孤立卡片堆 / 巨型录入框当主视觉 / 无数据表或无主内容锚点”。
+- 页面状态覆盖使用 `ui-state-coverage` 的检查口径：默认、loading、empty、error、disabled、permission、内容过长、重复提交等真实状态，必须映射到 Story AC、前端 AC 或 Assumptions。
 - 若旅程由 PRD 推断而来，标 `⚠️ 推断` 并在 Batch Question 让用户确认
 
 #### Step 3: System-Wide 6 维度抽取（保留原设计）
@@ -530,13 +550,19 @@ grep -nE "^### Story.*(和| 和 |&|\+|,)" <生成的 epic md>
 3. 非功能性需求 → 性能、安全、可用性
 4. **项目设计合同** → 优先 `docs/project/DESIGN.md`；旧路径 `docs/project/design_guidelines.md` 仅作 fallback
 5. **页面体验地图** → 页面职责、主/次操作、关键状态、信息优先级、体验护栏
-6. **设计稿匹配**（自动检查） → 前端交互与 UI 状态
+6. **UI workflow skills（按缺口触发）** → 产品/品牌方向缺口用产品级 `ui-requirement-brief -> vj-design-md-matcher`；单屏结构缺口用 `ui-page-goal-structure`；状态缺口用 `ui-state-coverage`；复杂流程用 `ui-user-journey-audit`
+7. **设计稿匹配**（自动检查） → 前端交互与 UI 状态
 
 **设计稿自动检查**：
 1. 检查 `docs/reference/research/designs/{epic-id}/` 是否存在匹配当前 Epic 的设计稿
 2. 如有设计稿 → 提取页面结构、交互流程、状态变化，自动生成「前端验收标准」section
 3. 如无设计稿 → 根据页面体验地图 + PRD 中的前端交互描述生成前端 AC；若二者都无前端描述则跳过
 4. 在 Story 的 `参考` 行追加设计稿路径：`docs/reference/research/designs/{epic-id}/{文件名}`；如适用也追加 `docs/project/DESIGN.md`
+
+**前端 AC 富度规则**：
+- front-of-house 页面至少需要一条 Browser 验证覆盖“页面体验地图对齐 / 设计合同对齐 / 截图审查”，不能只验证字段和按钮存在。
+- operational 页面至少需要一条 Browser 验证覆盖“主数据容器 + 工具条/筛选/三态之一存在”，不能只验证一个卡片或表单存在。
+- 具体布局和样式不写成控件脚本；由 `vj-epic-plan` 转成 Screen Contract，由 `vj-work` 按 `DESIGN.md` 与 `.claude/rules/frontend.md` 截图验证。
 
 ### Phase 5: 批量预览 + 写盘
 
@@ -748,23 +774,24 @@ done
 5. **轻量原则**：Story 只写 What（验收标准），不写 How（实施方案属于 Plan 阶段）
 6. **Decompose-First**：先按当前 PRD 构建 IDEAL Epic 列表，再对比现状输出差异（见 Phase 2），禁止先看已有 Epic 再决定怎么拆
 7. **用户旅程必须显式输出**：每个 Epic 必须有 `## 用户旅程`，以客户方用户视角描述端到端路径；主旅程映射 Story，分支/异常旅程映射 Story 或 Edge/Error AC；它属于 WHAT 层，`vj-epic-plan` 只能引用，不重新生成
-8. **页面体验地图前端必填**：前端 Epic 必须有 `## 页面体验地图`，把页面职责、主/次操作、关键状态、信息优先级和体验护栏传给 `vj-epic-plan`；后端 Epic 可标 N/A
-9. **DESIGN.md 是设计合同**：前端相关输出优先引用 `docs/project/DESIGN.md`；`docs/project/design_guidelines.md` 只做旧路径 fallback；两者都存在时以 `DESIGN.md` 为准
-10. **Story 不是点击脚本**：Story 主体写可交付能力；按钮、下拉框、左侧菜单等控件细节只写进前端 AC，且必须有 Browser 断言
-11. **Feature Bundling 禁止**：Story 标题禁止用 "和 / & / + / ," 连接两个独立能力（见 Phase 3）
-12. **行为 AC 总数硬上限 ≤7**：超过必须拆 Story，不允许通过删类别压缩；前端 AC 单独计数，若承载新增业务行为则回流到行为 AC 或拆 Story（见 Phase 4）
-13. **Assumptions section 必须存在**：每个 Story 必填，无假设填"无"，不能删 section
-14. **无前向依赖**：Story X.N 只能依赖 X.M (M<N) 或更小序号 Epic 的 Story（见 Phase 5.6）
-15. **kanban_board.md 是编号唯一源**：Next Epic Number / Next Story Number 不重用废弃编号
-16. **Epic Quality Gate 是 BLOCKING**：3 项体检 <2/3 通过必须重审 scope，不允许跳过（见 Phase 2.5）
-17. **OBSOLETE 不删文件**：REPLAN 模式归档的 Epic 只改 frontmatter `status: archived`，保留历史记录
-18. **Stop Conditions（防止死循环）**：
+8. **页面体验地图前端必填**：前端 Epic 必须有 `## 页面体验地图`，把页面职责、屏型、主/次操作、关键状态、信息优先级、体验护栏、品牌/富度要求和禁止项传给 `vj-epic-plan`；后端 Epic 可标 N/A
+9. **DESIGN.md 是设计合同**：前端相关输出优先引用 `docs/project/DESIGN.md`；`docs/project/design_guidelines.md` 只做旧路径 fallback；两者都存在时以 `DESIGN.md` 为准。前端 Epic 缺 `DESIGN.md` 时不得假装已有设计合同，必须在 Batch Question 里标为待补设计合同或使用最小 DESIGN.md 草案待审批。
+10. **UI workflow skills 按轨道触发**：不要固定串行所有 UI skills。产品/品牌方向缺失时，用产品级 `ui-requirement-brief -> vj-design-md-matcher` 生成 / 更新 `DESIGN.md` 与 golden screens；单屏体验缺口用单屏级 `ui-requirement-brief`（可选）+ `ui-page-goal-structure` + `ui-state-coverage`；复杂操作流再用 `ui-user-journey-audit`。这些产物进入页面体验地图和前端 AC，不生成外部 v0/Lovable 提示词作为必经步骤。
+11. **Story 不是点击脚本**：Story 主体写可交付能力；按钮、下拉框、左侧菜单等控件细节只写进前端 AC，且必须有 Browser 断言
+12. **Feature Bundling 禁止**：Story 标题禁止用 "和 / & / + / ," 连接两个独立能力（见 Phase 3）
+13. **行为 AC 总数硬上限 ≤7**：超过必须拆 Story，不允许通过删类别压缩；前端 AC 单独计数，若承载新增业务行为则回流到行为 AC 或拆 Story（见 Phase 4）
+14. **Assumptions section 必须存在**：每个 Story 必填，无假设填"无"，不能删 section
+15. **无前向依赖**：Story X.N 只能依赖 X.M (M<N) 或更小序号 Epic 的 Story（见 Phase 5.6）
+16. **kanban_board.md 是编号唯一源**：Next Epic Number / Next Story Number 不重用废弃编号
+17. **Epic Quality Gate 是 BLOCKING**：3 项体检 <2/3 通过必须重审 scope，不允许跳过（见 Phase 2.5）
+18. **OBSOLETE 不删文件**：REPLAN 模式归档的 Epic 只改 frontmatter `status: archived`，保留历史记录
+19. **Stop Conditions（防止死循环）**：
     - 任一用户确认 gate（Phase 2.4 / 2.5 / 2.6 / 5.3）反馈 ≥3 次 → 强制弹窗"继续 / 重审上游 / 放弃"
     - Epic Quality Gate <2/3 + rework ≥2 次 → 升级到"scope 本身有问题"，建议重审 PRD
     - 理由：拉锯到第 3 次还在调，几乎一定是 PRD 或 Architecture 有歧义，不是 epic-story 这一层能解决的
-19. **Derive, don't checklist**：Edge/Error AC 来自 Phase 4 Step 0 的结构化派生（EP / BVA / 决策表 / 状态迁移 / 单 Story 流程），不从通用清单挑选凑数（见 Phase 4）
-20. **完整性靠拆分而非堆叠**：派生覆盖空间超 AC 上限（≤7）→ 拆 Story（见 Phase 3 覆盖空间拆分触发器）；砍掉的低优先级 case 进 `Assumptions [SCOPE]`，不静默丢
-21. **精简 Epic 文档（无仪式）**：Epic 不含 `Success Criteria` / `Risks and Mitigations` / `Metrics` 三个 section。第一性原理（面向 AI coding）：AI 实现者只消费「可测 AC」+「它本地上下文看不到的跨界约束」；epic 级百分比 / 风险表 / 指标对 AI 写代码零增量。epic 级完成判据 = 该 Epic 所有 Story AC 通过；跨界约束 / 不变量 / 失败模式（含设计硬规则如 default-deny、记录强制带身份）统一写进 `## System-Wide Considerations`，并**下放为对应 Story 的 Integration/Error AC**——只停在散文里没变成 AC 的 System-Wide 项同样是仪式。
+20. **Derive, don't checklist**：Edge/Error AC 来自 Phase 4 Step 0 的结构化派生（EP / BVA / 决策表 / 状态迁移 / 单 Story 流程），不从通用清单挑选凑数（见 Phase 4）
+21. **完整性靠拆分而非堆叠**：派生覆盖空间超 AC 上限（≤7）→ 拆 Story（见 Phase 3 覆盖空间拆分触发器）；砍掉的低优先级 case 进 `Assumptions [SCOPE]`，不静默丢
+22. **精简 Epic 文档（无仪式）**：Epic 不含 `Success Criteria` / `Risks and Mitigations` / `Metrics` 三个 section。第一性原理（面向 AI coding）：AI 实现者只消费「可测 AC」+「它本地上下文看不到的跨界约束」；epic 级百分比 / 风险表 / 指标对 AI 写代码零增量。epic 级完成判据 = 该 Epic 所有 Story AC 通过；跨界约束 / 不变量 / 失败模式（含设计硬规则如 default-deny、记录强制带身份）统一写进 `## System-Wide Considerations`，并**下放为对应 Story 的 Integration/Error AC**——只停在散文里没变成 AC 的 System-Wide 项同样是仪式。
 
 ---
 

@@ -492,7 +492,7 @@ checkpoints:
 #### 前端 Story：组件实现 + 视觉验证
 
 **Step A: 组件实现**
-1. 按 docs/project/design_guidelines.md 创建组件（复用 prototype HTML 结构和样式）
+1. 按 `docs/project/DESIGN.md` + `docs/project/ui/` Screen Contract 创建组件；UI-critical 屏还必须对齐 approved reference/golden 路径。只有 `DESIGN.md` 缺失时才 fallback `docs/project/design_guidelines.md`，两者都缺失则暂停补设计合同。
 2. Hook + Service 层数据接入
 3. commit
 

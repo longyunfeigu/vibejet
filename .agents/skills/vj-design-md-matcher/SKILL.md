@@ -1,37 +1,60 @@
 ---
 name: vj-design-md-matcher
-description: Match a product PRD or product brief to three reference DESIGN.md files from the vibeui / VoltAgent awesome-design-md library using a bundled local cache first and network fallback only when needed, then synthesize a project-owned docs/project/DESIGN.md. Use when the user asks for automatic DESIGN.md library matching, vibeui style references, awesome-design-md recommendations, design-system inspiration before UI mockups, offline/local DESIGN.md matching, or wants to generate a stable project design direction from a PRD. This skill must run before implementation; do not use it inside vj-work execution to pick styles ad hoc.
+description: Match a product-level UI/brand brief or PRD to three reference DESIGN.md files from the vibeui / VoltAgent awesome-design-md library using a bundled local cache first and network fallback only when needed, then synthesize a project-owned docs/project/DESIGN.md and golden screen references. Use when a project lacks DESIGN.md, brand/product visual direction is unclear, front-of-house/golden screens are missing, the user asks for automatic DESIGN.md library matching, vibeui style references, awesome-design-md recommendations, or a stable project design direction. This is a low-frequency product/brand direction step before implementation; do not use it inside vj-work execution or for routine single-screen structure/state work.
 ---
 
 # vj-design-md-matcher
 
-根据 PRD 从 `vibeui / awesome-design-md` 设计库推荐 3 个参考 `DESIGN.md`，再生成项目自己的 `docs/project/DESIGN.md`。
+根据产品级 UI / 品牌 brief 或 PRD，从 `vibeui / awesome-design-md` 设计库推荐 3 个参考 `DESIGN.md`，再生成项目自己的 `docs/project/DESIGN.md` 与 golden screen 参考。
 
 ## Boundary
 
-This skill is a pre-design step:
+This skill is a low-frequency product / brand direction step:
 
 ```text
-PRD -> vj-design-md-matcher -> docs/project/DESIGN.md -> vj-ui-mock / frontend implementation
+ui-requirement-brief（产品级，可选但推荐）
+  -> vj-design-md-matcher
+  -> docs/project/DESIGN.md + docs/reference/research/designs/golden/
+  -> vj-epic-story / vj-epic-plan / vj-work
 ```
 
 Do not use this skill during `vj-work` or story implementation to choose a temporary visual style. Once `docs/project/DESIGN.md` exists and is confirmed, downstream work consumes that file as the stable style source.
 
 Do not copy a brand's DESIGN.md into the project. Treat library entries as references for interaction density, layout rhythm, token discipline, and tone. Generate a project-owned system that fits the PRD.
 
+Do not use this skill for routine single-screen structure or state coverage. For a concrete screen, use the screen-level track:
+
+```text
+ui-requirement-brief（单屏级，可选）
+  -> ui-page-goal-structure
+  -> ui-state-coverage
+  -> vj-epic-story 页面体验地图
+  -> vj-epic-plan Screen Contract
+```
+
+Run this skill only when at least one trigger is true:
+
+- `docs/project/DESIGN.md` is missing or explicitly obsolete.
+- Product / brand visual direction is unclear.
+- A front-of-house screen such as login, signup, landing, onboarding, or first-run empty state has no golden reference.
+- A new downstream product needs its own design system.
+- The user explicitly asks for visual direction matching, vibeui / awesome-design-md references, or a DESIGN.md rewrite.
+
 ## Inputs
 
 Prefer inputs in this order:
 
-1. User-specified PRD or brief path.
-2. `docs/project/requirements.md`.
-3. User's product description in the current conversation.
+1. Product-level UI / brand brief, ideally produced by `ui-requirement-brief`.
+2. User-specified PRD or product brief path.
+3. `docs/project/requirements.md`.
+4. User's product description in the current conversation.
 
 Optional inputs:
 
 - local library mirror: path to `awesome-design-md` repo root or its `design-md/` directory.
 - output path override: defaults to `docs/project/DESIGN.md`.
 - explicit constraints: "avoid dark UI", "enterprise admin", "mobile first", "do not use gradients".
+- existing single-screen briefs: use only as examples of key screen archetypes, not as the whole product identity.
 
 ## Local Cache Policy
 
@@ -64,7 +87,7 @@ python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
 
 ### Phase 1: Extract Product Signals
 
-Read the PRD or product brief and summarize:
+Read the product-level UI / brand brief first when present, then PRD or product brief. Summarize:
 
 - domain and adjacent market
 - target users and roles
@@ -74,8 +97,10 @@ Read the PRD or product brief and summarize:
 - interaction intensity: read-only, CRUD, review/approval, real-time, creation tool
 - desired tone: utilitarian, premium, friendly, editorial, technical, consumer, playful
 - explicit visual constraints and anti-goals
+- brand trust points and front-of-house promises
+- screen archetypes that need golden references, especially login/auth and the primary operational screen
 
-If these signals are too vague, ask one concise clarification before matching.
+If product-level signals are too vague, ask one concise clarification before matching. Do not infer brand tone only from backend feature names.
 
 ### Phase 2: Retrieve Candidate DESIGN.md Entries
 
@@ -148,9 +173,10 @@ Text summaries only confirm reference *sources*; the visual direction itself mus
 rendered pixels. Text underdetermines pixels — two implementations can both "satisfy" the same
 prose and look completely different. Do not skip this phase and synthesize DESIGN.md from text.
 
-1. Pick one anchor screen: the highest-frequency core operational screen in the PRD
-   (prefer the table-list / console archetype).
-2. Produce one throwaway HTML per candidate direction — same screen content and information
+1. Pick two anchors when relevant:
+   - the highest-frequency core operational screen in the PRD (prefer table-list / console / review queue);
+   - the primary front-of-house screen when the product has login, signup, landing, onboarding, or empty first-run.
+2. Produce one throwaway HTML per candidate direction per chosen anchor — same screen content and information
    architecture, different skin only:
    - Self-contained single files (inline CSS, realistic mock data, all states: ok / loading /
      failed / queued) written to `docs/reference/research/designs/candidates/`, plus an
@@ -163,7 +189,7 @@ prose and look completely different. Do not skip this phase and synthesize DESIG
      user to open `index.html` directly — the HTML itself is the artifact, screenshots are only
      a viewing convenience. Tooling unavailability never blocks this phase.
    - The user picks one direction; apply feedback and re-render at most one more round.
-4. Persist the winner as the golden standard: screenshot to
+4. Persist the winner as the golden standard: screenshots to
    `docs/reference/research/designs/golden/{archetype}.png` (when screenshots cannot be
    produced, keep the winning `.html` as the golden source).
 5. Optional mood-asset substep (brand-heavy front-of-house products only):
@@ -215,7 +241,9 @@ Rules for generation:
   treat **token text spec + golden pixels** as a dual-channel source of truth — text alone
   underdetermines pixels, so executors and visual auditors must compare against the golden
   image, not only the prose.
-- The `Downstream Prompt Base` must be reusable by `vj-ui-mock` or frontend work and must explicitly say to follow this `DESIGN.md`.
+- The `Downstream Prompt Base` must be reusable by frontend planning and execution
+  (`vj-epic-story`, `vj-epic-plan`, `vj-work`) and must explicitly say to follow
+  this `DESIGN.md` plus the approved golden screen references.
 
 ## Outputs
 
@@ -233,7 +261,8 @@ python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
 
 ## Relationship To Other Skills
 
-- `vj-product-requirements`: upstream PRD source.
-- `vj-ui-mock`: downstream; it should consume `docs/project/DESIGN.md` as the stable design direction.
+- `ui-requirement-brief`: recommended upstream for product-level brief. Use it to clarify product identity, users, trust points, tone, anti-goals, and key screen archetypes before matching.
+- `ui-page-goal-structure` / `ui-state-coverage`: separate screen-level track. They consume a single-screen brief and produce page structure / state coverage; they do not pick the global visual direction.
+- `vj-epic-story` / `vj-epic-plan`: downstream; they consume `docs/project/DESIGN.md` and golden references, then produce page experience maps and Screen Contracts.
 - `design-taste-frontend` / `frontend-dev-guidelines`: implementation-time quality guardrails, not library matching.
 - `vj-work`: do not integrate this skill into execution; execution should not pick new styles.

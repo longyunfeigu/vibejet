@@ -163,20 +163,20 @@ sequenceDiagram
 | 主题主色 | `main.tsx` primary `#1565c0` | `#0F3D3E` | 对齐 DESIGN.md（D?） | U2, U4 |
 
 ### 页面体验约束（来自 epic.md）
-> 每个 UI Unit 至少关联一行。不要把这里扩写成控件脚本；只保留页面职责、主/次操作、关键状态、信息优先级、体验护栏。
+> 每个 UI Unit 至少关联一行。不要把这里扩写成控件脚本；只保留页面职责、屏型、主/次操作、关键状态、信息优先级、品牌/富度要求、体验护栏和禁止项。
 
-| 页面/区域 | 页面职责 | 主操作 | 次操作 | 关键状态 | 信息优先级 | 体验护栏 | 覆盖 Unit |
-|-----------|----------|--------|--------|----------|------------|----------|-----------|
-| | | | | | | | U1 |
+| 页面/区域 | 屏型 | 页面职责 | 主操作 | 次操作 | 关键状态 | 信息优先级 | 品牌/富度要求 | 体验护栏 / 禁止项 | 覆盖 Unit |
+|-----------|------|----------|--------|--------|----------|------------|---------------|----------------|-----------|
+| | front-of-house / operational / mixed | | | | | | | | U1 |
 
 ### UI Surface Delta（前端 Epic 必填）
 > 本 Epic 新增或更新的 Screen / Route 合同。稳定版本在 Phase 5 写入 `docs/project/ui/surfaces.md` 与 `docs/project/ui/routes.md`；后续 Epic 读取 catalog。
 > Story / Unit 负责验收追踪，Screen / Route 负责整体体验。不得让每个 Story 各自发明页面片段；同一 Screen 的 UI 在 frontend composition wave 中整体实现。
 > 启动前端实现的条件不是“所有后端全部完成”，而是该 Screen 依赖的 API / 状态 / 数据合同已经稳定。合同不清时列入 §2 待审批决策。
 
-| Action | Screen ID | Route | Primary Job | Role | Covered Units | Regions / IA | Key States | API-for-UI / Data Contract | Screen Done | Catalog target |
-|--------|-----------|-------|-------------|------|---------------|--------------|------------|----------------------------|-------------|----------------|
-| Add / Update | screen-xxx | `/path` | 用户在此屏完成什么任务 | admin / employee | U1, U3 | 左/中/右区域或上下区域 | empty / loading / error / draft / success / permission | `GET/POST ...` + 关键字段 / 状态枚举 | 可跑通的屏级验收信号 | `docs/project/ui/surfaces.md` |
+| Action | Screen ID | Route | Screen type | Primary Job | Role | Covered Units | Regions / IA | Information Priority | Richness Floor | Forbidden Patterns | Key States | API-for-UI / Data Contract | Screen Done | Catalog target |
+|--------|-----------|-------|-------------|-------------|------|---------------|--------------|----------------------|----------------|--------------------|------------|----------------------------|-------------|----------------|
+| Add / Update | screen-xxx | `/path` | front-of-house / operational / mixed | 用户在此屏完成什么任务 | admin / employee | U1, U3 | 左/中/右区域或上下区域 | P0 / P1 / P2 | 必须出现的组成与密度 | 禁止裸居中卡 / 孤立卡片堆等 | empty / loading / error / draft / success / permission | `GET/POST ...` + 关键字段 / 状态枚举 | 可跑通的屏级验收信号 | `docs/project/ui/surfaces.md` |
 
 ### Frontend Composition Policy
 > 用于 Appendix D 与 vj-work。后端按 capability 落地，前端按 experience 落地。
@@ -353,8 +353,8 @@ graph LR
 **Approach**: 关键决策 / 数据流 / 分层落点（不写实现代码）
 **Execution note**: *(可选：test-first / characterization-first 等执行姿态)*
 **Patterns to follow**: 现有可镜像的文件 / 类 / 约定
-**Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；设计稿路径（如有）
-**UI Surface participation（UI Unit）**: Screen ID / Route；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号；catalog target `docs/project/ui/surfaces.md` / `routes.md`。
+**Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；屏型、信息优先级、富度地板、禁止项；设计稿路径（如有）
+**UI Surface participation（UI Unit）**: Screen ID / Route / Screen type；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号；catalog target `docs/project/ui/surfaces.md` / `routes.md`。
 **Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分；只有当 UI Surface Delta / catalog 要求按 Screen 聚合实现时，允许把 UI AC 汇入 Screen composition task，并在此处回指对应 task。
 
 **Test scenarios**:

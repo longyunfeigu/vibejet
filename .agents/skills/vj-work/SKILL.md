@@ -194,7 +194,7 @@ Non-goals:
 Risk class:
 UI class: none | trivial | functional | critical
 Execution lane: contract | backend-api-capability | frontend-composition | e2e-polish | legacy-unit
-Screen context: none | Screen ID / route / primary job / role / covered sibling Units / regions / key states / API-for-UI / Screen done / catalog source / app shell + 全局导航契约 (该屏套在哪个共享外壳/导航里；source: DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件) / Reference image (已批准参考图路径；UI-critical 必填，继承屏型金标准时填 golden 路径)
+Screen context: none | Screen ID / route / screen type(front-of-house | operational | mixed) / primary job / role / covered sibling Units / regions / information priority / richness floor / forbidden patterns / key states / API-for-UI / Screen done / catalog source / app shell + 全局导航契约 (该屏套在哪个共享外壳/导航里；source: DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件) / Reference image (已批准参考图路径；UI-critical 必填，继承屏型金标准时填 golden 路径)
 Test policy: test-first | test-with-implementation | verification-only
 System-wide check: none | direct-neighbors | risk-triggered-two-hop
 ```
@@ -279,7 +279,7 @@ subagent prompt 必须自包含，至少包含：
 - task doc path。
 - `_execution_context.md` path。
 - Unit ID 与完整 Unit Context Packet。
-- 如果是 UI task：Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done / sibling Units / **所属 app shell + 全局导航契约**（DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件——告知子代理该屏套在哪个外壳、复用哪个共享 layout，不得自造导航 frame）/ **Reference image 路径**（有则必传：实现目标 = 复刻该图 + 接真实数据，再按 Screen Contract 补交互与状态，不是照散文自由发挥）。
+- 如果是 UI task：Screen ID / Route / Screen type / Primary Job / Covered Units / Regions / Information priority / Richness floor / Forbidden patterns / API-for-UI / Screen done / sibling Units / **所属 app shell + 全局导航契约**（DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件——告知子代理该屏套在哪个外壳、复用哪个共享 layout，不得自造导航 frame）/ **Reference image 路径**（有则必传：实现目标 = 复刻该图 + 接真实数据，再按 Screen Contract 补交互与状态，不是照散文自由发挥）。
 - write scope：允许修改的路径。
 - Verification command。
 - source pointer fallback 规则。
@@ -345,7 +345,7 @@ strict mode 遵守 plan 中明确的 test-first。fast mode 只有 trivial/plumb
 
 UI class：
 
-- `critical`：新页面、app shell、navigation、layout、theme、视觉重构、DESIGN.md global token。
+- `critical`：新页面、app shell、navigation、layout、theme、视觉重构、DESIGN.md global token；login/signup/landing/空首屏/营销页等 front-of-house Screen 默认 critical。
 - `functional`：表单状态、按钮交互、API data binding、局部组件、局部列表/表格。
 - `trivial`：文案、label、小样式、字段显示。
 
@@ -358,7 +358,8 @@ UI class：
 **门面屏富度 gate（critical 且属 front-of-house / 视觉重构 / app-shell·导航·theme，强制，见 `.claude/rules/frontend.md` §门面屏富度 Gate）**：
 - 自评 checklist 只查"没犯禁"（无渐变/glass/色块/裸 hex），**不计入通过**——它抓不住"空/丑"。
 - Done 判据改为**正向存在性**（空了就 FAIL）：品牌区刻意构图（mark+产品名+≥2 价值点+克制几何/纹理，非一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量。
-- **评审不许自评**：截图后必须过一道*独立* gate——跑 `design-review` skill 或新开 fresh-eyes 子代理，对桌面+移动截图按 DESIGN §Richness Floor/§Reference Skeletons 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
+- **评审不许自评**：截图后必须过一道*独立* gate——跑 `ui-visual-consistency-audit` skill 或新开 fresh-eyes 子代理，对桌面+移动截图按 DESIGN §Richness Floor/§Reference Skeletons、Screen Contract 的 `richness floor / forbidden patterns` 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
+- **登录页硬线**：`/login`、`/signup`、认证空首屏不得交付为单一居中表单卡。除非 Screen Contract 明确批准极简方案，否则必须有产品身份区、至少 2 个价值/信任点或等价品牌表达、表单区、错误/loading/disabled 状态和桌面+移动截图证据。
 
 如果 task 文档与 `DESIGN.md` 冲突，以 `DESIGN.md` 原文为准；缺设计合同且属于 UI-critical，STOP。
 如果 task 文档与 `docs/project/ui/` catalog 冲突，以已同步 catalog 为整屏体验真相源；若 catalog 缺失则以当前 plan §4 UI delta 为临时真相源。合同缺失或明显不覆盖当前 Route 时，STOP 回到 vj-epic-plan 修正并同步 catalog。
@@ -368,6 +369,7 @@ UI class：
 进入任一 frontend-composition task 前必须检查：
 
 - Screen ID / Route / Primary Job / Role 明确。
+- Screen type / Richness floor / Forbidden patterns 明确。
 - Covered Units 与 sibling UI Units 明确，且当前执行不会破坏同屏已实现区域。
 - API-for-UI 合同明确：endpoint / 字段 / 状态枚举 / 错误语义 / mock 或真实 adapter。
 - `docs/project/ui/` catalog source 或 plan delta source 明确。

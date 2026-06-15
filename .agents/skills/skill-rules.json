@@ -167,39 +167,11 @@
                 ]
             }
         },
-        "vj-ui-mock": {
-            "type": "domain",
-            "enforcement": "suggest",
-            "priority": "medium",
-            "description": "为前端项目产出全局设计基座（design_guidelines.md）与每屏 v0/Lovable 提示词，保证跨 Epic UI 衔接一致",
-            "promptTriggers": {
-                "keywords": [
-                    "ui mock",
-                    "ui设计",
-                    "界面设计",
-                    "设计稿",
-                    "设计基座",
-                    "原型图",
-                    "v0",
-                    "lovable",
-                    "design guidelines",
-                    "design_guidelines",
-                    "提示词出图",
-                    "前端设计"
-                ],
-                "intentPatterns": [
-                    "(出|生成|做).*?(ui|界面|设计稿|原型|mock)",
-                    "(v0|lovable).*?(提示词|prompt)",
-                    "(全局|统一).*?(设计|ui|风格)",
-                    "design.?guidelines"
-                ]
-            }
-        },
         "vj-design-md-matcher": {
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",
-            "description": "根据 PRD 从 vibeui / awesome-design-md 推荐 3 个参考 DESIGN.md，并生成稳定的项目级 docs/project/DESIGN.md；只用于前置设计定向，不在实现阶段临时选风格",
+            "description": "产品/品牌方向轨：根据产品级 UI brief 或 PRD 从 vibeui / awesome-design-md 推荐参考 DESIGN.md，生成 docs/project/DESIGN.md 与 golden screens；只用于低频设计定向，不用于单屏结构/状态补全，也不在实现阶段临时选风格",
             "promptTriggers": {
                 "keywords": [
                     "DESIGN.md",
@@ -211,12 +183,17 @@
                     "参考 DESIGN",
                     "生成项目 DESIGN",
                     "项目设计系统",
-                    "自动匹配设计"
+                    "自动匹配设计",
+                    "品牌感",
+                    "整体视觉",
+                    "golden screen",
+                    "golden screens"
                 ],
                 "intentPatterns": [
                     "(匹配|推荐|选择|挑).*?(DESIGN\\.md|design-md|设计库|风格库)",
                     "(根据|基于).*?(PRD|需求).*?(推荐|匹配).*?(设计|DESIGN\\.md)",
                     "(生成|产出|创建).*?(项目|自己的).*?DESIGN\\.md",
+                    "(整体|全局|统一).*?(设计|ui|视觉|风格|品牌)",
                     "(vibeui|awesome-design-md).*?(匹配|推荐|参考)"
                 ]
             }

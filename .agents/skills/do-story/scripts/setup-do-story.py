@@ -190,23 +190,33 @@ def extract_md_section(content: str, section_number: int, keyword: str) -> str:
 
 
 def extract_ui_spec_summary(content: str, path: str, project_dir: str = None) -> str:
-    """从 docs/project/design_guidelines.md 提取关键 section：§7, §1, §2, §3"""
+    """从 DESIGN.md（或旧 design_guidelines.md fallback）提取 UI 执行关键 section。"""
     display_path = os.path.relpath(path, project_dir) if project_dir else path
     summary = f"[Full file: {display_path}]\n\n"
 
     sections = [
+        (0, "Richness Floor", 5000),
+        (0, "Spacing Hierarchy", 5000),
+        (0, "Reference Skeletons", 5000),
+        (0, "Golden Screens", 4000),
+        (0, "Downstream Prompt Base", 5000),
         (7, "Implementation Priority", 5000),
         (1, "Page Inventory", 3000),
         (2, "Component Mapping", 5000),
         (3, "Data Flow", 5000),
     ]
 
+    matched = False
     for num, keyword, limit in sections:
         text = extract_md_section(content, num, keyword)
         if text:
+            matched = True
             if len(text) > limit:
                 text = text[:limit] + "\n\n... (truncated, see full file)"
             summary += text + "\n\n"
+
+    if not matched:
+        summary += content[:6000] + ("\n\n... (truncated, see full file)" if len(content) > 6000 else "")
 
     return summary.rstrip() + "\n"
 
@@ -354,7 +364,7 @@ def read_design_docs(
         "api_spec": ["api", "api_spec.md"],
         "database_schema": ["data", "database_schema.md"],
         "requirements": ["requirements.md"],
-        "design_guidelines": ["design_guidelines.md"],
+        "design_guidelines": ["DESIGN.md", "design_guidelines.md"],
     }
 
     for name, candidates in doc_candidates.items():
@@ -437,7 +447,7 @@ epic_ref: "{epic_ref}"
 ### Data Model (optional, from docs/project/data/*.md)
 {docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
-### UI Spec (from docs/project/design_guidelines.md)
+### UI Spec (from docs/project/DESIGN.md; fallback docs/project/design_guidelines.md)
 {docs.get('design_guidelines', 'Not found')}
 
 ### Prototype Files
@@ -542,7 +552,7 @@ checkpoints: []
 ### Data Model (optional, from docs/project/data/*.md)
 {docs.get('database_schema', 'N/A - update only when this Story changes schema, migration, or persistence model')[:1500]}
 
-### UI Spec (from docs/project/design_guidelines.md)
+### UI Spec (from docs/project/DESIGN.md; fallback docs/project/design_guidelines.md)
 {docs.get('design_guidelines', 'Not found')}
 
 ### Prototype Files
