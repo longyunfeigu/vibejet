@@ -5,7 +5,7 @@ status: active
 date: YYYY-MM-DD
 epic_id: "N"
 epic_source: docs/tasks/epics/epic-N-<slug>.md   # 或 epic-N-<slug>/epic.md（展开模式）
-flow: "A | B | C"          # 由 Appendix A Triage 判定
+execution_policy: "fast | strict" # 由 Appendix A Execution Policy 判定
 provides_ref: true | false # 本 Epic 是否向 catalog 写入了对下游的契约（见 §5 Catalog Sync）
 ---
 
@@ -26,17 +26,19 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 | API 契约 | `docs/project/api/` | §5 记录本 Epic API delta + Catalog Sync |
 | Data / persistence 契约 | `docs/project/data/` | §5 记录本 Epic schema delta + Catalog Sync |
 | UI Surface / Route 合同 | `docs/project/ui/surfaces.md`, `docs/project/ui/routes.md` | §4/§5 记录本 Epic UI delta + Catalog Sync |
-| AI 执行上下文 | `docs/tasks/work/epic-.../T*.md`, `_execution_context.md` | Appendix C/D 给投影原料 |
-| 人工决策 / 审计 | 本 plan | §0/§2/Appendix A/E |
+| AI 执行上下文 | `docs/tasks/work/epic-.../T*.md`, `_execution_context.md` | Appendix C/D 给投影原料；task docs 是执行投影，不是新 truth |
+| 人工决策 / 审计 | 本 plan | §0/§2/§4/§6/Appendix A |
 
 ## 0. 审批门
 
-> 人工 review 主面是 **§4 共享设计**（ERD / 流程图 / 模块边界 / 术语）——方向对不对、AI 打算怎么搭，看那里。本节只放需要你拍板的决策，且这些决策已内联标注到 §4 的对应图里（扫图即可批准方向）。完整论证在 §2，这里只链 `D-ID`、不复述。
+> 人工 review 主面是 **§4 Integration Design**（术语 / 关键流程图 / ERD / 状态机 / Screen Contract）和 **§6 Unit/Task 摘要**。本节只放需要你拍板的决策、catalog 影响和执行策略；完整论证在 §2，执行细节在 task docs。
 
 - **目标（一句话）**：
-- **设计与方向**：见 §4。
-- **需要你拍板**（批准前不得进入实现；无则写“无”）：`D1` …（链 §2，已内联 §4 图注）/ `ACD1` …
+- **设计与方向**：见 §4；若无跨 Unit / contract 分歧，§4 明确写 none。
+- **实现与并行**：见 §6 / Appendix D；task docs 位于 `docs/tasks/work/epic-N-<slug>/`。
+- **需要你拍板**（批准前不得进入实现；无则写“无”）：`D1` …（链 §2，已内联 §4 图注或 §6 task 摘要）/ `ACD1` …
 - **API / Schema / UI catalog 影响**：API 是/否；Schema 是/否；UI 是/否（详见 §5）。
+- **Execution policy**：fast / strict（命中触发器与 required gates 见 Appendix A）。
 
 ---
 
@@ -94,7 +96,7 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 
 ## 3. 跨 Epic 契约（Consumes）
 
-> Flow B/C 填。**单一真相源 = catalog**（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`）。本节只填 `Consumes`（本 Epic 依赖的上游契约的过滤视图）；**不写 Provides 表**——本 Epic 对下游暴露的稳定契约写进 catalog（见 §5 Catalog Sync 列出的目标文件），不在 plan 内重复列举，避免 plan 与 catalog 双写漂移。
+> 按需填写。**单一真相源 = catalog**（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`）。本节只填 `Consumes`（本 Epic 依赖的上游契约的过滤视图）；**不写 Provides 表**——本 Epic 对下游暴露的稳定契约写进 catalog（见 §5 Catalog Sync 列出的目标文件），不在 plan 内重复列举，避免 plan 与 catalog 双写漂移。
 
 ### Consumes
 > 本 Epic 依赖的上游契约子集。真相来源 = catalog（`docs/project/api|data|ui/{module-or-file}.md`），**不是上游 plan**。本 Epic 是依赖图的根时填单行：`— | 无上游依赖 | epic.md §依赖`。
@@ -108,17 +110,17 @@ WHAT 来自 epic.md + stories，本 plan 不静默重写 AC。
 
 ---
 
-## 4. 共享设计
+## 4. Integration Design
 
-> **人工 review 主面——用户主要看这一节。** 与 Flow 无关：只要有持久化模型 / 流程 / 状态流转 / 外部调用 / 前端页面，就把设计画清楚（术语、ERD、核心流程 / 状态流转、模块边界、设计上下文），只画本 Epic 拥有或消费的子集。**把 §2 的已定关键决策内联标注到对应图**，让“扫图 = 看见并批准方向”；说人话的预算花在图注和术语上。
+> **人工 review 主面之一。** 本节只写跨 Unit / 跨 contract / 跨执行 agent 会产生分歧的信息：术语、ERD、核心流程 / 状态流转、模块边界、设计上下文、Screen Contract。**把 §2 的已定关键决策内联标注到对应图或表**，让“扫图 = 看见并批准方向”；说人话的预算花在图注和术语上。若没有真实共享设计，写“无跨 Unit / contract 分歧”，删除无关示例图。
 
 ### 术语与代码对象
-> 本 Epic 引入 5+ 新概念时填。`概念` → 一句话 + 对应代码对象 / 聚合根。
+> 仅在术语会跨 API/Data/UI/Unit 复用、容易混淆、或会进入长期 contract 时填。`概念` → 一句话 + 对应代码对象 / 聚合根。
 
 - `Xxx`：一句话解释 → 落点 `domain/xxx/entity.py`
 
 ### 数据模型（ERD）
-> 有持久化模型时保留 ERD，关键字段内联 `约束 / 枚举 → 需求(R x.y)`，并把已定决策内联到字段注（如 `status "... → D1"`）。本 Epic 不引入表时，删除示例图，用一句话说明数据如何承载。
+> 有新增/变更持久化模型，或多个 Unit 通过同一数据关系接力时保留 ERD。关键字段内联 `约束 / 枚举 → 需求(R x.y)`，并把已定决策内联到字段注（如 `status "... → D1"`）。本 Epic 不引入表且无跨 Unit 数据接力时，删除示例图，写“无”。
 
 ```mermaid
 erDiagram
@@ -131,7 +133,7 @@ erDiagram
 ```
 
 ### 核心流程 / 状态流转
-> 涉及权限、状态流转、异步、外部调用或多步骤交接时填。participant 标代码落点；关键步骤内联 R-ID 与已定决策（如 `Note over SVC: token 无 exp（D1）`）；失败路径用 `alt / else`，需要人工兜底时标 `✋`。
+> 涉及权限、状态流转、事务、幂等、异步、外部调用、多步骤交接或失败语义时填。participant 标代码落点；关键步骤内联 R-ID 与已定决策（如 `Note over SVC: token 无 exp（D1）`）；失败路径用 `alt / else`，需要人工兜底时标 `✋`。普通线性 CRUD 不画图。
 
 ```mermaid
 sequenceDiagram
@@ -196,7 +198,7 @@ sequenceDiagram
 
 ## 5. API / Schema / UI Catalog Delta
 
-> Triage 命中“改 API 契约”或“改 DB schema / persistence contract”时填。本节是当前 Epic 的 delta；稳定项目级视图同步维护在模块化契约目录。
+> 命中“改 API 契约”“改 DB schema / persistence contract”或“改 UI Surface / Route contract”时填。本节是当前 Epic 的 delta；稳定项目级视图同步维护在模块化契约目录。
 
 ### Project Catalog Sync
 > 模块 slug 优先取 architecture 中的业务模块名；无既有 slug 时使用 Epic 业务域 slug（lower-kebab-case）。无对应 delta 时写“无需同步”，不要创建空模块文档。
@@ -243,16 +245,16 @@ Screen 状态（empty/loading/error/success/permission/draft）：
 
 ## 6. 实现单元与依赖
 
-> 人工 Review 只看 Unit 级目标、依赖、交付和验收。文件级改动与执行细节放 Appendix C。
+> 人工 Review 在这里看每个 Unit / Task 怎么落地。完整执行包在 `docs/tasks/work/epic-.../T*.md`；本节保留可扫读摘要。
 
 ### Unit 概览
-> `Unit = Story`。不要把 Unit 按前端 / 后端 / 数据库拆开；技术层落点放在 Appendix C 的 Files / Approach。Task 文档默认与 Unit 一一对应，只有满足 Appendix D 的拆分门槛才允许 `1 Unit → 多 task`。
+> `Unit = Story`，Unit 是验收边界。Task 是执行边界，可以为并行拆分，但必须回指 Unit，且 Unit done 仍以 Story AC / Unit Verification / sibling tasks 全部完成共同成立为准。
 > 前端 Epic 例外不是改 Unit 语义，而是改执行编排：后端/API/data 按 Unit capability 交付；UI 由 Appendix D 的 Frontend composition wave 按 Screen/Route 聚合实现。Unit done 仍以 Story AC / Unit Verification / Screen verification 共同成立为准。
 
-| Unit | 对应 Story | 目标 | 主要交付 | Depends | 验收 |
-|------|------------|------|----------|---------|------|
-| U1 | S N.1 | | | 无 | |
-| U2 | S N.2 | | | U1 | |
+| Unit | 对应 Story | 目标 | Files / 主要交付 | Approach 摘要 | Depends | Risk | Verification | Task packet |
+|------|------------|------|----------------|---------------|---------|------|--------------|-------------|
+| U1 | S N.1 | | `path` | | 无 | low / strict trigger | | T001 |
+| U2 | S N.2 | | `path` | | U1 的 contract / artifact | | | T002/T003 |
 
 ### 依赖 DAG
 > 与 epic.md 的 `**依赖**:` 行保持一致；run-epic 只读取 epic.md，不读取本图。
@@ -265,12 +267,13 @@ graph LR
 
 ### 并行结论
 - **实现顺序**：
-- **可并行 Units**：
+- **Barrier / owner tasks**：
+- **可并行 task waves**：
 - **必须串行 / 协调点**：
 
 ---
 
-## Appendix A. Triage 审计
+## Appendix A. Execution Policy
 
 ### 影响判定（scope = 本 Epic）
 - Story 数 / 用户目标数：
@@ -283,9 +286,22 @@ graph LR
 - 是否涉及权限 / 安全 / 幂等 / 复杂状态流转：是 / 否
 - 预估文件数：
 
-### 分级结论
-- **Workflow**: Flow A / Flow B / Flow C
+### 执行策略
+- **Execution policy**: fast / strict
 - **Confidence**: High / Medium / Low
+- **Strict triggers hit**:
+  - DB/schema/migration: yes / no
+  - public API contract: yes / no
+  - auth/permission/ownership/tenant: yes / no
+  - transaction/idempotency/state machine: yes / no
+  - external side effect / async: yes / no
+  - UI shell/navigation/design token: yes / no
+  - cross-BC / ambiguity / large diff: yes / no
+- **Required gates**:
+  - review: yes / no
+  - migration/backfill plan: yes / no
+  - screenshot/browser gate: yes / no
+  - catalog sync: api / data / ui / none
 - **理由**：
 
 ### 关键约束来源
@@ -302,7 +318,7 @@ graph LR
 ### 执行约束投影
 - Appendix C：只在对应 Unit 的 Approach / Patterns / Test scenarios 中列该 Unit 需要的约束来源。
 - task docs：按 Unit 注入目标文件、验证命令、UI Screen context 与 source pointer。
-- `_execution_context.md`：由 vj-work 生成 10-20 条 Epic-level checklist + 每 Unit Context Packet；不从 Appendix A 复制长清单。
+- `_execution_context.md`：由 vj-work 生成 10-20 条 Epic-level checklist + 每 task 的 Unit/Task Context Packet；不从 Appendix A 复制长清单。
 
 ### Scope Challenge
 - 现有代码 / 上游 Epic 已 Provides 什么，能避免平行实现？
@@ -311,7 +327,7 @@ graph LR
 - 若预计单个 Story 改 >8 文件且超 2 层，是否方案过重？
 
 ### 升级触发条件
-- 实现中若发现 [改 DB / 改 API 契约 / 跨 BC / 需求歧义]，暂停并升级 Flow。
+- 实现中若发现 [改 DB / 改 API 契约 / 权限/ownership / 跨 BC / 需求歧义 / UI shell]，暂停并切 strict，回写 Execution Policy 与 task packets。
 
 ---
 
@@ -336,7 +352,7 @@ graph LR
 
 > 每个 Story 对应一个 Unit。Test scenarios 链接 Story AC，不重写 AC；发现冲突时登记到 §2“AC 偏离”，不得静默改写。
 > 补充用例按来源分两类：**实现涌现型行为用例**（并发/回滚/缓存/幂等等，用户可观测）→ 回流改 Story AC（走 §2），不留此处；**纯实现级用例**（内部分支/私有函数，用户不可观测）→ 留此处。
-> 一个 Unit 内有多个技术阶段时，先写进本 Unit 的 Approach / Execution note。默认生成一个 task；只有 Appendix D 的拆分门槛成立时才列多个 task。
+> 一个 Unit 内有多个可独立执行阶段时，先评估是否能形成可并行 task；不能独立验证或写集高度耦合时，才写进同一 task 的 Approach / Execution note。
 
 ### U1. [Story N.1 名称]
 
@@ -355,7 +371,7 @@ graph LR
 **Patterns to follow**: 现有可镜像的文件 / 类 / 约定
 **Design context（UI Unit）**: `docs/project/DESIGN.md` / fallback `docs/project/design_guidelines.md`；epic.md `## 页面体验地图` 对应页面/区域；屏型、信息优先级、富度地板、禁止项；设计稿路径（如有）
 **UI Surface participation（UI Unit）**: Screen ID / Route / Screen type；本 Unit 在该 Screen 中负责的区域或状态；同屏 sibling Units；API-for-UI 依赖；Screen done 信号；catalog target `docs/project/ui/surfaces.md` / `routes.md`。
-**Task projection**: 默认 T001 覆盖整个 U1；若拆多个 task，列 `T001/T002...`、拆分理由、局部验证与 Unit 级闭环验证。不得只因“前端 / 后端”拆分；只有当 UI Surface Delta / catalog 要求按 Screen 聚合实现时，允许把 UI AC 汇入 Screen composition task，并在此处回指对应 task。
+**Task projection**: 列 `T001/T002...`、每个 task scope、barrier / owner / capability / screen 类型、拆分理由、局部验证、sibling tasks、Unit 级闭环验证。不得只因“前端 / 后端”或技术层拆分；只有合同稳定、写集隔离、done signal 明确、能缩短 critical path 时拆。
 
 **Test scenarios**:
 - 链 S N.1 AC：Happy / Edge / Error / Integration（见 epic.md）
@@ -371,8 +387,8 @@ graph LR
 
 ## Appendix D. 并行与文件协调
 
-> 本 Epic 含 ≥2 个 Story 时填。§6 展示人工 Review 所需结论；本附录保存执行协调细节。**本附录的并行波次表是权威波次计划：下游 vj-work 直接消费、不重算（波次正确性由 vj-plan-review 的"依赖并行"视角负责）。**
-> 默认波次按 Unit 拓扑分层。只有通过“task 拆分门槛”时，才增加 task 级 DAG / 波次；task 波次不得越过 Unit 依赖。
+> 本 Epic 含 ≥2 个 Story 或存在可并行 task 时填。§6 展示人工 Review 所需结论；本附录保存执行协调细节。**本附录的 Task DAG / 波次表是权威波次计划：下游 vj-work 直接消费、不重算（波次正确性由 vj-plan-review 的"依赖并行"视角负责）。**
+> Unit DAG 表示验收依赖；Task DAG 表示执行依赖。下游 task 只需等待它实际依赖的上游 contract / artifact 稳定；Unit done 仍必须等所有 sibling tasks + Story AC / Unit Verification。
 > 前端 Epic 必须额外填写 Execution lanes 与 Frontend composition waves。前端不是等所有后端 100% 完成后再做，也不是跟每个 Story 分散做；某个 Screen 的 API / 状态 / 数据合同稳定后，按 Screen 整体实现。
 
 ### 真相源对齐
@@ -384,6 +400,13 @@ graph LR
 |------|----------------|------|
 | Wave 1 | U1 | — |
 | Wave 2 | U2, U3 | U1 |
+
+### Barrier / owner tasks
+> 先稳定会阻塞多个 task 的共享输出。共享文件必须有单一 owner task 或明确串行策略。
+
+| Task | 类型 | 共享输出 / 文件 | 解锁哪些后续 task | Done signal |
+|------|------|-----------------|-------------------|-------------|
+| T001 | barrier / owner | DTO / migration / Screen Contract / `backend/main.py` | T002, T003 | contract test / static check |
 
 ### Execution lanes（前端 Epic 必填）
 | Lane | Wave | Scope | Start condition | Done signal |
@@ -398,17 +421,18 @@ graph LR
 |------|-------------------|---------------|--------------------------------|----------------------|--------------|
 | FE-1 | screen-xxx / `/path` | U1, U3 | `GET/POST ...`；字段 / 状态枚举 | `frontend/src/routes/...`, `features/...` | Browser route + desktop/mobile screenshot |
 
-### task 拆分门槛（仅当 `1 Unit → 多 task` 时保留）
-| Unit | 是否拆分 | 拆分理由 | 文件隔离 / 冲突处理 | 局部验证 | Unit 闭环验收 |
-|------|----------|----------|----------------------|----------|---------------|
-| U1 | 否 / 是 | 依赖 / 隔离 / 并行收益；不得写“前后端分离”本身 | | | |
+### task 拆分决策
+| Unit | Tasks | 拆分理由 | 文件隔离 / 冲突处理 | 局部 done signal | Unit 闭环验收 |
+|------|-------|----------|----------------------|------------------|---------------|
+| U1 | T001, T002 | barrier / capability / screen / 并行收益；不得写“前后端分离”本身 | | | |
 
-### Task 并行波次（仅当启用 task 级拆分时保留）
-| 波次 | 可并行的 Tasks | 回指 Unit | 前置 | Unit 依赖是否满足 |
-|------|----------------|-----------|------|--------------------|
-| Wave 1 | T001 | U1 | — | 是 |
+### Task 并行波次
+| 波次 | 可并行的 Tasks | 回指 Unit | 前置 contract / artifact | 写集是否隔离 | Done signal |
+|------|----------------|-----------|--------------------------|--------------|-------------|
+| Wave 0 | T001 | U1 | — | owner | contract / migration check |
+| Wave 1 | T002, T003 | U1, U2 | T001 contract stable | 是 | targeted verification |
 
-### Unit → Task 映射（仅当启用 task 级拆分时保留）
+### Unit → Task 映射
 | Unit | Tasks | Unit done 信号 |
 |------|-------|----------------|
 | U1 | T001, T002 | 所有 task 完成 + U1 Verification / Story AC 通过 |
@@ -423,14 +447,14 @@ graph LR
 ## Appendix E. 风险、回滚与执行步骤
 
 ### Risks / Failure Modes
-> Flow B/C 填。每条 codepath 对应 §4 时序图中的失败分支，形成“图 ↔ 测试”闭环。
+> 命中权限 / 事务 / 幂等 / 状态机 / 外部调用 / 数据迁移等 strict trigger 时填。每条 codepath 对应 §4 时序图中的失败分支，形成“图 ↔ 测试”闭环。
 
 | Codepath / Interaction | 失败方式 | 系统行为 | 用户可见性 | 测试类型 |
 |------------------------|----------|----------|------------|----------|
 | `service.call()` | timeout / invalid / race / stale | | | unit / integration / api / e2e |
 
 ### 回滚 / 撤销策略
-> Flow B/C 填。
+> 命中 schema / migration / catalog contract / 高风险业务状态时填。
 
 - feature flag / 开关：
 - 部分 Story 已交付时如何回退：
@@ -438,7 +462,7 @@ graph LR
 - DB 回滚见 §5 Schema Delta 的“Migration 与回滚”。
 
 ### 关键实现细节（命中才填）
-> Triage 命中缓存 / 幂等 / 事务 / 并发时填。无则标 N/A。
+> Execution Policy 命中缓存 / 幂等 / 事务 / 并发时填。无则标 N/A。
 
 - 运行期并发 / 竞态（锁、乐观锁、唯一约束兜底）：
 - 运行期幂等（重复请求、重试语义）：
@@ -446,7 +470,7 @@ graph LR
 - 缓存（键、TTL、失效）：
 
 ### 执行步骤
-> 按 Appendix D 的 lane 顺序执行。后端/API/data 仍按 Unit 分组；前端按 Screen composition wave 分组；可并行 Unit 与协调点见 Appendix D。
+> 按 Appendix D 的 Task DAG / lane 顺序执行。先 barrier / owner task，再按 capability / screen 并行 fan-out，最后 integration / E2E polish。
 
 - [ ] Wave 0: UI Surface Delta + API-for-UI 合同 + UI catalog target 对齐（如前端 Epic）
 - [ ] Backend/API capability: U1 [描述] → 文件 [...] → verification
