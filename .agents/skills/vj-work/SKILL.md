@@ -30,17 +30,17 @@ AI coding 质量主要来自四件事：
 
 ## 铁律
 
-- **plan 是决策依据，不是执行脚本**。Appendix C 的 Unit 给目标、文件、方法、验收；HOW 的具体代码由执行期读现有实现后决定。
+- **Human Plan 是决策依据，不是执行脚本**。Task packets 是默认执行入口；Human Plan 只在 task anchors、strict trigger、歧义或冲突时按章节回读。HOW 的具体代码由执行期读现有实现后决定。
 - **不改 plan 正文**。唯一允许的 plan 改动是收尾时把 frontmatter `status: active -> completed`。
 - **Verification 是 done signal**。每个 Unit 的 `Verification` 字段必须实际跑通；未跑通不得标 completed。
 - **worktree 隔离**。本 skill 改代码一律从当前 `HEAD` 创建执行 worktree / 执行分支，不在当前主仓库工作树直接堆代码改动。
 - **当前非默认分支就是 integration base**。开工只读当前分支名与工作区状态；不得通过 `git log` / `git show` / reflog 翻 commit 历史来推断 base，也不得在非默认分支上询问"是否基于当前分支开 worktree"。只有默认分支或未提交改动歧义才停下问人。
 - **上下文必须可回溯**。Execution Checklist 是 attention guide，不是完整规范；每条约束必须带 source pointer。`DESIGN.md`、`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`、repo-local layer skill 原文仍是真相源。
-- **Backend by capability, frontend by experience**。前端 Epic 执行时必须消费 task docs / `_execution_context.md` 中的 Screen context，以及 `docs/project/ui/` catalog（必要时回看 plan §4 delta 与 Appendix D lanes）：先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI。不要等所有后端 100% 完成才开始前端，也不要把前端散进每个 Story 局部做。
+- **Backend by capability, frontend by experience**。前端 Epic 执行时必须消费 task docs / `_execution_context.md` 中的 Screen context，以及 `docs/project/ui/` catalog（必要时按 task anchors 回看 Human Plan §4 delta 与 Appendix D lanes）：先稳定对应 Screen 的 API / 状态 / 数据合同，再按 Screen/Route 整体实现 UI。不要等所有后端 100% 完成才开始前端，也不要把前端散进每个 Story 局部做。
 - **禁止孤立 UI 片段**。UI Unit / task 若属于 Screen composition，必须读同屏 sibling Units、Route 目标文件、Screen regions、API-for-UI 与 Screen done；不得为了当前 Unit 新增脱离 Screen Contract 的单页、卡片堆、表单堆或按钮堆。
 - **前端质量 = 富度（防空）+ 工艺（防挤）+ 屏型对的闸**。UI Unit 执行须守 `.claude/rules/frontend.md` 的富度铁律（R0–R4：先分屏型、按页面体验地图建整屏、不空屏、走参考、不堆孤卡）与工艺铁律（C1–C5：间距分层、字重色阶层次、边框/accent 克制）；间距数值以 `DESIGN.md` §Spacing Hierarchy 为准。**admin/后台屏几乎都是 operational**：不调 `design-taste-frontend`（对后台 out-of-scope），craft 真相源 = `frontend-dev-guidelines/resources/dense-ui-craft.md`，出口走 frontend.md B 轨客观硬线。规则条目以 frontend.md 为唯一真相源，本 skill 不复述。
 - **UI-critical 屏的出口闸判定独立于实现，且 orchestrator commit 前必须真看截图**。每个 UI-critical / operational screen 标 done / commit 前：(1) 必须有真实桌面截图；(2) B 轨 pass/fail 由**非实现该屏的一方**产出——orchestrator 亲自看截图，或派独立 visual-audit subagent（输入仅截图 + 该屏 frontend.md B 轨 checklist + 一张同类密集后台参考；**不给实现代码、不给实现 subagent 的小结**），返回带**截图实测**占比（首屏最大空容器高度占比、页框 padding、最小区块 gap）的 pass/fail；(3) 第一性原理 6「orchestrator 只 ingest 小结、不读 transcript」**不豁免看 UI 截图**——截图是轻量 artifact，UI-critical 屏严禁仅凭实现 subagent 的文字小结就 commit。自评 "passes" 不构成过闸。该屏存在已批准参考图（参考图前置闸产物或屏型金标准）时，审计输入必须升级为「实现截图 ↔ 参考图并排对照」，偏差清单按"参考图里有而实现里没有/走样"逐项列——审计从主观判美丑降级为客观找图差。这把独立判定从 Phase 3 末的 cross-screen polish 提前到每屏 done（翻车实证见 memory `frontend-taste-gate-not-checklist`：规则本就精确，洞在自评 + 没人看像素）。
-- **subagent 任务必须自包含**。不得依赖父 agent Phase 0/1 的隐式上下文。即使运行时支持 `fork_context` / isolation，也必须显式传 Unit Context Packet 或 `_execution_context.md` 路径 + Unit ID。
+- **subagent 任务必须自包含**。不得依赖父 agent Phase 0/1 的隐式上下文。即使运行时支持 `fork_context` / isolation，也必须显式传 Unit/Task Context Packet 或 `_execution_context.md` 路径 + Unit ID / Task ID。
 - **高风险自动 strict**。命中 strict trigger 时不得为了速度降级；不确定风险等级时按 strict 或精准补读 source pointer。
 - **KISS / YAGNI**。只实现 Unit 要求，匹配既有约定，不引入投机抽象或无关重构。
 - **执行 plan 的复用 / 高风险流程 / fallback 约束**。`Patterns` / `Approach` / `Execution note` 里声明的复用对象、业务流程图 / 伪代码、不变量、禁止 fallback/mock/简化实现，都是执行合同。执行期若发现必须重写已有权威实现、绕开高风险流程，或用替代逻辑伪造业务真相，不得自行改口径；切 strict 或 STOP。
@@ -66,8 +66,8 @@ epic_work_executor:
   runtime_adapter: auto                 # inline | claude-agent | codex-subagent | auto
   execution_mode: auto                  # auto | fast | strict
   approval_gate: auto                   # auto | true | false
-  recording: auto                       # auto | final-only | per-unit
-  commit_granularity: auto              # auto | feature | wave | per-unit
+  recording: auto                       # auto | final-only | per-task
+  commit_granularity: auto              # auto | feature | wave | per-task
   learnings_skill: vj-compound          # optional post-run prompt
 ```
 
@@ -75,7 +75,7 @@ epic_work_executor:
 
 | Mode | 目标 | 默认行为 |
 |------|------|----------|
-| `fast` | 普通 AI coding 吞吐 | 最小 Unit Context Packet、final-only 记录、feature/wave commit、risk-based QA/review |
+| `fast` | 普通 AI coding 吞吐 | 最小 Unit/Task Context Packet、final-only 记录、feature/wave commit、risk-based QA/review |
 | `strict` | 高风险交付审计 | 审批门、逐 Unit 文档/ledger、逐 Unit commit、完整 UI QA、完整 review/trace |
 | `auto` | 默认 | 先按 strict triggers 判定；命中即 strict，否则 fast |
 
@@ -90,7 +90,7 @@ epic_work_executor:
 - transaction / Unit of Work / idempotency / concurrency / domain event / Celery / external side effect。
 - app shell / navigation / theme / DESIGN.md global token / UI architecture。
 - expected diff >= 400 lines across multiple subsystems, or >= 1000 lines total。
-- user explicitly asks strict / audit / approval / per-unit commit / exhaustive review。
+- user explicitly asks strict / audit / approval / per-task commit / exhaustive review。
 - execution context cannot cite required source pointers, or plan/task ambiguity could change behavior.
 - 执行 Unit 看起来必须违背 plan/task 的显式约束：复用声明、高风险状态 / 权限 / 事务 / 判分 / AI 评估流程，或“禁止 fallback/mock/简化实现”。
 
@@ -98,13 +98,14 @@ epic_work_executor:
 
 ## Phase 0：定位 plan 与 branch gate
 
-1. 定位 plan：按输入解析；空参取最新 plan。读 plan 中这些执行原料：
-   - `## 4. 共享设计`：前端 Epic 读本 Epic 的 UI Surface delta、Frontend Composition Policy、页面体验约束、设计上下文；稳定 Screen 合同以后以 `docs/project/ui/` catalog 为准。
-   - `## 6. 实现单元与依赖`：Unit 概览 + Depends。
-   - `Appendix C`：Goal、Files、Approach、Execution note、Patterns、Test scenarios、Verification。
-   - `Appendix D`：并行波次、Execution lanes、Frontend composition waves 与共享文件冲突点。
-   - Scope Boundaries / Out of Scope。
-   - Requirements、Deferred to Implementation、Implementation-Time Unknowns。
+1. 定位 plan：按输入解析；空参取最新 plan。Human Plan 默认只读执行索引，不全文装载：
+   - `## 0. 审批门`：目标、待拍板决策、Execution policy。
+   - `## 4. Integration Design`：只读小节标题 / anchor index；只有当前 task anchors、UI-critical、strict trigger、歧义或冲突要求时才读对应小节正文。稳定 Screen 合同以后以 `docs/project/ui/` catalog 为准。
+   - `## 6. 实现单元与依赖`：Unit / Task 摘要、Task packet 路径、Depends。
+   - `Appendix A. Execution Policy`：fast/strict、strict triggers、required gates。
+   - `Appendix D`：Task DAG、barrier / owner tasks、并行波次、Execution lanes、Frontend composition waves 与共享文件冲突点。
+   - Scope Boundaries / Out of Scope（若 §0/§1 有明确边界）。
+   - 不默认读完整 Appendix C；当前 task 的目标、文件、方法、验收以 T{NNN}.md 和 `_execution_context.md` 为入口。只有 task packet 缺失或冲突时回读 Appendix C 对应 Unit。
 2. Branch / worktree gate：
    - 只运行 `git branch --show-current` 与 `git status --short`。
    - 当前分支不是 `main` / `master`：直接视为 integration base，不询问。
@@ -129,17 +130,18 @@ docs/tasks/work/epic-{N}-{slug}/
 默认路径：
 
 - 如果 `work_dir` 已有 `_ledger.md` + `T{NNN}.md`：直接装载，不重新生成，不做过期校验。
-- 如果缺失：按 `references/task-doc.template.md` 从 plan Appendix C 投影生成；不重新发明 HOW。
+- 如果缺失：按 `references/task-doc.template.md` 从 Human Plan §2/§4/§6、Appendix C/D 与 catalog 投影生成；不重新发明 HOW。回退生成后必须把生成来源和 anchors 写入 task doc。
+- task 文档必须包含 `Generated from` / plan anchors / catalog anchors / write scope / read first / stop conditions。缺任一关键字段且不是 trivial task 时，STOP 回到 vj-epic-plan 修正或补投影，不要靠执行期自由发挥。
 
 UI Unit fallback 注入规则保留：
 
 - Files 含 `.tsx`，或路径含 `routes/` / `features/` / `components/` -> UI Unit。
 - task 文档 Design context 只列 `DESIGN.md` 章节锚点 + 决定性原句；禁止有损摘要。
-- task 文档 Screen context 必须投影自 `docs/project/ui/` catalog 或 plan §4 UI Surface Delta。若 UI Unit 找不到 Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done，且不是 trivial UI，STOP 回到 plan 修正并同步 catalog；不要执行期自由设计。
+- task 文档 Screen context 必须投影自 `docs/project/ui/` catalog 或 Human Plan §4 UI Surface Delta。若 UI task 找不到 Screen ID / Route / Primary Job / Covered Units / API-for-UI / Screen done，且不是 trivial UI，STOP 回到 plan 修正并同步 catalog；不要执行期自由设计。
 
 ### 2. 判定 execution mode
 
-在 Phase 1 读取所有 Unit 的 Files、Affected Components、Implementation Plan、Verification、Execution note 后判定：
+在 Phase 1 读取 `_ledger.md`、所有 task packet 的 metadata（不要读全文实现段）、Affected Components、Verification、Execution note 与 Appendix A Execution Policy 后判定：
 
 ```text
 if execution_mode == strict: strict
@@ -149,12 +151,12 @@ else auto: strict if any strict trigger hit, otherwise fast
 
 把判定结果和原因写入 `_execution_context.md`。
 
-### 3. Layer Skill Gate v2：一次加载，按 Unit 投递
+### 3. Layer Skill Gate v2：一次加载，按 task / Unit 投递
 
 旧规则"每个 Unit 开工前重复加载完整 layer skill"废弃。新规则：
 
 1. Epic-level scan：
-   - 从所有 Unit 收集路径：Files、Affected Components、Implementation Plan、Test scenarios、Verification、实际执行中发现的目标文件。
+   - 从 task packets / `_ledger.md` 收集路径：write scope、Affected Components、Implementation Plan、Test scenarios、Verification、实际执行中发现的目标文件。
    - `backend/` 或 backend pytest/alembic 命令 -> backend layer。
    - `frontend/` 或 frontend pnpm/vitest/browser 命令 -> frontend layer。
    - `.tsx`、routes、theme、layout、component、UI 状态 -> design layer。
@@ -166,10 +168,10 @@ else auto: strict if any strict trigger hit, otherwise fast
    - frontend -> `.agents/skills/frontend-dev-guidelines/SKILL.md` + 相关 source resources。
    - design -> `docs/project/DESIGN.md`，缺失才 fallback `docs/project/design_guidelines.md`；两者都缺失且 Unit 是 UI-critical 时 STOP。
    - API/data -> `docs/project/api/`、`docs/project/data/` 与现有实现。
-   - UI surface -> `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`（存在时）与当前 plan §4/Appendix D 的本 Epic delta。
+   - UI surface -> `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`（存在时）与 task anchors 指向的当前 Human Plan §4/Appendix D 本 Epic delta。
 3. 生成 `_execution_context.md`：
    - Epic Execution Checklist：10-20 条，本 epic 的高优先级硬约束。
-   - Unit Context Packet：每 Unit 一份最小自包含执行包。
+   - Unit / Task Context Packet：每 task 一份最小自包含执行包，回指 parent Unit 与 Unit done 信号。
 
 Checklist 要求：
 
@@ -178,7 +180,7 @@ Checklist 要求：
 - 不追求完整规范；只列本 epic 容易写错且影响质量的约束。
 - 无 source pointer 的泛泛规则不得进入 checklist。
 
-Unit Context Packet 固定字段：
+Unit / Task Context Packet 固定字段：
 
 ```text
 Unit:
@@ -202,15 +204,16 @@ System-wide check: none | direct-neighbors | risk-triggered-two-hop
 如果 plan/task 明确禁止 fallback/mock/简化实现，或声明了必须复用的权威实现 / 官方 API / 标准协议，把该约束投影到 `Relevant constraints` 或 `Execution note`；不新增 Unit Packet 字段。判断依据：fallback 会不会在未知真实状态下继续做信任判断或写副作用。会则失败必须 fail closed / STOP / 返回明确错误；不会且只是展示增强、通知重试、只读缓存回源或 UI 局部错误态，可以按 plan 允许降级但不能伪装成功。
 
 如果执行期发现实际目标文件、风险类型或契约变化超出 Unit Packet，精准打开对应 source pointer 或相关 resource；不得无差别全文重读。找不到可靠 source 时切 strict 或 STOP。
+如果 task packet 与 Story AC / catalog / Human Plan anchors 冲突，按优先级处理：Story AC / 用户决策 > catalog > Human Plan approved decisions / Integration Design > task packet projection > current code pattern。不要只改 task packet 偷偷改变语义。
 
 ## Phase 2：波次计划与审批策略
 
-波次计划直接消费 `_ledger.md` / Appendix D，不重算。旧 plan 无 Appendix D 时才按 Files + Depends 回退补算一次。
+波次计划直接消费 `_ledger.md` 的 Task DAG / Appendix D，不重算。旧 plan 无 Appendix D 或 `_ledger.md` 缺 Task DAG 时才按 Files + Depends 回退补算一次。
 
 前端 Epic 的 Appendix D 若包含 `Execution lanes` / `Frontend composition waves`：
 
-- 先执行 UI surface / API contract 可见性检查：确认 `_execution_context.md` 已写入每个 Screen 的合同摘要，并带 `docs/project/ui/` catalog source 或 plan delta source。
-- backend/API/data capability wave 仍按 Unit / task 执行，目标是让对应 Screen 的数据、状态、错误、权限、mock/real adapter 合同稳定。
+- 先执行 UI surface / API contract 可见性检查：确认 `_execution_context.md` 已写入每个 Screen 的合同摘要，并带 `docs/project/ui/` catalog source 或 Human Plan delta source。
+- backend/API/data capability wave 按 task 执行，目标是让对应 Screen 的数据、状态、错误、权限、mock/real adapter 合同稳定；Unit 收口仍在所有相关 task 完成后验证。
 - frontend composition wave 按 Screen/Route 执行；同一 Screen 覆盖多个 Unit 时，以 Screen done + 关联 UI AC 作为该 wave 的 done signal。**每个 Screen 额外必过 `.claude/rules/frontend.md`「出口闸：品味」对应轨——与功能 AC 同等牙齿，不过不得标该 Screen done**：front-of-house 走 A 轨（A1–A3），operational 走 B 轨（B1–B5，内含工艺线 C1–C5）。变更叙事须按闸门要求列出实际组件 / `data-testid` / 间距实测值与参考对照结论，不接受无对照的主观 "passes"。**且该 pass/fail 判定必须由非实现者产出（orchestrator 看截图或独立 auditor），实现 subagent 自写的 "passes" 不算过闸**。闸门条目内容以 frontend.md 为唯一真相源，本 skill 不复述。
 - E2E polish wave 在所有相关 Screen composition 通过后执行：先做 cross-screen visual polish pass（见 Phase 3），再跑完整演示脚本、截图、异常状态与全量验证。
 - 如果旧 plan 没有 lanes，但发现多个 UI Unit 共享同一路由，切到 `frontend-composition fallback`：先生成临时 Screen 分组写入 `_execution_context.md`，按 Screen 串行执行，避免并行写坏 UI。
@@ -225,7 +228,7 @@ Approval gate：
 
 Docs planning commit：
 
-- fast：不要求审批，但必须保证执行 worktree / subagent 能看到任务上下文。若 task docs / `_ledger.md` / `_execution_context.md` 尚未提交，且执行会依赖这些路径，自动创建一个 docs-context commit（不问人）后再开 worktree；若不提交，则必须把完整 Unit Context Packet 字面量传给执行者，不能只给不可见路径。最终变更叙事和 execution profile 仍可收尾统一提交。
+- fast：不要求审批，但必须保证执行 worktree / subagent 能看到任务上下文。若 task docs / `_ledger.md` / `_execution_context.md` 尚未提交，且执行会依赖这些路径，自动创建一个 docs-context commit（不问人）后再开 worktree；若不提交，则必须把完整 Unit/Task Context Packet 字面量传给执行者，不能只给不可见路径。最终变更叙事和 execution profile 仍可收尾统一提交。
 - strict：保留旧规则，动代码前提交 task docs + `_ledger.md` + `_execution_context.md`。
 
 ## Phase 3：执行
@@ -234,30 +237,30 @@ Docs planning commit：
 
 始终使用 worktree 写代码，绝不在主仓库工作树直接写业务代码。
 
-**默认：每个 Unit 派一个自包含 subagent（Task 工具）执行，用于上下文隔离。** 动机首先是 orchestrator 上下文卫生（第一性原理 6），其次才是并行。重活——读 20+ 文件、写代码、跑测试/迁移、浏览器验证——都留在子代理上下文里；orchestrator 只接收子代理返回的结构化小结（changed files / verification 结果 / deviations / risks），**绝不 Read 子代理的 transcript/.output**（会撑爆上下文）。这样 orchestrator 上下文随 Unit 数线性缓增（只长“小结 + review”），不因 Unit 增多而胀满。
+**默认：每个 task 派一个自包含 subagent（Task 工具）执行，用于上下文隔离。** Unit 仍是验收边界，task 是执行边界。动机首先是 orchestrator 上下文卫生（第一性原理 6），其次才是并行。重活——读 20+ 文件、写代码、跑测试/迁移、浏览器验证——都留在子代理上下文里；orchestrator 只接收子代理返回的结构化小结（changed files / verification 结果 / deviations / risks），**绝不 Read 子代理的 transcript/.output**（会撑爆主上下文）。这样 orchestrator 上下文随 task 数线性缓增（只长“小结 + review”），不因 epic 规模塌掉。
 
 两种派发模式：
 
 | 模式 | 何时用 | worktree |
 |------|--------|----------|
-| **serial-isolation（默认）** | Unit 间有依赖 / 共享文件（绝大多数 epic） | **共享同一个执行 worktree**，按依赖顺序串行派发；上游 Unit 完成（commit 后）再派下游，下游读已落盘状态 |
-| **parallel-isolation** | 同波次 ≥2 个 Unit、写集无交集、无逻辑依赖、各 Unit 够大、运行时允许 | 各 Unit 用独立 worktree（Task `isolation: worktree`），完成后按依赖序 merge |
+| **serial-isolation（默认）** | task 间有依赖 / 共享文件 / owner task（绝大多数 epic 的 barrier 与集成阶段） | **共享同一个执行 worktree**，按 Task DAG 依赖顺序串行派发；上游 task 完成后再派依赖它的 task，下游读已落盘状态 |
+| **parallel-isolation** | 同波次 ≥2 个 task、写集无交集、无逻辑依赖、contracts 已稳定、task 足够大、运行时允许 | 各 task 用独立 worktree（Task `isolation: worktree`），完成后按 Task DAG merge |
 
-> 关键：依赖型 / 共享文件的串行 Unit **必须共享同一执行 worktree**，绝不给它们各开隔离 worktree——否则下游 Unit 看不到上游代码。`isolation: worktree` 只给真正并行且写集无交集的 Unit 用。线性依赖（如 U1→U2→U3）= serial-isolation：仍每 Unit 一个 subagent（隔离上下文），但同 worktree 串行。
+> 关键：依赖型 / 共享文件 / owner task **必须共享同一执行 worktree**，绝不给它们各开隔离 worktree——否则下游 task 看不到上游代码。`isolation: worktree` 只给真正并行且写集无交集的 task 用。线性依赖或共享文件（如 T001→T002→T003）= serial-isolation：仍每 task 一个 subagent（隔离上下文），但同 worktree 串行。
 
 **inline 执行**（orchestrator 亲自写代码，不派 subagent）仅在以下情况，且须记录原因：
 
 - 运行时 / 平台不支持 subagent 或 Task 工具。
-- 该 Unit trivial 或极小（派发 + ingest 开销 > 收益），如纯配置、单文件小改、纯文案。
-- orchestrator 已完整持有该 Unit 精确上下文且已实现到一半（中途转交反而浪费已加载上下文）。
+- 该 task trivial 或极小（派发 + ingest 开销 > 收益），如纯配置、单文件小改、纯文案。
+- orchestrator 已完整持有该 task 精确上下文且已实现到一半（中途转交反而浪费已加载上下文）。
 
 记录 `inline worktree execution` 及原因。这是正常策略，不是失败。
 
-无论 inline 还是 subagent，执行顺序都遵循 Appendix D lanes，单个 Unit 内部按 lane 顺序“契约→后端→屏→验证”推进：
+无论 inline 还是 subagent，执行顺序都遵循 `_ledger.md` / Appendix D Task DAG 与 lanes，按“barrier/contract → backend capability fan-out → frontend screen fan-out → integration/E2E”推进：
 
 1. **Contract / context wave**：不写业务 UI；确认 API-for-UI、Screen states、mock/real adapter、DESIGN.md source pointers、`docs/project/ui/` catalog source 都进入 `_execution_context.md`。
-2. **Backend/API capability waves**：按 Unit 落地后端、API、AI adapter、数据与测试。允许为前端提供类型、mock adapter 或最小探针；不顺手搭完整页面。
-3. **Frontend composition waves**：按 Screen/Route 整体实现 UI。每个 Screen task 必须读同屏 sibling Units、现有 route/components、DESIGN.md、`docs/project/ui/` catalog、当前 task 注入的 Screen context 和 API-for-UI；一次性完成布局区域、主任务、关键状态和相关 UI AC。
+2. **Backend/API capability waves**：按 capability task 落地后端、API、AI adapter、数据与测试。允许为前端提供类型、mock adapter 或最小探针；不顺手搭完整页面。
+3. **Frontend composition waves**：按 Screen/Route 整体实现 UI。每个 Screen task 必须读同屏 sibling Units / sibling tasks、现有 route/components、DESIGN.md、`docs/project/ui/` catalog、当前 task 注入的 Screen context 和 API-for-UI；一次性完成布局区域、主任务、关键状态和相关 UI AC。
 4. **E2E polish wave**：跑完整业务演示脚本，补字段、错误状态、截图证据和最终验证。前端 Epic 在本 wave 内**必须**先做 cross-screen visual polish pass（见下），再做最终验证。
 
 ### Cross-screen visual polish pass（前端 Epic 必做）
@@ -278,7 +281,8 @@ subagent prompt 必须自包含，至少包含：
 - plan path。
 - task doc path。
 - `_execution_context.md` path。
-- Unit ID 与完整 Unit Context Packet。
+- Unit ID 与完整 Unit/Task Context Packet。
+- Task ID、task scope（barrier / owner / capability / screen / integration）、write scope、plan anchors、catalog anchors、stop conditions。
 - 如果是 UI task：Screen ID / Route / Screen type / Primary Job / Covered Units / Regions / Information priority / Richness floor / Forbidden patterns / API-for-UI / Screen done / sibling Units / **所属 app shell + 全局导航契约**（DESIGN.md §Layout / design_guidelines.md / 共享 layout 组件——告知子代理该屏套在哪个外壳、复用哪个共享 layout，不得自造导航 frame）/ **Reference image 路径**（有则必传：实现目标 = 复刻该图 + 接真实数据，再按 Screen Contract 补交互与状态，不是照散文自由发挥）。
 - write scope：允许修改的路径。
 - Verification command。
@@ -289,57 +293,58 @@ subagent prompt 必须自包含，至少包含：
   - deviations from task / Unit Packet。
   - risks / blockers。
 
-即使 Codex `spawn_agent(fork_context=true)` 或 Claude Code isolation 可继承上下文，也必须显式传 Unit Packet；父 agent 的隐式理解不算执行合同。
+即使 Codex `spawn_agent(fork_context=true)` 或 Claude Code isolation 可继承上下文，也必须显式传 Unit/Task Context Packet；父 agent 的隐式理解不算执行合同。
 
 worktree / ingest 约束（serial-isolation 默认）：
 
-- 依赖型 / 共享文件 Unit 的 subagent **在 orchestrator 当前的执行 worktree 内工作**（cwd 即该 worktree），**不要传 `isolation: worktree`**——否则下游 Unit 看不到上游已落盘代码。`isolation: worktree` 仅留给 parallel-isolation 的无依赖、写集无交集 Unit。
+- 依赖型 / 共享文件 task 的 subagent **在 orchestrator 当前的执行 worktree 内工作**（cwd 即该 worktree），**不要传 `isolation: worktree`**——否则下游 task 看不到上游已落盘代码。`isolation: worktree` 仅留给 parallel-isolation 的无依赖、写集无交集 task。
 - orchestrator **只消费子代理返回的结构化小结**（changed files / verification 结果 / deviations / risks），**绝不 Read 子代理 transcript / `.output`**（那是完整对话 JSONL，会撑爆主上下文）。**例外——UI-critical 屏的截图 artifact 必须看**：commit 这类屏前，orchestrator 亲自 Read 截图文件（轻量 PNG，不撑上下文）或派独立 visual-auditor，不得仅凭小结里的 "passes" 文字就 commit UI 屏（见上文铁律「UI-critical 屏的出口闸判定独立于实现」）。
-- 串行派发：上游 Unit 的 subagent 返回并（strict 下）commit 后，再派下游；下游 prompt 里注明“上游已完成、读已落盘状态”。
-- subagent 内部跑 Unit Loop（fast / strict），含实现 + Verification + （strict）task doc 变更叙事回写；orchestrator 负责 `_ledger.md` 状态、commit（若子代理未提交）、review gate、跨 Unit 编排。
+- 串行派发：上游 task 的 subagent 返回并（strict 下）commit 后，再派下游；下游 prompt 里注明“上游 task 已完成、读已落盘状态”。
+- subagent 内部跑 Task Loop（fast / strict），含实现 + Verification + （strict）task doc 变更叙事回写；orchestrator 负责 `_ledger.md` 状态、commit（若子代理未提交）、review gate、跨 task / Unit 编排。
 
-### Unit Loop：fast
+### Task Loop：fast
 
 ```text
 mark in-progress in session plan
-read T{NNN}.md summary + Technical Approach + AC + DoD
-read Unit Context Packet from _execution_context.md
+read T{NNN}.md Generated from / Source anchors / summary / Write scope / Read first / Technical Approach / AC + DoD / Stop conditions
+read Unit/Task Context Packet from _execution_context.md
 if UI task: read Screen context + sibling UI Units + existing route/component files
 read target files
 read pattern files (max 1-3 unless source pointer requires more)
+read Human Plan anchored sections only when T{NNN}.md says to, or when strict trigger / ambiguity / conflict appears
 honor Approach / Patterns / Execution note reuse, high-risk flow, and fallback constraints
-if Unit already satisfies Verification: mark skipped/completed with evidence
+if task / Unit already satisfies Verification: mark skipped/completed with evidence
 apply test policy
 implement narrowly; if frontend-composition, implement the whole Screen scope, not an isolated Story fragment
-run Unit Verification
+run task Verification; if this is a Unit收口 task, also run Unit Verification
 fix failures, max 3 attempts
 apply risk-based UI/system checks
 record in session memory: changed files, verification result, deviations, risks
 ```
 
-fast mode 不在 Unit 内循环回写 task doc / `_ledger.md`，不 per-unit commit。这样减少文档维护对 coding 注意力的干扰。
+fast mode 不在 task 内循环回写 task doc / `_ledger.md`，不 per-task commit。这样减少文档维护对 coding 注意力的干扰。
 
-### Unit Loop：strict
+### Task Loop：strict
 
 strict mode 在 fast loop 基础上保留旧版审计行为：
 
 - 若 `Execution note = test-first`，先写失败测试并确认红灯，再实现。
 - 若 `Execution note` 禁止 fallback/mock/简化实现，先确认目标权威实现 / 官方 API / 标准协议 / 真实依赖可用；不可用则 STOP，不写替代实现。
-- Unit 完成后回写 task 文档「变更叙事」。
+- task 完成后回写 task 文档「变更叙事」；若该 task 是 Unit 收口 task，同时记录 Unit Verification。
 - 更新 `_ledger.md` 状态、commit、verification。
-- 每 Unit 提交代码 + task doc + ledger。
+- 每 task 提交代码 + task doc + ledger；Unit 收口可作为单独 integration/verification task 提交。
 - UI-critical 必须完整桌面+移动截图与 DESIGN.md checklist。
 - frontend-composition task 必须记录 Screen Contract 覆盖情况：Primary Job、Regions、Key States、API-for-UI、Covered Units、Screen done。
 
 ### Test policy
 
-默认从 plan `Execution note` 读取；若未明确，按风险判定：
+默认从 task packet / Unit Packet 的 `Execution note` 读取；若未明确，按风险判定：
 
 - `test-first`：bugfix、权限、安全、领域规则、事务、并发、迁移、数据一致性。
 - `test-with-implementation`：CRUD、DTO、字段映射、简单 API、UI data binding。
 - `verification-only`：纯配置、纯样式、小文案、小重命名。
 
-strict mode 遵守 plan 中明确的 test-first。fast mode 只有 trivial/plumbing 可以降级，且收尾 summary 必须说明。
+strict mode 遵守 task packet / Human Plan anchor 中明确的 test-first。fast mode 只有 trivial/plumbing 可以降级，且收尾 summary 必须说明。
 
 ### UI QA policy
 
@@ -362,7 +367,7 @@ UI class：
 - **登录页硬线**：`/login`、`/signup`、认证空首屏不得交付为单一居中表单卡。除非 Screen Contract 明确批准极简方案，否则必须有产品身份区、至少 2 个价值/信任点或等价品牌表达、表单区、错误/loading/disabled 状态和桌面+移动截图证据。
 
 如果 task 文档与 `DESIGN.md` 冲突，以 `DESIGN.md` 原文为准；缺设计合同且属于 UI-critical，STOP。
-如果 task 文档与 `docs/project/ui/` catalog 冲突，以已同步 catalog 为整屏体验真相源；若 catalog 缺失则以当前 plan §4 UI delta 为临时真相源。合同缺失或明显不覆盖当前 Route 时，STOP 回到 vj-epic-plan 修正并同步 catalog。
+如果 task 文档与 `docs/project/ui/` catalog 冲突，以已同步 catalog 为整屏体验真相源；若 catalog 缺失则以 Human Plan §4 UI delta 为临时真相源。合同缺失或明显不覆盖当前 Route 时，STOP 回到 vj-epic-plan 修正并同步 catalog。
 
 ### Frontend composition gate
 
@@ -372,7 +377,7 @@ UI class：
 - Screen type / Richness floor / Forbidden patterns 明确。
 - Covered Units 与 sibling UI Units 明确，且当前执行不会破坏同屏已实现区域。
 - API-for-UI 合同明确：endpoint / 字段 / 状态枚举 / 错误语义 / mock 或真实 adapter。
-- `docs/project/ui/` catalog source 或 plan delta source 明确。
+- `docs/project/ui/` catalog source 或 Human Plan delta source 明确。
 - 目标 route/component 文件已读取；若不存在，明确新建位置与路由注册方式。
 - Screen done 可浏览器验证。
 - **参考图前置闸（fast/strict 均不豁免）**：UI class = critical 的屏开工前必须存在已批准参考图
@@ -427,7 +432,7 @@ strict：同上，并在 ledger 记录整理原因。
    - fast 用 compact trace；strict 可展开完整核对。
 4. 记录与提交：
    - fast：一次性更新 `_ledger.md`、task 文档变更叙事、`_execution_context.md` final profile、plan status；创建 feature/wave 级提交。
-   - strict：确认每 Unit 记录已完成；如仍有 plan status / review notes / final trace 未提交，创建 docs-only 收尾提交。
+   - strict：确认每 task 记录已完成，且每个 Unit 的收口验证已记录；如仍有 plan status / review notes / final trace 未提交，创建 docs-only 收尾提交。
 5. 清理 worktree / 临时分支，确保当前工作树没有本 skill 产生的未提交记录。
 6. 如执行中形成可复用经验，提示用户用 `vj-compound` 沉淀。
 
