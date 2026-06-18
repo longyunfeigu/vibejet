@@ -177,7 +177,16 @@ prose and look completely different. Do not skip this phase and synthesize DESIG
    - the highest-frequency core operational screen in the PRD (prefer table-list / console / review queue);
    - the primary front-of-house screen when the product has login, signup, landing, onboarding, or empty first-run.
 2. Produce one throwaway HTML per candidate direction per chosen anchor — same screen content and information
-   architecture, different skin only:
+   architecture, but each candidate must be a **committed visual thesis**, not a timid skin-swap.
+   Read `references/direction-candidate-craft.md` and follow it: give each candidate a distinct
+   one-sentence thesis (mood + material + energy); apply the two-track bar (operational stays calm/dense
+   within the existing token system; **front-of-house candidates may extend palette/type/depth beyond the
+   operational tokens, within brand DNA**); **for front-of-house, generate via the dedicated craft engine, not inline** — invoke
+   `high-end-visual-design` / `design-taste-frontend` (or one focused design subagent), against a
+   **required reference target** (a 高级 login/site the user names, else a named default bar such as
+   Linear / Stripe / Resend), then iterate to that bar. Prose in this skill does not substitute for the
+   engine. See `references/direction-candidate-craft.md` §7. Operational candidates stay inline.
+   Each candidate is:
    - Self-contained single files (inline CSS, realistic mock data, all states: ok / loading /
      failed / queued) written to `docs/reference/research/designs/candidates/`, plus an
      `index.html` side-by-side comparison page.
@@ -185,6 +194,8 @@ prose and look completely different. Do not skip this phase and synthesize DESIG
      garbled small text, direction collapse toward a generic mean, AI-template look. Image
      models are only allowed in the optional mood-asset substep below.
 3. Confirm with the user:
+   - Before showing anything, run the litmus gate in `references/direction-candidate-craft.md` and
+     drop any candidate that fails (lone centered card, no memorable anchor, slop). Show only passers.
    - If Playwright/browser tooling is available, attach desktop screenshots; otherwise ask the
      user to open `index.html` directly — the HTML itself is the artifact, screenshots are only
      a viewing convenience. Tooling unavailability never blocks this phase.

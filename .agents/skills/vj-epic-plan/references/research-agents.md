@@ -14,7 +14,7 @@ Epic ID（设计稿路径用）: {epic-N}
 设计来源候选: docs/project/DESIGN.md（优先）/ docs/project/design_guidelines.md（fallback）/ docs/project/ui/ / docs/reference/research/designs/{Epic ID}/
 ```
 
-研究任务**只读**——不改文件、不建文件、不写代码。读不到的文件记"不存在"，不要报错停止。
+研究任务**只读**——不改文件、不建文件、不写代码，且**范围限当前工作树 / 当前分支：禁止 git 跨分支或历史考古**（`git show 其它分支`、`git ls-tree` 别的分支、翻 commit 历史）。读不到的文件记"不存在"，不要报错停止。**若发现当前分支基线与 epic 引用的产物矛盾（如引用 DESIGN.md / golden / 前端脚手架但当前分支没有），在结果里明确标为“基线矛盾，需主代理 STOP-and-ASK 用户”，不要自行跨分支或翻 git 历史替用户兜底。**
 
 ---
 
@@ -62,7 +62,7 @@ Epic ID（设计稿路径用）: {epic-N}
 ## Agent B — upstream-contracts（上游 Epic 契约）
 
 ```
-你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 从 catalog 提取本 Epic 依赖的上游契约，生成 Consumes。**真相源 = catalog（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`），不是上游 plan 的 Provides。**
+你是一个只读的上游契约收集者，为 vj-epic-plan Phase 2 从 catalog 提取本 Epic 依赖的上游契约，生成 Consumes。**真相源 = catalog（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`），不是上游 review pack / legacy plan 的 Provides。**
 
 <本次任务>
 {epic_context}
@@ -72,7 +72,7 @@ Epic ID（设计稿路径用）: {epic-N}
 1. 从 epic_context 的"上游依赖 Epic"与本 Epic 业务域，判断可能消费哪些上游能力。若"上游依赖 Epic"为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
 2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`、`docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` / `ui/surfaces.md` 含跨切面不变量（如 R1.x）。
 3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / UI Surface / Route / 鉴权约定 / 跨切面不变量），作为 Consumes。
-4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 plan 的 `## 3. 跨 Epic 契约` / `§5 Catalog Sync`（旧 plan 可能还有 Provides 段），并标注"catalog 缺失，回退读 plan"。
+4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 review pack 的 `README.md` / `design.md` 或 legacy plan stub，并标注"catalog 缺失，回退读 review pack 作为诊断线索"；不能把回退结果当长期契约源。
 
 结构化输出：
 

@@ -1,16 +1,16 @@
 <!-- task 文档模板（人话书挡 + AI execution packet）。
-     内容投影自 Human Plan + catalog + Story AC，不重新发明 HOW；保留 test-first。
-     读者导航：执行前看「摘要」，执行期以 _execution_context.md 的 Unit/Task Context Packet 控制最小上下文，
+     内容投影自 review pack（design.md + decisions.md）+ catalog + Story AC，不重新发明 HOW；保留 test-first。
+     读者导航：执行前看「摘要」和 task-index.md，执行期以 _execution_context.md 的 Unit/Task Context Packet 控制最小上下文，
      执行后看「变更叙事」。中间 1-7 段给 AI 执行/深度纠错。
-     主生成方：vj-epic-plan Phase 5（写 plan 时一并生成）。vj-work 仅在 task 文档缺失时回退生成。
+     主生成方：vj-epic-plan Phase 5（review pack 定稿后一并生成）。vj-work 仅在 task 文档缺失时回退生成。
      ⚠️ 本文件与另一份 task-doc.template.md 是同步副本，改一处须改两处。 -->
 
 # T{NNN} {Task 标题}
 
 **Epic:** [Epic {N} {名称}](../../epics/{epic-file}) · **Unit / Scope:** {U-ID Story 名 或 Screen composition: screen-id 覆盖 U1,U2} · **Depends:** {前置 T-ID 或 无} · **Wave:** {波次} · **Status:** ☐ pending | ◐ in-progress | ☑ done | ⊘ skipped
 
-**Generated from:** Human Plan `{plan-path}` · Unit `{U-ID}` · Story `{story-id}` · Plan anchors `{§2 D?, §4 ..., §6 U?, Appendix D Wave ?}` · Catalog anchors `{docs/project/api|data|ui/...}`
-**Task scope:** 本文档是执行投影，不是新需求层，也不是新的 truth source。若与 Story AC、catalog 或 Human Plan anchors 冲突，STOP 并报告。若 Unit 被拆为多个 task，本 task 只代表局部 done，Unit done 仍以所有 sibling tasks 完成 + Story AC / Unit Verification 通过为准。若本 task 是 frontend screen composition，必须列 Covered Units、Screen done、每个 Unit 的 UI AC 回指；Screen done 不自动等于所有 Unit done。
+**Generated from:** Review Pack `{review-pack-path}` · Unit `{U-ID}` · Story `{story-id}` · Design anchors `{design.md#...}` · Decision anchors `{decisions.md#D? / #ACD?}` · Catalog anchors `{docs/project/api|data|ui/...}`
+**Task scope:** 本文档是执行投影，不是新需求层，也不是新的 truth source。若与 Story AC、catalog、`design.md` 或 `decisions.md` anchors 冲突，STOP 并报告。若 Unit 被拆为多个 task，本 task 只代表局部 done，Unit done 仍以所有 sibling tasks 完成 + Story AC / Unit Verification 通过为准。若本 task 是 frontend screen composition，必须列 Covered Units、Screen done、每个 Unit 的 UI AC 回指；Screen done 不自动等于所有 Unit done。
 
 ## 摘要（人话 · 执行前看，30 秒懂意图）
 - **为什么做**：{动机，1 句}
@@ -22,16 +22,17 @@
 〔以下 1-7 段为执行规格 —— 给 AI 执行 + 深度纠错用，平时可折叠忽略〕
 
 ## 1. Context
-### Source anchors（先看这些，不全文读 Human Plan）
-- Human Plan: `{plan-path}` §2 / §4 / §6 / Appendix D anchors
+### Source anchors（先看这些，不全文读 review pack）
+- Review Pack: `{review-pack-path}` `design.md` anchors + `decisions.md` D/ACD anchors
+- Task Index: `task-index.md` wave / sibling / shared-file coordination
 - Catalog: `docs/project/api/...`, `docs/project/data/...`, `docs/project/ui/...`
 - Story AC: `docs/tasks/epics/...`
 ### 现状
-- 当前存在什么 / 限制是什么（投影自 plan Appendix B + 前置 task 已交付物）
+- 当前存在什么 / 限制是什么（投影自 `design.md` Current Baseline + 前置 task 已交付物）
 ### 目标态
 - 本 task 完成后应存在什么
 ### 继承假设
-- A1 (FEASIBILITY): {引自 plan §2 决策，如 D1 服务端会话+HttpOnly Cookie}
+- A1 (FEASIBILITY): {引自 `decisions.md` D-ID，如 D1 服务端会话+HttpOnly Cookie}
 ### Read first
 - `path` - 目标文件 / pattern file / catalog anchor
 ### Write scope
@@ -46,7 +47,7 @@
 - [ ] 步骤
 
 ## 3. Technical Approach
-> 投影自 Human Plan §4/§6、Appendix C/D 的 Approach / Patterns；约 200-300 字，给方向不写全量实现。
+> 投影自 `design.md`、`decisions.md` 与 task-index 的 Approach / Patterns；约 200-300 字，给方向不写全量实现。
 ### 方案
 - 框架/库 + 版本 + 标准（RFC/OWASP，若适用）
 ### 关键 API / 集成点
@@ -59,20 +60,20 @@
 | Error | HTTP | When | message_key |
 ### 日志
 | Event | Level | Fields |
-### 备选（Rejected，引自 plan §2）
+### 备选（Rejected，引自 `decisions.md`）
 - {方案} — 拒因
 ### Stop conditions
 - 需要改出 write scope 之外的文件，且该文件不是本 task owner。
-- 发现 task packet 与 Story AC / catalog / Human Plan anchors 冲突。
-- 发现新的 strict trigger（DB/API/auth/transaction/UI shell 等）但 Appendix A 未标记。
-- 需要 mock/fallback/简化实现绕过 plan 明确禁止的真实业务路径。
+- 发现 task packet 与 Story AC / catalog / `design.md` / `decisions.md` anchors 冲突。
+- 发现新的 strict trigger（DB/API/auth/transaction/UI shell 等）但 review pack / task-index 未标记。
+- 需要 mock/fallback/简化实现绕过 `decisions.md` / `design.md` 明确禁止的真实业务路径。
 
 ## 4. Acceptance Criteria
 > 投影自 Story AC（信封 rewrite 后）。若本 task 只覆盖 Unit 的一部分，明确标注“本 task 覆盖 / sibling task 覆盖 / Unit 收口验证覆盖”，不得把局部 AC 当完整 Story done。
 - [ ] Given … When … Then …
 
 ## 5. Affected Components
-### 实现（投影自 plan Appendix C Files: Create/Modify）
+### 实现（投影自 task write scope / design anchors / catalog delta）
 - `path` - 改动 + 副作用（DB写/事件/HTTP）+ 深度
 ### 文档（必更）
 - `docs/project/...` - 契约同步
@@ -83,7 +84,7 @@
 ### 现有测试受影响
 - `path` - 为什么（仅列受影响的现有测试）
 ### 测试新增（test-first，本 task 要写）
-> 标了 test-first 的 Unit，先写失败测试再实现。投影自 plan 的 Test scenarios。
+> 标了 test-first 的 Unit，先写失败测试再实现。投影自 Story AC、Unit Verification 与 review pack 风险场景。
 - {happy / edge / error / integration 场景}
 
 ## 7. Definition of Done
@@ -92,12 +93,12 @@
 - [ ] 本 task Verification 命令全绿；失败修复尝试和结果已记录
 - [ ] 若 Unit 被拆分，已标明 sibling task 和 Unit 收口验证；未把 task done 当作 Story done
 - [ ] 若本 task 覆盖整个 Unit，Story AC / Unit Verification 已通过
-- [ ] 未引入新决策；若发现 task packet 投影错误，已 STOP 并回到 Human Plan / catalog 修正
+- [ ] 未引入新决策；若发现 task packet 投影错误，已 STOP 并回到 review pack / catalog 修正
 - [ ] 未修改 write scope 之外文件；若必须修改，已更新 owner / Task DAG 或 STOP
 - [ ] 无遗留兼容垫片
 - [ ] 命中 API / data / design 契约变化时，相关文档已更新
-- [ ] 若本 task 是 UI / Screen composition，已按 `docs/project/ui/` catalog 或 Human Plan §4 UI Surface Delta 完成整屏主任务、屏内区域、关键状态、关联 sibling Units 与 Screen done；未把当前 Story 做成孤立 UI 片段
-- [ ] fast mode：收尾统一回写变更叙事 / ledger；strict mode：本 task 完成即回写；Unit 收口 task 记录 Unit Verification
+- [ ] 若本 task 是 UI / Screen composition，已按 `docs/project/ui/` catalog 或 `design.md` UI Surface Delta 完成整屏主任务、屏内区域、关键状态、关联 sibling Units 与 Screen done；未把当前 Story 做成孤立 UI 片段
+- [ ] fast mode：收尾统一回写变更叙事 / task-index；strict mode：本 task 完成即回写；Unit 收口 task 记录 Unit Verification
 - [ ] 命中 review trigger 时，vj-work Phase 4 review blocking findings 已修复
 
 ---
@@ -124,7 +125,7 @@
   不得只依赖本 task 文档的句子。
 ======================================================================== -->
 <!--
-Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs/project/ui catalog 是整屏体验合同；catalog 未同步时临时看 Human Plan §4 UI delta）:
+Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs/project/ui catalog 是整屏体验合同；catalog 未同步时临时看 review pack `design.md` UI delta）:
 
 【0】开工前先读现有前端 theme / layout / component patterns（优先复用 theme，不另起一套风格）。
 
@@ -144,7 +145,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
 【4】页面体验地图：读并遵循 epic.md `## 页面体验地图` 中本 Unit 对应页面/区域：
     页面职责、屏型、主操作、次操作、关键状态、信息优先级、体验护栏、品牌/富度要求、禁止项。
 
-【5】UI Surface / Route：读并遵循 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`；若尚未同步，临时读 Human Plan §4 `UI Surface Delta` 与 `Frontend Composition Policy`。
+【5】UI Surface / Route：读并遵循 `docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`；若尚未同步，临时读 review pack `design.md` 的 `UI Surface Delta` 与 `Frontend Composition Policy`。
     {{Screen ID: screen-...}}
     {{Route: /...}}
     {{Screen type: front-of-house / operational / mixed}}
@@ -157,7 +158,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
     {{Richness floor: ...}}
     {{Forbidden patterns: ...}}
     {{API-for-UI / Data Contract: endpoints、关键字段、状态枚举、错误语义、mock/real adapter 切换}}
-    {{Catalog source: docs/project/ui/surfaces.md / docs/project/ui/routes.md；若尚未同步，写 Human Plan §4 UI delta}}
+    {{Catalog source: docs/project/ui/surfaces.md / docs/project/ui/routes.md；若尚未同步，写 design.md UI delta}}
     {{Screen done: 浏览器可验证的整屏完成信号}}
 
     执行规则：
@@ -185,7 +186,7 @@ UI-trivial：不强制截图；仍不得违反已列 DESIGN.md 硬约束。
   □ 数据即界面：operational 屏以表格/列表/统计/筛选等主数据容器为视觉锚点，不把每条记录做成大卡
   □ 语义色：success/warning/destructive/info 仅用于状态；未确认/草稿/AI 暂存内容必须视觉上可区分
   □ 五态完整：空 / 加载 / 错误 / 成功 / 无权限
-  □ Screen 合同：当前 Route 的 Screen type、Primary Job、Regions、Information Priority、Richness Floor、Forbidden Patterns、Key States、Screen done 与 `docs/project/ui/` catalog 或 Human Plan §4 UI delta 一致；同屏 sibling Unit 的主流程未被破坏
+  □ Screen 合同：当前 Route 的 Screen type、Primary Job、Regions、Information Priority、Richness Floor、Forbidden Patterns、Key States、Screen done 与 `docs/project/ui/` catalog 或 `design.md` UI delta 一致；同屏 sibling Unit 的主流程未被破坏
   □ API-for-UI：前端只消费合同字段 / 状态 / 错误语义；缺字段时回补 API 合同或 mock adapter，不在 UI 内硬编码临时假数据
   □ 截图/浏览器检查：按 UI class 执行；无文字溢出、无元素重叠、主操作首屏可见，且与 DESIGN.md + 页面体验地图一致
 -->

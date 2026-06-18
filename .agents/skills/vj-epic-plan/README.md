@@ -14,17 +14,17 @@ vj-work / run-epic (执行)
 
 ## 产出
 
-`docs/tasks/plans/{date}-epic-{N}-{slug}-plan.md`，结构见 `epic-plan.template.md`。输出按两类读者组织——**人工只读 §4 共享设计（+ §0 审批门），其余给执行器 / 校验器**：
+`docs/tasks/plans/{date}-epic-{N}-{slug}/` review pack 目录，外加兼容入口 `docs/tasks/plans/{date}-epic-{N}-{slug}-plan.md`（只放链接和摘要）。输出按两类读者组织——**human reviewer 看 README/design/decisions，执行器看 task-index/T*.md**：
 
-- **Context Ownership**：plan 是人工 review manifest + 本 Epic delta；稳定跨 Epic 上下文写入 catalog；AI coding 执行上下文写入 task docs / `_execution_context.md`。
-- **人工 review 主面**：§4 共享设计（ERD / 流程时序 / 模块边界 / 术语 / 本 Epic UI Surface delta），§2 的已定决策内联进图（扫图 = 批准方向）；§0 是 thin 审批门，只列待拍板 `D-ID`（链 §2），不写散文摘要、不放 Review Checklist。
-- **给机器看（不需散文润色）**：§1 范围、§2 决策真相源、§3 跨 Epic 契约、§5 API / Schema / UI Catalog Delta、§6 Unit 概览与依赖 DAG，以及 Appendix（Triage 风险审计与来源索引、复用锚点、每个 Unit 的 Files / Approach / Patterns / Test、并行波次、共享文件冲突点、风险与回滚、提交步骤）。
+- **Context Ownership**：review pack 是人工 review manifest + 本 Epic delta；稳定跨 Epic 上下文写入 catalog；AI coding 执行上下文写入 task docs / `_execution_context.md`。
+- **人工 review 主面**：`README.md` 负责入口、冲突和阅读路径；`design.md` 负责问题建模、术语场景、模块边界、依赖图、核心流程、DB/API 设计、风险和 reviewer checklist；`decisions.md` 是 D/ACD 唯一真相源。
+- **给机器看（不需散文润色）**：`docs/tasks/work/epic-{N}-{slug}/task-index.md` + `T*.md`，包含 Unit/Task DAG、波次、共享文件冲突、write scope、验证命令和 stop conditions。
 - **Unit 粒度**：每个 Story 映射为一个 Implementation Unit；Unit 是产品语义边界，不按前端 / 后端 / 数据库拆开。
-- **前端 Surface 粒度**：前端 Epic 在 §4 生成 UI Surface Delta / Screen Contract，按 Screen/Route 定义 Screen type、Primary Job、Regions、Information Priority、Richness Floor、Forbidden Patterns、States、Covered Units、API-for-UI 和 Screen done，并在 Phase 5 同步到 `docs/project/ui/surfaces.md` / `routes.md`。产品/品牌方向来自 `docs/project/DESIGN.md` + golden screens；若缺失，先回到产品级 `ui-requirement-brief -> vj-design-md-matcher`，不要在 plan 里发明风格。Story/Unit 继续负责验收追踪；前端实现由 Appendix D 的 Frontend composition waves 按 Screen 聚合执行。
-- **跨 Epic 契约（§3 只填 Consumes）**：单一真相源 = catalog（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`）。`Consumes` 由 Agent B 读 catalog 生成；本 Epic 对下游的契约写进 catalog（§5 Catalog Sync），**不在 plan 写 Provides 表**；跨切面不变量（R1.x）写进 `data/overview.md` / `api/conventions.md` / `ui/surfaces.md`。下游 epic 读 catalog，不翻旧 plan。
-- **决策单一真相源**：完整论证只写在 `## 2. 决策与 AC 偏离`。技术方案与 Story AC 冲突时必须回改 AC 或显式审批，不允许静默替换验收口径。
-- **模块化契约目录同步**：命中 API delta 时更新 `docs/project/api/conventions.md` + `docs/project/api/{module}.md`；命中 schema / persistence delta 时更新 `docs/project/data/overview.md` + `docs/project/data/{module}.md`；命中 UI delta 时更新 `docs/project/ui/surfaces.md` + `docs/project/ui/routes.md`。同步发生在 `vj-plan-review` 采纳修正之后，保证 catalog 与最终 plan 一致。旧 `api_spec.md` / `database_schema.md` 仅兼容读取。
-- **task 文档（执行投影）**：Phase 5 plan 定稿后，在 `docs/tasks/work/epic-{N}-{slug}/` 生成 `_ledger.md` + 每 task 一份 7 段文档。默认 `1 Unit = 1 task`；只有依赖、文件隔离、局部验证和并行收益都清楚时才允许 `1 Unit → 多 task`，且必须生成 task DAG / 波次 / 冲突表。前端 Screen composition task 是 UI Surface Delta / catalog 明确要求时的执行投影，必须列 Covered Units、Screen done 和 UI AC 回指。task done 不等于 Unit done，Story AC 闭环仍由 Unit 验收。续作 / 重跑整目录覆盖重写。
+- **前端 Surface 粒度**：前端 Epic 在 `design.md` 生成 UI Surface Delta / Screen Contract，按 Screen/Route 定义 Screen type、Primary Job、Regions、Information Priority、Richness Floor、Forbidden Patterns、States、Covered Units、API-for-UI 和 Screen done，并在 Phase 5 同步到 `docs/project/ui/surfaces.md` / `routes.md`。产品/品牌方向来自 `docs/project/DESIGN.md` + golden screens；若缺失，先回到产品级 `ui-requirement-brief -> vj-design-md-matcher`，不要在 plan 里发明风格。Story/Unit 继续负责验收追踪；前端实现由 `task-index.md` 的 Frontend composition waves 按 Screen 聚合执行。
+- **跨 Epic 契约**：单一真相源 = catalog（`docs/project/api/`、`docs/project/data/`、`docs/project/ui/`）。`Consumes` 由 Agent B 读 catalog 生成；本 Epic 对下游的契约写进 catalog，**不在 review pack 写 Provides 表**；跨切面不变量（R1.x）写进 `data/overview.md` / `api/conventions.md` / `ui/surfaces.md`。下游 epic 读 catalog，不翻旧 review pack / legacy plan。
+- **决策单一真相源**：完整论证只写在 `decisions.md`。技术方案与 Story AC 冲突时必须回改 AC 或显式审批，不允许静默替换验收口径。
+- **模块化契约目录同步**：命中 API delta 时更新 `docs/project/api/conventions.md` + `docs/project/api/{module}.md`；命中 schema / persistence delta 时更新 `docs/project/data/overview.md` + `docs/project/data/{module}.md`；命中 UI delta 时更新 `docs/project/ui/surfaces.md` + `docs/project/ui/routes.md`。同步发生在 `vj-plan-review` 采纳修正之后，保证 catalog 与最终 review pack 一致。旧 `api_spec.md` / `database_schema.md` 仅兼容读取。
+- **task 文档（执行投影）**：Phase 5 review pack 定稿后，在 `docs/tasks/work/epic-{N}-{slug}/` 生成 `task-index.md` + 每 task 一份 7 段文档。默认 `1 Unit = 1 task`；只有依赖、文件隔离、局部验证和并行收益都清楚时才允许 `1 Unit → 多 task`，且必须生成 task DAG / 波次 / 冲突表。前端 Screen composition task 是 UI Surface Delta / catalog 明确要求时的执行投影，必须列 Covered Units、Screen done 和 UI AC 回指。task done 不等于 Unit done，Story AC 闭环仍由 Unit 验收。续作 / 重跑整目录覆盖重写。
 
 ## 关键设计取舍
 
@@ -35,7 +35,11 @@ vj-work / run-epic (执行)
 ## 文件
 
 - `SKILL.md` — 5 Phase 工作流
-- `epic-plan.template.md` — plan 输出模板
+- `references/plan-pack-readme.template.md` — human review 入口模板
+- `references/plan-pack-design.template.md` — human 技术设计模板
+- `references/plan-pack-decisions.template.md` — D/ACD 决策真相源模板
+- `references/task-index.template.md` — task 执行入口模板
+- `epic-plan.template.md` — legacy 单文件兼容模板（不再承载完整设计）
 - `references/research-agents.md` — Phase 2 并行研究代理模板（design-context / upstream-contracts / codebase-scout）
 - `references/task-doc.template.md` — Phase 5 生成的 per-task 7 段执行文档模板（与 vj-work 同步副本）
 - `README.md` — 本文件
