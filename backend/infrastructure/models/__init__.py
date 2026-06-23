@@ -10,7 +10,7 @@ from .conversation import (
     AgentConfigModel,
 )
 from .mixins import TimestampMixin
-from .user import UserModel
+from .user import OAuthAccountModel, UserModel
 
 __all__ = [
     "Base",
@@ -23,4 +23,5 @@ __all__ = [
     "AgentConfigModel",
     "TimestampMixin",
     "UserModel",
+    "OAuthAccountModel",
 ]

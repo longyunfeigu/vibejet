@@ -1,0 +1,142 @@
+@import 'tailwindcss';
+
+/* 设计 token 唯一来源 = docs/project/DESIGN.md。组件不写裸 hex/裸间距，只用语义 token。 */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+
+  --background: #fbfbfd;
+  --foreground: #0b0b12;
+  --card: #ffffff;
+  --card-foreground: #0b0b12;
+  --popover: #ffffff;
+  --popover-foreground: #0b0b12;
+  --primary: #5046e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f7;
+  --secondary-foreground: #1c1c22;
+  --muted: #f4f4f7;
+  --muted-foreground: #71717a;
+  --accent: #eeedfe;
+  --accent-foreground: #4338ca;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --warning: #d97706;
+  --border: #ececf1;
+  --input: #e6e6ec;
+  --ring: #5046e5;
+
+  /* 品牌渐变（右侧面板视觉锚） */
+  --brand-from: #4f46e5;
+  --brand-via: #7c3aed;
+  --brand-to: #a855f7;
+}
+
+.dark {
+  --background: #08080c;
+  --foreground: #f4f4f7;
+  --card: #101018;
+  --card-foreground: #f4f4f7;
+  --popover: #101018;
+  --popover-foreground: #f4f4f7;
+  --primary: #7c79f2;
+  --primary-foreground: #0b0b12;
+  --secondary: #1a1a22;
+  --secondary-foreground: #f4f4f7;
+  --muted: #1a1a22;
+  --muted-foreground: #a1a1aa;
+  --accent: #1e1b3a;
+  --accent-foreground: #c7c4fb;
+  --destructive: #f0656a;
+  --destructive-foreground: #0b0b12;
+  --success: #34d27b;
+  --warning: #f0a83c;
+  --border: #23232c;
+  --input: #2a2a34;
+  --ring: #7c79f2;
+
+  --brand-from: #4f46e5;
+  --brand-via: #7c3aed;
+  --brand-to: #a855f7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-from: var(--brand-from);
+  --color-brand-via: var(--brand-via);
+  --color-brand-to: var(--brand-to);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Latin 走 Geist，CJK 自动回退到 Noto Sans SC（思源黑）；标题用同字族重字重 */
+  --font-sans:
+    'Geist', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* 克制的入场动效（卡片挂载时轻微 fade-up，custom cubic-bezier） */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* 右侧产品屏卡片墙的竖向无缝滚动（内容复制两份，translateY 0→-50%） */
+@keyframes marquee-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+@utility animate-marquee-y {
+  animation: marquee-y var(--marquee-duration, 48s) linear infinite;
+}

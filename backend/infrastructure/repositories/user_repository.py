@@ -18,8 +18,9 @@ from domain.common.exceptions import (
     UserNotFoundException,
 )
 from domain.user.entity import User
+from domain.user.oauth_account import OAuthAccount
 from domain.user.repository import UserRepository
-from infrastructure.models.user import UserModel
+from infrastructure.models.user import OAuthAccountModel, UserModel
 
 
 class SQLAlchemyUserRepository(UserRepository):
@@ -96,6 +97,44 @@ class SQLAlchemyUserRepository(UserRepository):
 
     async def get_by_email(self, email: str) -> Optional[User]:
         return await self._get_one(UserModel.email == email)
+
+    async def get_by_oauth(self, provider: str, provider_sub: str) -> Optional[User]:
+        query = (
+            select(UserModel)
+            .join(OAuthAccountModel, OAuthAccountModel.user_id == UserModel.id)
+            .where(
+                OAuthAccountModel.provider == provider,
+                OAuthAccountModel.provider_sub == provider_sub,
+                UserModel.deleted_at.is_(None),
+            )
+        )
+        result = await self.session.execute(query)
+        model = result.scalar_one_or_none()
+        return self._to_entity(model) if model else None
+
+    async def add_oauth_account(self, account: OAuthAccount) -> OAuthAccount:
+        model = OAuthAccountModel(
+            user_id=account.user_id,
+            provider=account.provider,
+            provider_sub=account.provider_sub,
+            email=account.email,
+            created_at=account.created_at,
+        )
+        self.session.add(model)
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            # 唯一索引 (provider, provider_sub) 兜底并发链接竞争，映射回 409
+            raise UserAlreadyExistsException(account.email or account.provider_sub) from exc
+        await self.session.refresh(model)
+        return OAuthAccount(
+            id=model.id,
+            user_id=model.user_id,
+            provider=model.provider,
+            provider_sub=model.provider_sub,
+            email=model.email,
+            created_at=model.created_at,
+        )
 
     async def _get_one(self, *conditions) -> Optional[User]:
         query = select(UserModel).where(*conditions, UserModel.deleted_at.is_(None))

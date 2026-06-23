@@ -230,6 +230,13 @@ class Settings(BaseSettings):
         description="应用密钥，生产环境必须设置",
     )
 
+    # Google 登录（OAuth）：Web 类型 OAuth Client ID。未配置时非生产环境降级为 DevGoogleVerifier。
+    GOOGLE_CLIENT_ID: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("GOOGLE_CLIENT_ID"),
+        description="Google OAuth Web Client ID，用于校验 ID Token 的 aud",
+    )
+
     # CORS配置
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000"],

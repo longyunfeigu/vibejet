@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from application.dto import UserDTO
 from application.ports.document_parser import DocumentParserPort
 from application.ports.llm import LLMPort
+from application.ports.oauth import GoogleIdentityVerifier
 from application.ports.security import PasswordHasher, TokenProvider
 from application.ports.storage import StoragePort
 from application.services.auth_service import AuthApplicationService
@@ -25,6 +26,7 @@ from infrastructure.adapters.storage_port import StorageProviderPortAdapter
 from infrastructure.external.llm import get_llm_client
 from infrastructure.external.parsing import get_parser
 from infrastructure.external.storage import get_storage
+from infrastructure.external.google import DevGoogleVerifier, GoogleIdTokenVerifier
 from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -53,6 +55,7 @@ _noop_idempotency_store = _NoopIdempotencyStore()
 _password_hasher = PwdlibPasswordHasher()
 _bearer_scheme = HTTPBearer(auto_error=False)
 _token_provider: JwtTokenProvider | None = None
+_google_verifier: GoogleIdentityVerifier | None = None
 
 
 def _get_token_provider() -> JwtTokenProvider:
@@ -65,6 +68,19 @@ def _get_token_provider() -> JwtTokenProvider:
             refresh_ttl_seconds=settings.auth.refresh_token_ttl_seconds,
         )
     return _token_provider
+
+
+def _get_google_verifier() -> GoogleIdentityVerifier | None:
+    """有 GOOGLE_CLIENT_ID 用真验签；否则仅非生产降级为 DevGoogleVerifier（生产返回 None → 拒绝）。"""
+    global _google_verifier
+    if _google_verifier is None:
+        if settings.GOOGLE_CLIENT_ID:
+            _google_verifier = GoogleIdTokenVerifier(client_id=settings.GOOGLE_CLIENT_ID)
+        elif settings.ENVIRONMENT != "production" and settings.DEBUG:
+            # fail-closed：不验签的 dev verifier 仅在非生产 + DEBUG 双闸下启用，
+            # 防止生产 ENVIRONMENT 配错时被误激活造成认证绕过
+            _google_verifier = DevGoogleVerifier()
+    return _google_verifier
 
 
 async def get_password_hasher() -> PasswordHasher:
@@ -83,6 +99,7 @@ async def get_auth_service(
         uow_factory=SQLAlchemyUnitOfWork,
         password_hasher=hasher,
         token_provider=tokens,
+        google_verifier=_get_google_verifier(),
     )
 
 

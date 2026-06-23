@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Callable, Protocol
+from typing import Callable, Optional, Protocol
 
 from application.dto import LoginRequestDTO, RegisterRequestDTO, TokenPairDTO, UserDTO
+from application.ports.oauth import GoogleIdentityVerifier
 from application.ports.security import PasswordHasher, TokenProvider
 from application.utils.time import utcnow
 from core.logging_config import get_logger
@@ -18,8 +19,11 @@ from domain.common.exceptions import (
     UserInactiveException,
 )
 from domain.user.entity import User
+from domain.user.oauth_account import OAuthAccount
 from domain.user.repository import UserRepository
 from domain.user.service import UserDomainService
+
+GOOGLE_PROVIDER = "google"
 
 logger = get_logger(__name__)
 
@@ -42,10 +46,12 @@ class AuthApplicationService:
         uow_factory: Callable[..., AuthUnitOfWork],
         password_hasher: PasswordHasher,
         token_provider: TokenProvider,
+        google_verifier: Optional[GoogleIdentityVerifier] = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._hasher = password_hasher
         self._tokens = token_provider
+        self._google = google_verifier
 
     async def register(self, dto: RegisterRequestDTO) -> UserDTO:
         """Create a new user with a hashed password."""
@@ -82,13 +88,75 @@ class AuthApplicationService:
             if user is None and "@" in dto.username:
                 user = await uow.user_repository.get_by_email(dto.username)
 
-        if user is None or not self._hasher.verify(dto.password, user.hashed_password):
+        # 联合登录用户可能没有本地密码（hashed_password 为空）→ 视作凭据错误
+        if (
+            user is None
+            or not user.hashed_password
+            or not self._hasher.verify(dto.password, user.hashed_password)
+        ):
             raise PasswordErrorException()
         if not user.can_authenticate():
             raise UserInactiveException()
 
         pair = self._tokens.issue_pair(subject=str(user.id))
         logger.info("user_logged_in", user_id=user.id)
+        return TokenPairDTO(
+            access_token=pair.access_token,
+            refresh_token=pair.refresh_token,
+            token_type=pair.token_type,
+            expires_in=pair.expires_in,
+        )
+
+    async def login_with_google(self, credential: str) -> TokenPairDTO:
+        """Verify a Google ID token and issue our own token pair.
+
+        Find/link/create policy:
+        - existing oauth link → that user;
+        - else if email is verified and matches an existing user → link to it;
+        - else create a new (password-less) user and link.
+        Unverified emails never auto-link to an existing account.
+        """
+        if self._google is None:
+            raise RuntimeError("Google login not configured (GOOGLE_CLIENT_ID missing)")
+
+        identity = self._google.verify(credential)  # InvalidTokenException on bad token
+
+        async with self._uow_factory() as uow:
+            user = await uow.user_repository.get_by_oauth(GOOGLE_PROVIDER, identity.sub)
+            if user is None:
+                if identity.email_verified and identity.email:
+                    user = await uow.user_repository.get_by_email(identity.email)
+                if user is None:
+                    domain_service = UserDomainService(uow.user_repository)
+                    username = await domain_service.derive_unique_username(identity.email)
+                    now = utcnow()
+                    user = await uow.user_repository.create(
+                        User(
+                            id=None,
+                            username=username,
+                            email=identity.email,
+                            hashed_password=None,
+                            full_name=identity.name,
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
+                await uow.user_repository.add_oauth_account(
+                    OAuthAccount(
+                        user_id=user.id,
+                        provider=GOOGLE_PROVIDER,
+                        provider_sub=identity.sub,
+                        email=identity.email,
+                        created_at=utcnow(),
+                    )
+                )
+            await uow.commit()
+
+        if not user.can_authenticate():
+            raise UserInactiveException()
+
+        pair = self._tokens.issue_pair(subject=str(user.id))
+        logger.info("user_logged_in_google", user_id=user.id)
         return TokenPairDTO(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,

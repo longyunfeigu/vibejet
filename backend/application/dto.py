@@ -215,6 +215,12 @@ class LoginRequestDTO(DTOBase):
     password: str = Field(min_length=1, max_length=128)
 
 
+class GoogleLoginRequestDTO(DTOBase):
+    """Input for Google login: the Google ID token (credential) from GIS."""
+
+    credential: str = Field(min_length=1, max_length=8192)
+
+
 class RefreshRequestDTO(DTOBase):
     """Input for refreshing an access token."""
 
