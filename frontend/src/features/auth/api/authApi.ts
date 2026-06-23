@@ -1,5 +1,5 @@
 // input: apiClient (POST /auth/login, /auth/google, GET /auth/me), 后端响应信封 { code, message, data }
-// output: login(input) -> TokenPair, loginWithGoogle(credential) -> TokenPair, fetchMe() -> CurrentUser
+// output: login(input) -> TokenPair, loginWithGoogle(code) -> TokenPair, fetchMe() -> CurrentUser
 // owner: wanhua.gu
 // pos: auth feature - 后端接口封装(解包信封 + snake_case→camelCase)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import { apiClient } from '@/lib/apiClient'
@@ -42,8 +42,8 @@ export async function login(input: LoginInput): Promise<TokenPair> {
   return mapTokenPair(res.data.data)
 }
 
-export async function loginWithGoogle(credential: string): Promise<TokenPair> {
-  const res = await apiClient.post<ApiEnvelope<TokenPairResponse>>('/auth/google', { credential })
+export async function loginWithGoogle(code: string): Promise<TokenPair> {
+  const res = await apiClient.post<ApiEnvelope<TokenPairResponse>>('/auth/google', { code })
   return mapTokenPair(res.data.data)
 }
 

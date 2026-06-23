@@ -216,9 +216,9 @@ class LoginRequestDTO(DTOBase):
 
 
 class GoogleLoginRequestDTO(DTOBase):
-    """Input for Google login: the Google ID token (credential) from GIS."""
+    """Input for Google login: the OAuth authorization code from the popup auth-code flow."""
 
-    credential: str = Field(min_length=1, max_length=8192)
+    code: str = Field(min_length=1, max_length=8192)
 
 
 class RefreshRequestDTO(DTOBase):

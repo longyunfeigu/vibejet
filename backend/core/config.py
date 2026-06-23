@@ -230,11 +230,23 @@ class Settings(BaseSettings):
         description="应用密钥，生产环境必须设置",
     )
 
-    # Google 登录（OAuth）：Web 类型 OAuth Client ID。未配置时非生产环境降级为 DevGoogleVerifier。
+    # Google 登录（OAuth 授权码流）：Web 类型 OAuth Client。
+    # 前端拿 authorization code，后端用 id+secret 去 Google token 端点换 id_token 后验签。
+    # 需 GOOGLE_CLIENT_ID 与 GOOGLE_CLIENT_SECRET 同时配置，缺任一则 Google 登录不可用。
     GOOGLE_CLIENT_ID: Optional[str] = Field(
         default=None,
         validation_alias=AliasChoices("GOOGLE_CLIENT_ID"),
         description="Google OAuth Web Client ID，用于校验 ID Token 的 aud",
+    )
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET"),
+        description="Google OAuth Web Client Secret，用于授权码换 token（仅后端持有）",
+    )
+    GOOGLE_OAUTH_REDIRECT_URI: str = Field(
+        default="postmessage",
+        validation_alias=AliasChoices("GOOGLE_OAUTH_REDIRECT_URI"),
+        description="授权码换 token 的 redirect_uri；@react-oauth/google popup 模式固定为 'postmessage'",
     )
 
     # CORS配置

@@ -1,17 +1,19 @@
-# input: AuthApplicationService.login_with_google + fake UoW/repo/verifier/token
-# output: Google 登录编排 4 路径行为测试（已绑/验证邮箱链接/新建/未验证不链接）
-# pos: 后端测试 - 认证应用服务 Google 登录用例验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-"""Behavior tests for AuthApplicationService.login_with_google (find/link/create)."""
+# input: AuthApplicationService.login_with_google + fake UoW/repo/exchanger/token
+# output: Google 授权码登录编排路径行为测试（已绑/验证邮箱链接/新建/未验证不链接/未配置/停用）
+# pos: 后端测试 - 认证应用服务 Google 授权码登录用例验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+"""Behavior tests for AuthApplicationService.login_with_google (auth-code find/link/create)."""
 
 from __future__ import annotations
 
 from typing import Optional
 
+import pytest
+
 from application.ports.oauth import GoogleIdentity
 from application.ports.security import TokenPair
 from application.services.auth_service import AuthApplicationService
 from application.utils.time import utcnow
-from domain.common.exceptions import UserAlreadyExistsException
+from domain.common.exceptions import UserAlreadyExistsException, UserInactiveException
 from domain.user.entity import User
 from domain.user.oauth_account import OAuthAccount
 
@@ -87,11 +89,15 @@ class FakeTokens:
         raise NotImplementedError
 
 
-class FakeVerifier:
+class FakeExchanger:
+    """Stub GoogleAuthCodeExchanger：跳过真实 token 交换，直接返回预置身份。"""
+
     def __init__(self, identity: GoogleIdentity) -> None:
         self._identity = identity
+        self.codes: list[str] = []
 
-    def verify(self, credential: str) -> GoogleIdentity:
+    async def exchange(self, code: str) -> GoogleIdentity:
+        self.codes.append(code)
         return self._identity
 
 
@@ -104,7 +110,7 @@ def _service(
         uow_factory=lambda *a, **k: uow,
         password_hasher=object(),  # unused in google flow
         token_provider=tokens,
-        google_verifier=FakeVerifier(identity),
+        google_exchanger=FakeExchanger(identity),
     )
     return svc, tokens
 
@@ -149,7 +155,7 @@ async def test_verified_email_links_to_existing_user() -> None:
 
     identity = GoogleIdentity(sub="sub-2", email="bob@x.com", email_verified=True, name="Bob")
     svc, tokens = _service(repo, identity)
-    pair = await svc.login_with_google("cred")
+    await svc.login_with_google("cred")
 
     assert tokens.subjects == [str(existing.id)]
     assert repo.oauth[("google", "sub-2")] == existing.id  # 已链接到原账号
@@ -160,7 +166,7 @@ async def test_unknown_creates_new_user_and_links() -> None:
     repo = FakeUserRepo()
     identity = GoogleIdentity(sub="sub-3", email="carol@x.com", email_verified=True, name="Carol")
     svc, tokens = _service(repo, identity)
-    pair = await svc.login_with_google("cred")
+    await svc.login_with_google("cred")
 
     assert len(repo.users) == 1
     new_user = next(iter(repo.users.values()))
@@ -192,3 +198,37 @@ async def test_unverified_email_does_not_link_to_existing() -> None:
     # 未验证邮箱：不得链接到已有账号，应新建独立账号
     assert repo.oauth[("google", "sub-4")] != existing.id
     assert len(repo.users) == 2
+
+
+async def test_not_configured_raises() -> None:
+    # google_exchanger 为 None（缺 client_id/secret）时应 fail-closed 拒绝
+    svc = AuthApplicationService(
+        uow_factory=lambda *a, **k: FakeUoW(FakeUserRepo()),
+        password_hasher=object(),
+        token_provider=FakeTokens(),
+        google_exchanger=None,
+    )
+    with pytest.raises(RuntimeError):
+        await svc.login_with_google("code")
+
+
+async def test_inactive_user_cannot_login() -> None:
+    repo = FakeUserRepo()
+    now = utcnow()
+    existing = await repo.create(
+        User(
+            id=None,
+            username="erin",
+            email="erin@x.com",
+            hashed_password=None,
+            is_active=False,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    repo.oauth[("google", "sub-5")] = existing.id
+
+    identity = GoogleIdentity(sub="sub-5", email="erin@x.com", email_verified=True, name="Erin")
+    svc, _tokens = _service(repo, identity)
+    with pytest.raises(UserInactiveException):
+        await svc.login_with_google("code")

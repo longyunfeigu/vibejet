@@ -1,7 +1,7 @@
-# input: AuthUnitOfWork, PasswordHasher/TokenProvider 端口, User 领域实体
-# output: AuthApplicationService 注册/登录/刷新/当前用户用例编排
+# input: AuthUnitOfWork, PasswordHasher/TokenProvider 端口, GoogleAuthCodeExchanger 端口, User 领域实体
+# output: AuthApplicationService 注册/登录/Google授权码登录/刷新/当前用户用例编排
 # owner: wanhua.gu
-# pos: 应用层服务 - 认证用例编排（注册→哈希入库；登录→校验→签发令牌对）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# pos: 应用层服务 - 认证用例编排（注册→哈希入库；登录→校验→签发令牌对；Google→授权码换身份→find/link/create）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application service for authentication workflows."""
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Callable, Optional, Protocol
 
 from application.dto import LoginRequestDTO, RegisterRequestDTO, TokenPairDTO, UserDTO
-from application.ports.oauth import GoogleIdentityVerifier
+from application.ports.oauth import GoogleAuthCodeExchanger
 from application.ports.security import PasswordHasher, TokenProvider
 from application.utils.time import utcnow
 from core.logging_config import get_logger
@@ -46,12 +46,12 @@ class AuthApplicationService:
         uow_factory: Callable[..., AuthUnitOfWork],
         password_hasher: PasswordHasher,
         token_provider: TokenProvider,
-        google_verifier: Optional[GoogleIdentityVerifier] = None,
+        google_exchanger: Optional[GoogleAuthCodeExchanger] = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._hasher = password_hasher
         self._tokens = token_provider
-        self._google = google_verifier
+        self._google = google_exchanger
 
     async def register(self, dto: RegisterRequestDTO) -> UserDTO:
         """Create a new user with a hashed password."""
@@ -107,8 +107,10 @@ class AuthApplicationService:
             expires_in=pair.expires_in,
         )
 
-    async def login_with_google(self, credential: str) -> TokenPairDTO:
-        """Verify a Google ID token and issue our own token pair.
+    async def login_with_google(self, code: str) -> TokenPairDTO:
+        """Exchange a Google authorization code for an identity and issue our token pair.
+
+        授权码流：后端用 client_secret 去 Google token 端点换 id_token 并验签，得到可信身份。
 
         Find/link/create policy:
         - existing oauth link → that user;
@@ -117,9 +119,11 @@ class AuthApplicationService:
         Unverified emails never auto-link to an existing account.
         """
         if self._google is None:
-            raise RuntimeError("Google login not configured (GOOGLE_CLIENT_ID missing)")
+            raise RuntimeError(
+                "Google login not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing)"
+            )
 
-        identity = self._google.verify(credential)  # InvalidTokenException on bad token
+        identity = await self._google.exchange(code)  # InvalidTokenException on bad code/token
 
         async with self._uow_factory() as uow:
             user = await uow.user_repository.get_by_oauth(GOOGLE_PROVIDER, identity.sub)

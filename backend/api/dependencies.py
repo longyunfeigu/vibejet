@@ -10,7 +10,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from application.dto import UserDTO
 from application.ports.document_parser import DocumentParserPort
 from application.ports.llm import LLMPort
-from application.ports.oauth import GoogleIdentityVerifier
 from application.ports.security import PasswordHasher, TokenProvider
 from application.ports.storage import StoragePort
 from application.services.auth_service import AuthApplicationService
@@ -26,7 +25,7 @@ from infrastructure.adapters.storage_port import StorageProviderPortAdapter
 from infrastructure.external.llm import get_llm_client
 from infrastructure.external.parsing import get_parser
 from infrastructure.external.storage import get_storage
-from infrastructure.external.google import DevGoogleVerifier, GoogleIdTokenVerifier
+from infrastructure.external.google import GoogleAuthCodeExchanger, GoogleIdTokenVerifier
 from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -55,7 +54,7 @@ _noop_idempotency_store = _NoopIdempotencyStore()
 _password_hasher = PwdlibPasswordHasher()
 _bearer_scheme = HTTPBearer(auto_error=False)
 _token_provider: JwtTokenProvider | None = None
-_google_verifier: GoogleIdentityVerifier | None = None
+_google_exchanger: GoogleAuthCodeExchanger | None = None
 
 
 def _get_token_provider() -> JwtTokenProvider:
@@ -70,17 +69,18 @@ def _get_token_provider() -> JwtTokenProvider:
     return _token_provider
 
 
-def _get_google_verifier() -> GoogleIdentityVerifier | None:
-    """有 GOOGLE_CLIENT_ID 用真验签；否则仅非生产降级为 DevGoogleVerifier（生产返回 None → 拒绝）。"""
-    global _google_verifier
-    if _google_verifier is None:
-        if settings.GOOGLE_CLIENT_ID:
-            _google_verifier = GoogleIdTokenVerifier(client_id=settings.GOOGLE_CLIENT_ID)
-        elif settings.ENVIRONMENT != "production" and settings.DEBUG:
-            # fail-closed：不验签的 dev verifier 仅在非生产 + DEBUG 双闸下启用，
-            # 防止生产 ENVIRONMENT 配错时被误激活造成认证绕过
-            _google_verifier = DevGoogleVerifier()
-    return _google_verifier
+def _get_google_exchanger() -> GoogleAuthCodeExchanger | None:
+    """授权码流：需 GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET 同时配置才组装交换器；
+    缺任一则返回 None → service 拒绝（fail-closed）。client_secret 仅后端持有。"""
+    global _google_exchanger
+    if _google_exchanger is None and settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET:
+        _google_exchanger = GoogleAuthCodeExchanger(
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
+            redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI,
+            verifier=GoogleIdTokenVerifier(client_id=settings.GOOGLE_CLIENT_ID),
+        )
+    return _google_exchanger
 
 
 async def get_password_hasher() -> PasswordHasher:
@@ -99,7 +99,7 @@ async def get_auth_service(
         uow_factory=SQLAlchemyUnitOfWork,
         password_hasher=hasher,
         token_provider=tokens,
-        google_verifier=_get_google_verifier(),
+        google_exchanger=_get_google_exchanger(),
     )
 
 

@@ -56,7 +56,7 @@ async def login(
 
 @router.post(
     "/google",
-    summary="Google 登录（ID Token）",
+    summary="Google 登录（授权码）",
     response_model=ApiResponse[TokenPairDTO],
     dependencies=[Depends(rate_limit("auth:google"))],
 )
@@ -64,7 +64,7 @@ async def login_google(
     payload: GoogleLoginRequestDTO,
     service: AuthApplicationService = Depends(get_auth_service),
 ):
-    tokens = await service.login_with_google(payload.credential)
+    tokens = await service.login_with_google(payload.code)
     return success_response(tokens, message=t("ok"))
 
 
