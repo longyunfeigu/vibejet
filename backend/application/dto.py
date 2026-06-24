@@ -221,6 +221,12 @@ class GoogleLoginRequestDTO(DTOBase):
     code: str = Field(min_length=1, max_length=8192)
 
 
+class OAuthLoginRequestDTO(DTOBase):
+    """Input for federated OAuth login (Feishu/Lark): authorization code from the redirect flow."""
+
+    code: str = Field(min_length=1, max_length=8192)
+
+
 class RefreshRequestDTO(DTOBase):
     """Input for refreshing an access token."""
 

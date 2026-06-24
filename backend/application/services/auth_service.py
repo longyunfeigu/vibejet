@@ -1,7 +1,7 @@
-# input: AuthUnitOfWork, PasswordHasher/TokenProvider 端口, GoogleAuthCodeExchanger 端口, User 领域实体
-# output: AuthApplicationService 注册/登录/Google授权码登录/刷新/当前用户用例编排
+# input: AuthUnitOfWork, PasswordHasher/TokenProvider 端口, GoogleAuthCodeExchanger/LarkAuthCodeExchanger 端口, User 领域实体
+# output: AuthApplicationService 注册/登录/Google授权码登录/飞书·Lark授权码登录/刷新/当前用户用例编排
 # owner: wanhua.gu
-# pos: 应用层服务 - 认证用例编排（注册→哈希入库；登录→校验→签发令牌对；Google→授权码换身份→find/link/create）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# pos: 应用层服务 - 认证用例编排（注册→哈希入库；登录→校验→签发令牌对；联合登录→授权码换身份→共用 find/link/create）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application service for authentication workflows."""
 
 from __future__ import annotations
@@ -9,7 +9,11 @@ from __future__ import annotations
 from typing import Callable, Optional, Protocol
 
 from application.dto import LoginRequestDTO, RegisterRequestDTO, TokenPairDTO, UserDTO
-from application.ports.oauth import GoogleAuthCodeExchanger
+from application.ports.oauth import (
+    GoogleAuthCodeExchanger,
+    LarkAuthCodeExchanger,
+    OAuthIdentity,
+)
 from application.ports.security import PasswordHasher, TokenProvider
 from application.utils.time import utcnow
 from core.logging_config import get_logger
@@ -47,11 +51,14 @@ class AuthApplicationService:
         password_hasher: PasswordHasher,
         token_provider: TokenProvider,
         google_exchanger: Optional[GoogleAuthCodeExchanger] = None,
+        oauth_exchangers: Optional[dict[str, LarkAuthCodeExchanger]] = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._hasher = password_hasher
         self._tokens = token_provider
         self._google = google_exchanger
+        # provider(feishu/lark) → 授权码交换器；缺失即该 provider 未配置（fail-closed）。
+        self._oauth_exchangers = oauth_exchangers or {}
 
     async def register(self, dto: RegisterRequestDTO) -> UserDTO:
         """Create a new user with a hashed password."""
@@ -111,34 +118,59 @@ class AuthApplicationService:
         """Exchange a Google authorization code for an identity and issue our token pair.
 
         授权码流：后端用 client_secret 去 Google token 端点换 id_token 并验签，得到可信身份。
-
-        Find/link/create policy:
-        - existing oauth link → that user;
-        - else if email is verified and matches an existing user → link to it;
-        - else create a new (password-less) user and link.
-        Unverified emails never auto-link to an existing account.
+        Google 永远返回邮箱，故走共用编排时不会触发占位邮箱合成。
         """
         if self._google is None:
             raise RuntimeError(
                 "Google login not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing)"
             )
 
-        identity = await self._google.exchange(code)  # InvalidTokenException on bad code/token
+        google_identity = await self._google.exchange(code)  # InvalidTokenException on bad code
+        identity = OAuthIdentity(
+            sub=google_identity.sub,
+            email=google_identity.email,
+            email_verified=google_identity.email_verified,
+            name=google_identity.name,
+        )
+        return await self._complete_oauth_login(GOOGLE_PROVIDER, identity)
 
+    async def login_with_oauth(self, provider: str, code: str) -> TokenPairDTO:
+        """Exchange a Feishu/Lark authorization code for an identity and issue our token pair.
+
+        ``provider`` ∈ {feishu, lark}；其交换器在 composition root 按配置装配，缺失则未配置（fail-closed）。
+        """
+        exchanger = self._oauth_exchangers.get(provider)
+        if exchanger is None:
+            raise RuntimeError(f"OAuth login not configured for provider '{provider}'")
+
+        identity = await exchanger.exchange(code)  # InvalidTokenException on bad code/token
+        return await self._complete_oauth_login(provider, identity)
+
+    async def _complete_oauth_login(self, provider: str, identity: OAuthIdentity) -> TokenPairDTO:
+        """Shared find/link/create for any federated identity, then issue our token pair.
+
+        Find/link/create policy:
+        - existing oauth link (provider + sub) → that user;
+        - else if email is verified and matches an existing user → link to it;
+        - else create a new (password-less) user and link.
+        Unverified emails never auto-link. 无邮箱时合成占位邮箱 ``{sub}@{provider}.local``
+        以满足 users.email 非空+唯一约束（合成域不与真实邮箱冲突）。
+        """
         async with self._uow_factory() as uow:
-            user = await uow.user_repository.get_by_oauth(GOOGLE_PROVIDER, identity.sub)
+            user = await uow.user_repository.get_by_oauth(provider, identity.sub)
             if user is None:
                 if identity.email_verified and identity.email:
                     user = await uow.user_repository.get_by_email(identity.email)
                 if user is None:
                     domain_service = UserDomainService(uow.user_repository)
-                    username = await domain_service.derive_unique_username(identity.email)
+                    email = identity.email or f"{identity.sub}@{provider}.local"
+                    username = await domain_service.derive_unique_username(email)
                     now = utcnow()
                     user = await uow.user_repository.create(
                         User(
                             id=None,
                             username=username,
-                            email=identity.email,
+                            email=email,
                             hashed_password=None,
                             full_name=identity.name,
                             created_at=now,
@@ -148,7 +180,7 @@ class AuthApplicationService:
                 await uow.user_repository.add_oauth_account(
                     OAuthAccount(
                         user_id=user.id,
-                        provider=GOOGLE_PROVIDER,
+                        provider=provider,
                         provider_sub=identity.sub,
                         email=identity.email,
                         created_at=utcnow(),
@@ -160,7 +192,7 @@ class AuthApplicationService:
             raise UserInactiveException()
 
         pair = self._tokens.issue_pair(subject=str(user.id))
-        logger.info("user_logged_in_google", user_id=user.id)
+        logger.info("user_logged_in_oauth", user_id=user.id, provider=provider)
         return TokenPairDTO(
             access_token=pair.access_token,
             refresh_token=pair.refresh_token,

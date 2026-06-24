@@ -26,6 +26,7 @@ from infrastructure.external.llm import get_llm_client
 from infrastructure.external.parsing import get_parser
 from infrastructure.external.storage import get_storage
 from infrastructure.external.google import GoogleAuthCodeExchanger, GoogleIdTokenVerifier
+from infrastructure.external.lark import LARK_OPEN_HOSTS, LarkAuthCodeExchanger
 from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -55,6 +56,7 @@ _password_hasher = PwdlibPasswordHasher()
 _bearer_scheme = HTTPBearer(auto_error=False)
 _token_provider: JwtTokenProvider | None = None
 _google_exchanger: GoogleAuthCodeExchanger | None = None
+_oauth_exchangers: dict[str, LarkAuthCodeExchanger] | None = None
 
 
 def _get_token_provider() -> JwtTokenProvider:
@@ -83,6 +85,30 @@ def _get_google_exchanger() -> GoogleAuthCodeExchanger | None:
     return _google_exchanger
 
 
+def _get_oauth_exchangers() -> dict[str, LarkAuthCodeExchanger]:
+    """飞书/Lark 授权码交换器：按各自 APP_ID+SECRET 配置懒装配；
+    缺任一则该 provider 不入表 → service 拒绝（fail-closed）。app_secret 仅后端持有。"""
+    global _oauth_exchangers
+    if _oauth_exchangers is None:
+        exchangers: dict[str, LarkAuthCodeExchanger] = {}
+        if settings.FEISHU_APP_ID and settings.FEISHU_APP_SECRET:
+            exchangers["feishu"] = LarkAuthCodeExchanger(
+                host=LARK_OPEN_HOSTS["feishu"],
+                app_id=settings.FEISHU_APP_ID,
+                app_secret=settings.FEISHU_APP_SECRET,
+                redirect_uri=settings.FEISHU_OAUTH_REDIRECT_URI or "",
+            )
+        if settings.LARK_APP_ID and settings.LARK_APP_SECRET:
+            exchangers["lark"] = LarkAuthCodeExchanger(
+                host=LARK_OPEN_HOSTS["lark"],
+                app_id=settings.LARK_APP_ID,
+                app_secret=settings.LARK_APP_SECRET,
+                redirect_uri=settings.LARK_OAUTH_REDIRECT_URI or "",
+            )
+        _oauth_exchangers = exchangers
+    return _oauth_exchangers
+
+
 async def get_password_hasher() -> PasswordHasher:
     return _password_hasher
 
@@ -100,6 +126,7 @@ async def get_auth_service(
         password_hasher=hasher,
         token_provider=tokens,
         google_exchanger=_get_google_exchanger(),
+        oauth_exchangers=_get_oauth_exchangers(),
     )
 
 

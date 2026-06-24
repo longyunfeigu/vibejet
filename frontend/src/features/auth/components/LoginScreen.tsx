@@ -1,16 +1,21 @@
-// input: LoginForm, ShowcaseCollage 组件
+// input: LoginForm, ShowcaseCollage, GoogleSignInButton, OAuthRedirectButton, getConfiguredOAuthProviders
 // output: LoginScreen 组件 —— 左居中认证面板 / 右倾斜产品屏卡片墙 的分栏登录屏
 // owner: wanhua.gu
 // pos: auth feature - 登录页整屏布局(front-of-house, 对齐 Mobbin 工艺)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import { Sparkles } from 'lucide-react'
 
+import { getConfiguredOAuthProviders } from '../helpers/oauthProviders'
 import { GoogleSignInButton } from './GoogleSignInButton'
 import { LoginForm } from './LoginForm'
+import { OAuthRedirectButton } from './OAuthRedirectButton'
 import { ShowcaseCollage } from './ShowcaseCollage'
 
 const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
 export function LoginScreen() {
+  const oauthProviders = getConfiguredOAuthProviders()
+  const socialEnabled = googleEnabled || oauthProviders.length > 0
+
   return (
     <div className="grid min-h-[100dvh] lg:grid-cols-2">
       {/* 左：认证面板（整体居中） */}
@@ -32,12 +37,15 @@ export function LoginScreen() {
             </p>
           </div>
 
-          {/* form area：有 Google 配置时先显示 Google 按钮 + 分隔线 */}
+          {/* form area：有任一联合登录配置时先显示社交按钮 + 分隔线 */}
           <div className="flex w-full flex-col gap-5">
-            {googleEnabled && (
+            {socialEnabled && (
               <>
-                <div className="flex justify-center">
-                  <GoogleSignInButton />
+                <div className="flex flex-col gap-3">
+                  {googleEnabled && <GoogleSignInButton />}
+                  {oauthProviders.map((p) => (
+                    <OAuthRedirectButton key={p.provider} config={p} />
+                  ))}
                 </div>
                 <div className="text-muted-foreground/70 flex items-center gap-3">
                   <span className="bg-border h-px flex-1" />

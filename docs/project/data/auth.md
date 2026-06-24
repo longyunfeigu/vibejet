@@ -27,9 +27,9 @@
 |---|---|---|---|
 | id | int | PK | |
 | user_id | int | FK→users.id `ON DELETE CASCADE`，索引 `ix_oauth_user_id` | 所属用户 |
-| provider | varchar(32) | | 身份提供方，目前 `google` |
-| provider_sub | varchar(255) | | 提供方稳定唯一标识（Google 的 `sub`） |
-| email | varchar(255) | 可空 | 提供方返回邮箱（参考用，非真相源） |
+| provider | varchar(32) | | 身份提供方：`google` / `feishu` / `lark`（飞书与 Lark 分属不同开放平台，独立 app，故各占一个 provider） |
+| provider_sub | varchar(255) | | 提供方稳定唯一标识：Google 的 `sub`；飞书/Lark 的 `union_id`（缺失回退 `open_id`） |
+| email | varchar(255) | 可空 | 提供方返回邮箱（参考用，非真相源）；飞书/Lark 存 `enterprise_email`（无则空） |
 | created_at | timestamptz | | |
 
 - **唯一约束** `uq_oauth_provider_sub (provider, provider_sub)`：同一外部身份只能绑一次，兜底并发链接竞争。
@@ -37,4 +37,12 @@
 
 ## 链接策略（写入规则）
 
-Google 登录时：按 `(google, sub)` 命中 → 该用户；否则当 `email_verified=true` 且邮箱命中已有用户 → 新建 oauth_accounts 链接；都不命中 → 新建无密码 user + 链接。**未验证邮箱不得自动链接到已有账号。**
+所有联合登录共用一段编排 `_complete_oauth_login(provider, identity)`：按 `(provider, sub)` 命中 → 该用户；否则当
+`email_verified=true` 且邮箱命中已有用户 → 新建 oauth_accounts 链接；都不命中 → 新建无密码 user + 链接。**未验证邮箱不得自动链接到已有账号。**
+
+各 provider 的 `email` / `email_verified` 来源：
+- **Google**：id_token 的 `email` + `email_verified`（Google 总有邮箱）。
+- **飞书 / Lark**：仅把 `enterprise_email`（管理员分配、组织管控，可信）作为 email 并视作 `email_verified=true`；
+  用户自填的 `email` 字段**不参与链接**（不可信）。无 `enterprise_email` 时 `email=None, email_verified=False`，
+  create 分支合成占位邮箱 `{union_id}@{provider}.local`（满足 `users.email` 非空+唯一；合成域 `.local` 不与真实邮箱冲突，
+  故不会与已有账号撞唯一索引）。**无 schema 变更**：复用既有 `users` / `oauth_accounts`（迁移仍为 `0001` + `0003`）。
