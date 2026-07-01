@@ -8,7 +8,7 @@ description: 从 Story 文件或 Story 描述启动“参考实现研究 → DDD
 用于本仓库中“复杂 Story 需要参考开源实现”的场景。
 
 这个 skill 是一个轻量编排层：
-- Story 解析和仓库约束读取，遵循 `do-story` 的思路
+- Story 解析和仓库约束读取，遵循 `vj-work` task 执行的思路（先读 Story AC 与仓库硬约束再动手）
 - 参考实现研究和抽象提取，遵循 `reference-impl` 的思路
 - 最终目标不是搬运代码，而是产出符合本仓库 DDD 分层的实现
 

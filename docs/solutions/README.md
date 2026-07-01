@@ -3,7 +3,7 @@
 结构化记录**已解决的问题**与**已确立的决策**，让团队知识"复利"：下次碰到相似场景，检索即得，不必重新踩坑。
 
 - **写端**：`vj-compound` skill —— 把刚解决的问题/决策写成本目录下带 YAML frontmatter 的文档。
-- **读端**：`vj-learnings-researcher` agent —— 被 `vj-epic-plan` / `do-story` / `review` 在开工前调用，检索相关历史学习。
+- **读端**：`vj-learnings-researcher` 研究子代理（模板见 `.agents/skills/vj-epic-plan/references/research-agents.md` Agent D）—— 被 `vj-epic-plan` / `vj-work` / `review` 在开工前调用，检索相关历史学习。
 - **契约**：frontmatter schema 见 `.agents/skills/vj-compound/references/schema.yaml`（与 `yaml-schema.md`）。
 
 ## 目录结构（problem_type → 子目录，按需创建）

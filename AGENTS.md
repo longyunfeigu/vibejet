@@ -125,8 +125,9 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
 - `vj-feature` — 给已有项目追加功能：澄清需求，生成/追加 Epic+Story，可选同步 PRD，路由到实现
 - `vj-design-md-matcher` — 产品/品牌方向轨：当 `DESIGN.md` 缺失/过期、品牌感不清、front-of-house 无 golden screen，或用户要求整体视觉升级时，先用产品级 `ui-requirement-brief` 明确方向，再生成 `docs/project/DESIGN.md` + golden references；不用于日常单屏结构/状态补全
 - `ui-requirement-brief` / `ui-page-goal-structure` / `ui-state-coverage` / `ui-visual-consistency-audit` — 前端设计生产与审查辅助：产品级 brief 喂 `vj-design-md-matcher`；单屏级 brief 喂 `ui-page-goal-structure` / `ui-state-coverage` 产出页面体验地图和状态覆盖；稳定合同写入 `docs/project/DESIGN.md` 与 `docs/project/ui/`，由 `vj-epic-plan` / `vj-work` 消费
-- `run-story` — Preferred single-entry Story workflow: route implementation, verify, review, and risk-based QA
-- `do-story` — Standard Story implementation from Story file or Story description
+- `vj-epic-story` — 从 PRD + 架构全量拆解 Epic/Story，产出可执行验收标准（WHAT）
+- `vj-epic-plan` — Epic 级实现计划：生成 human review pack + task packets，并同步 `docs/project/api|data|ui/` 契约目录（HOW）
+- `vj-work` — Epic 执行器（默认实现入口）：消费 vj-epic-plan 的 task packets，auto 模式按风险自动走 fast/strict，内含 verify / review gate；单 Story 小需求同样由它按单 Unit 执行
 - `story-reference-impl` — Complex Story that needs research against open source or framework implementations
 - `story-verify-fix` — Post-implementation verification, front/back bring-up, integration checks, visual alignment
 - `review` — Pre-landing code review using `docs/reference/guides/review-checklist-python-fastapi.md`
@@ -209,7 +210,7 @@ If the task is verification-only, use `story-verify-fix`. If design refs exist, 
 | Size | Criteria | Approach |
 |------|----------|----------|
 | **Simple** | Single file, <20 lines, local impact | Execute directly with minimal explanation |
-| **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `do-story` or a concise execution plan, then implement |
+| **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `vj-epic-plan`（最小 review pack）+ `vj-work`, or a concise execution plan, then implement |
 | **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Write a plan per `docs/tasks/plans/TEMPLATE.md` + the appropriate skill workflow |
 
 Complex workflow: RESEARCH → PLAN（TEMPLATE.md 或 `story-reference-impl`）→ EXECUTE →

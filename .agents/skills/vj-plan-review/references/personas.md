@@ -86,7 +86,7 @@ legacy `*-plan.md` 只应是指针 stub，不是审查真相源。
 
 **审查视角**：review pack 的多 Story / 多 Unit 编排结构是否可靠。重点：
 
-- **DAG 与 epic.md 一致性**（最高优先）：`task-index.md` 的 Story / Unit 依赖 DAG 是否与 **epic.md 的 `**依赖**:` 行一致**。run-epic 只读 epic.md、不读 review pack——两者不一致 = 执行会跑出不同顺序。
+- **DAG 与 epic.md 一致性**（最高优先）：`task-index.md` 的 Story / Unit 依赖 DAG 是否与 **epic.md 的 `**依赖**:` 行一致**。epic.md 是 WHAT 层依赖真相源——两者不一致 = 计划与验收口径分叉，执行会跑出不同顺序。
 - **并行波次正确性**：同波次内的 Unit 是否真无相互依赖；拓扑分层有无把有依赖的 Unit 放进同一波。
 - **共享文件冲突点**：同波次 Unit 是否改同一文件（常见序列化点：`unit_of_work.py`、`models/__init__.py`、`main.py`、`dto.py`、`apiClient.ts`、`routeTree.gen.ts`）。逻辑独立但改同文件却没标序列化点 = 并发写丢改动。
 - **Catalog ownership**：跨 Epic 稳定上下文是否写入 catalog。API/Data/UI delta 是否列出对应 `docs/project/api|data|ui/` 目标，避免把稳定契约只埋在 review pack。

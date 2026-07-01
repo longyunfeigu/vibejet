@@ -10,7 +10,7 @@ description: 在 Epic plan、Story 或实现过程中接口契约发生变化时
 默认定位：
 - 这是一个 **按需增量更新** workflow
 - 不是每个 Story 都要跑
-- 不是 `do-story` 的默认前置步骤
+- 不是 `vj-work` 的默认前置步骤
 
 只有在以下情况命中时才使用：
 - 新增或删除对外 API 端点
@@ -134,7 +134,7 @@ docs/project/api/
 
 - `codex-review`：文档生成后自动触发，做独立审查闭环
 - `vj-epic-plan`：Epic 计划命中 API delta 时直接同步模块文档，遵守本目录契约
-- `do-story`：主实现 workflow。它不会自动强制运行本 skill；只有命中 API 契约变化时才应调用本 skill。
+- `vj-work`：主实现 workflow。它不会自动强制运行本 skill；只有命中 API 契约变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 研究/适配 workflow。只有当参考实现引入新的接口契约时，才补 API delta。
 - `story-verify-fix`：验证实现是否符合验收标准，不替代 API 契约设计。
 - `review`：审查契约实现是否一致，但不负责先生成契约。

@@ -157,8 +157,8 @@ Review: No issues found.
 
 ## 与其他 skills 的关系
 
-- `do-story`
-  - Story 实现完成后，可用本 skill 做 pre-landing review
+- `vj-work`
+  - Story/Unit 实现完成后，可用本 skill 做 pre-landing review（strict 模式默认触发）
 - `story-reference-impl`
   - 复杂 Story 在 verify-fix 通过后，再用本 skill 做结构化审查
 - `story-verify-fix`

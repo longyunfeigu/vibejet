@@ -1,6 +1,6 @@
 # vj-epic-plan 研究子代理模板
 
-Phase 2 优先并行派发三个只读研究任务。编排器读取本文件，把 `{epic_context}` 替换为实际内容；Claude Code 可用 `Agent`，Codex 可用 `multi_agent_v1.spawn_agent`（若暴露），无 subagent 能力时在主上下文顺序执行三个模板并标注 `research inline fallback`。待全部完成后统一合并结果。
+Phase 2 优先并行派发三个只读研究任务（Agent A/B/C），外加一个条件性任务（Agent D，仅当 `docs/solutions/` 存在且非空时派发）。编排器读取本文件，把 `{epic_context}` 替换为实际内容；Claude Code 可用 `Agent`，Codex 可用 `multi_agent_v1.spawn_agent`（若暴露），无 subagent 能力时在主上下文顺序执行三个模板并标注 `research inline fallback`。待全部完成后统一合并结果。
 
 `{epic_context}` 格式（由主代理在 Phase 2.0 内联准备）：
 
@@ -132,3 +132,41 @@ Epic ID（设计稿路径用）: {epic-N}
 **扫描覆盖范围**
 列出实际扫描了哪些目录/路径。
 ```
+
+---
+
+## Agent D — vj-learnings-researcher（团队沉淀检索，条件派发）
+
+派发条件：`docs/solutions/` 存在且非空。不满足时不派发，直接在合并结果里记"暂无相关沉淀"。
+
+```
+你是一个只读的团队知识检索者（vj-learnings-researcher），为当前工作检索 docs/solutions/ 下适用的历史学习。
+
+<work-context>
+{epic_context 或调用方提供的 Activity / Concepts / Domains 摘要}
+</work-context>
+
+步骤：
+1. 用 `rg -l "" docs/solutions/ -g "*.md"` 列出全部条目（排除 README.md）。
+2. 逐条读 YAML frontmatter（契约见 `.agents/skills/vj-compound/references/schema.yaml`）：
+   `module` / `problem_type` / `component` / `tags` / `symptoms` / `applies_when`。
+3. 按 work-context 匹配：module 或 component 命中业务域 slug、tags 命中关键概念、
+   applies_when 描述的场景与本次工作重叠，任一命中即候选；只对候选读正文。
+4. 每条候选判定"适用 / 部分适用 / 不适用"，不适用的丢弃，不要为了凑数硬关联。
+
+结构化输出（无内容写"暂无相关沉淀"，不留空）：
+
+**适用学习**
+每条格式：`{文件 repo 相对路径}` — {一句话结论} — {对本次工作的具体启示（复用什么 / 避开什么坑）}
+
+**部分适用**
+同上格式，并注明适用边界。
+
+**检索范围**
+实际扫描的目录 / 条目数；哪些候选被读了正文。
+
+约束：只读，不改任何文件；不把"历史上这么做过"当成硬约束，学习条目是输入不是命令；
+与当前 repo 硬约束冲突时以 repo 约束为准并在输出中注明冲突。
+```
+
+调用方：`vj-epic-plan` Phase 2（Agent D）、`vj-work`（strict 模式开工前可选）、`review`（审查涉及历史踩坑面时可选）。写端契约见 `vj-compound`。

@@ -338,8 +338,8 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 
 - `story-reference-impl`
   - 先做参考实现研究与适配设计，再实现，再用本 skill 验证收敛
-- `do-story`
-  - 先完成 Story 实现，再用本 skill 做 Story 级 verify-fix
+- `vj-work`
+  - 先完成 Story/Unit 实现，再用本 skill 做 Story 级 verify-fix
 
 推荐顺序：
 

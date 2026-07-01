@@ -1,6 +1,6 @@
 ---
 name: vj-epic-plan
-description: 以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW），并在命中 API、持久化或 UI Surface/Route 变化时同步维护 docs/project/api/、docs/project/data/ 与 docs/project/ui/ 模块化契约目录。在 vj-epic-story 之后、vj-work/run-epic 之前使用。用户说"规划 epic X""给 epic 出实现计划""epic plan""epic 详规"时使用。
+description: 以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW），并在命中 API、持久化或 UI Surface/Route 变化时同步维护 docs/project/api/、docs/project/data/ 与 docs/project/ui/ 模块化契约目录。在 vj-epic-story 之后、vj-work 之前使用。用户说"规划 epic X""给 epic 出实现计划""epic plan""epic 详规"时使用。
 ---
 
 # vj-epic-plan — Epic 级实现计划
@@ -12,7 +12,7 @@ description: 以一个 Epic（含若干 Story）为单元生成适合人工 Revi
 - 本 skill 负责 **HOW**，但输出分三层：**Human Review Pack**（给人建立心智模型和做技术 review）、**Task Packets**（给 `vj-work` / subagent 执行的最小上下文投影）、**Project Catalog**（API / Data / UI 的长期合同）。
 - **Human Review Pack** 是一个目录，不是一个挤满内容的大文件：`README.md` 是 reviewer 入口，`design.md` 是技术设计主文档，`decisions.md` 是 D/ACD 唯一真相源。它服务 human reviewer，不服务逐步执行。
 - **Task Packets**：Phase 5 review pack + catalog 定稿后，一并生成 per-task 执行文档（`work_dir` 下 `task-index.md` + 每 task 一份 7 段文档）。Task 文档是 design/decisions + catalog + Story AC 的执行投影，不是第二套真相源；供 `vj-work` 默认直接装载执行。
-- 执行（落地代码）交给 `vj-work` / `run-epic`。
+- 执行（落地代码）交给 `vj-work`。
 - 前端设计生产已纳入主链路。本 skill 消费两类设计输入：产品/品牌方向源（`docs/project/DESIGN.md` + `docs/reference/research/designs/golden/`，通常由产品级 `ui-requirement-brief -> vj-design-md-matcher` 产出）和单屏体验源（`vj-epic-story` 页面体验地图 + 按缺口强制触发的 `ui-page-goal-structure` / `ui-state-coverage` / `ui-user-journey-audit` 产物），生成 Screen Contract 并同步到 `docs/project/ui/`。
 
 **协作链**：
@@ -20,7 +20,7 @@ description: 以一个 Epic（含若干 Story）为单元生成适合人工 Revi
 vj-product-requirements → vj-architecture → api-design → data-model
         → vj-epic-story (WHAT)
         → vj-epic-plan (Human Review Pack + task packets + catalog delta, 本 skill)
-        → vj-work / run-epic (执行)
+        → vj-work (执行)
 ```
 
 **铁律**：
@@ -283,10 +283,9 @@ Epic ID（设计稿路径用）: {epic-N}
    - 告知 work_dir 绝对路径(可点击)。
 6. **Handoff**:告知 review pack 路径 + task 文档 work_dir 路径,并提供下一步选项:
    - `vj-work` 执行本 review pack:task 文档已在 step 5 生成,vj-work **直接装载 task packets + `task-index.md` 执行**(不重新生成),并生成 `_execution_context.md`;默认不全文读取 review pack，只在 task anchor / strict trigger / 歧义 / 冲突时回读 `design.md` / `decisions.md` 对应章节。分支、worktree 与记录/提交粒度由 vj-work 的 auto/fast/strict 模式决定。
-   - `run-epic` 批量编排：**依赖图来自 epic.md 的 `**依赖**:` 行，不读本 plan**——执行前确认 `task-index.md` 的 Unit DAG 与 epic.md 一致。
    - 告知本次同步更新的 `docs/project/api/` / `docs/project/data/` / `docs/project/ui/` 文件；后续实现若偏离，下游再报告差异并回写对应模块文档。
    - 进一步打磨 review pack(**改完会触发 step 5 重新生成 task 文档**,保持二者同步)。
-   > 定位:epic-plan 是**human review pack + task packet 生成器**。机械执行(run-epic)的依赖真相源仍是 epic.md。
+   > 定位:epic-plan 是**human review pack + task packet 生成器**。Unit 依赖的真相源仍是 epic.md 的 `**依赖**:` 行——`task-index.md` 的 Unit DAG 必须与其一致。
 
 ## Stop Conditions（防死循环）
 

@@ -15,5 +15,6 @@ This directory contains reusable knowledge that supports development across Stor
 
 - [AI workflow](guides/ai-workflow.md)
 - [Review checklist](guides/review-checklist-python-fastapi.md)
-- [Run Story design](guides/run-story-design.md)
 - [Story verify-fix design](guides/story-verify-fix-design.md)
+
+（历史设计文档见 `docs/archive/`，如已废弃的 run-story 单入口编排设计。）

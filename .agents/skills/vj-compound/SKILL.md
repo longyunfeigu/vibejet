@@ -5,7 +5,7 @@ description: 把刚刚解决的问题 / 刚确立的决策沉淀为 docs/solutio
 
 # vj-compound — 团队知识沉淀（写端）
 
-把**刚解决的问题**或**刚确立的决策**，趁上下文还新鲜，写成 `docs/solutions/` 下一份结构化、可检索的学习文档。它是学习飞轮的**写端**；读端是 `vj-learnings-researcher` agent（被 `vj-epic-plan` / `do-story` / `review` 调用）。两者共用同一份 frontmatter 契约：`references/schema.yaml`。
+把**刚解决的问题**或**刚确立的决策**，趁上下文还新鲜，写成 `docs/solutions/` 下一份结构化、可检索的学习文档。它是学习飞轮的**写端**；读端是 `vj-learnings-researcher`（研究子代理模板，见 `vj-epic-plan/references/research-agents.md` Agent D，被 `vj-epic-plan` / `vj-work` / `review` 调用）。两者共用同一份 frontmatter 契约：`references/schema.yaml`。
 
 **核心理念**：每解决一个非平凡问题、每做一个有理由的取舍，就让团队的知识"复利"一次——下次有人碰到相似场景，检索即得，不必重新踩坑。
 
@@ -102,5 +102,5 @@ vj-compound [一句话上下文]    # 额外提示要沉淀什么
 ```
 （调试/决策/重构收尾） → vj-compound 写 docs/solutions/<category>/
                                      ↑ 同一份 schema.yaml 契约 ↓
-              vj-learnings-researcher 读  ← vj-epic-plan / do-story / review 调用
+              vj-learnings-researcher 读  ← vj-epic-plan / vj-work / review 调用
 ```

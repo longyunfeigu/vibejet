@@ -2,8 +2,21 @@
 # input: Epic markdown file from this repo or a downstream application
 # output: Makefile generation + sequential/parallel story execution via claude -p
 # owner: wanhua.gu
-# pos: 脚本工具 - Epic 级 Story 自动化编排；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# pos: 脚本工具 - Epic 级 Story 自动化编排（已弃用）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 set -euo pipefail
+
+# ─────────────────────────────────────────────
+# ⛔ DEPRECATED (2026-07-02)
+# 本脚本内部调用的 run-story skill 已从仓库移除，直接运行会产出无效 session。
+# Epic 执行请改用：vj-epic-plan 生成 task packets → vj-work 编排执行
+# （vj-work 自带波次并行、worktree 隔离与 verify/review gate）。
+# 如确需强制运行本脚本：FORCE_RUN_EPIC=1 ./scripts/run-epic.sh <epic-file>
+# ─────────────────────────────────────────────
+if [[ "${FORCE_RUN_EPIC:-0}" != "1" ]]; then
+  echo "⛔ run-epic.sh 已弃用：依赖的 run-story skill 已移除。请改用 vj-epic-plan + vj-work。" >&2
+  echo "   如确需强制运行：FORCE_RUN_EPIC=1 $0 ..." >&2
+  exit 1
+fi
 
 # ─────────────────────────────────────────────
 # run-epic.sh — Epic 文件即 Pipeline

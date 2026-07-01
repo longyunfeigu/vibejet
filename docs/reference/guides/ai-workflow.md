@@ -2,52 +2,41 @@
 
 这份文档定义当前仓库推荐的 AI 开发工作流。
 
-如果你希望把当前多 skill 主线收敛成单入口编排，见 [run-story-design.md](run-story-design.md)。
-
 目标不是罗列所有 skill，而是回答 3 个实际问题：
 
 1. 现在应该先用哪个 skill
 2. 什么时候需要补 plan / API 契约 / 数据模型说明
-3. 一个 Story 从开始到收口，完整链路是什么
+3. 一个需求从想法到收口，完整链路是什么
 
 ## 1. 默认主线
 
-现在推荐的默认入口是：
-
 ```text
-run-story
+需求入口:
+  已有项目加功能   -> vj-feature（澄清 + 生成/追加 Epic/Story）
+  从零 / 大需求    -> vj-product-requirements -> vj-architecture -> vj-epic-story
+
+计划与执行:
+  vj-epic-plan（review pack + task packets + catalog sync）
+  -> vj-plan-review（写盘后自动多视角审查）
+  -> vj-work（auto 模式按风险走 fast/strict，内含 verify / review gate）
+
+收口（按需）:
+  vj-test（epic 级跨层 E2E）
+  story-verify-fix（联调 / 视觉对齐验证）
+  review（pre-landing 审查，vj-work strict 模式默认触发）
+  diff-aware-qa（回归影响面 QA）
+  vj-compound（沉淀踩坑与决策）
 ```
 
-当用户已经有 Story，并希望按仓库默认流程一路做到实现、验证、review 和按需 QA 时，优先使用 `run-story`。
-
-它内部会路由到：
-- `do-story`
-- 或 `story-reference-impl`
-- 然后继续进入 `story-verify-fix -> review -> diff-aware-qa（按需）`
-
-日常实现 Story 时，默认遵循这条主线：
-
-```text
-默认外部入口:
-  run-story
-
-内部路由:
-  普通 Story -> do-story
-  复杂 Story / 需要参考开源实现 -> story-reference-impl
-
-统一后续:
-  -> story-verify-fix
-  -> review
-  -> diff-aware-qa（如改动有回归风险）
-```
-
-这是当前仓库的默认开发闭环。
+单个 Story 的小需求走同一条链：`vj-feature` 把它挂进 Epic，`vj-epic-plan` 产出最小
+review pack，`vj-work` 按单 Unit 执行。不再有独立的 Story 单入口编排
+（旧 run-story / do-story 已移除，历史设计见 `docs/archive/run-story-design.md`）。
 
 ## 2. 按阶段看该用什么
 
 ### 阶段 A：需求还没成 Story
 
-当你在下游应用里还没有明确 Story，只是有一个产品想法或较大的需求时：
+当你还没有明确 Story，只是有一个产品想法或较大的需求时：
 
 ```text
 vj-product-requirements
@@ -64,80 +53,52 @@ vj-product-requirements
 - 需要先把产品目标和技术边界定下来
 - 需要把需求拆成可执行的 Epic / Story
 
-### 阶段 B：开始实现 Story
+已有项目加单个功能、不想从 PRD 重走一遍时，用 `vj-feature` 作为轻量入口。
 
-#### 1. 推荐默认入口
+### 阶段 B：计划与实现
 
-优先用 [run-story](../.agents/skills/run-story/SKILL.md)。
+#### 1. 出计划
 
-适用场景：
-- 用户想端到端处理一个已有 Story
-- 不想手动切换 skill
-- 希望默认带上 verify / review / 按需 QA
+用 [vj-epic-plan](../../../.agents/skills/vj-epic-plan/SKILL.md)。
 
-#### 2. 普通 Story
+- 输入是 `docs/tasks/epics/` 下已拆好的 Epic（含 Story + 可执行 AC）
+- 输出是 review pack 目录（README / design / decisions）+ task packets + catalog 同步
+- 写盘后自动触发 `vj-plan-review` 做多视角审查
 
-用 [do-story](../.agents/skills/do-story/SKILL.md)。
+#### 2. 执行
 
-适用场景：
-- 需求边界已经比较清楚
-- 不需要专门研究外部开源实现
-- 改动范围可控
+用 [vj-work](../../../.agents/skills/vj-work/SKILL.md)。
 
-`do-story` 的职责：
-- 读取 Story 内容
-- 读取现有架构约束
-- 判断 Flow A / B / C
-- 生成或消费 plan
-- 按 DDD 分层实现
+- 消费 vj-epic-plan 的 task packets，按 Task DAG / 波次推进
+- auto 模式自动判定 fast / strict：命中权限、迁移、公共契约、事务、UI shell 等
+  strict trigger 时自动升级
+- worktree 隔离写代码；Unit 的 `Verification` 命令是 done signal
+- 前端按 Screen/Route 整体交付，UI-critical 屏有独立截图审查 gate
 
-#### 3. 复杂 Story
+#### 3. 复杂实现需要外部参考
 
-用 [story-reference-impl](../.agents/skills/story-reference-impl/SKILL.md)。
+用 [story-reference-impl](../../../.agents/skills/story-reference-impl/SKILL.md)。
 
 适用场景：
-- 技术实现复杂
-- 需要参考 GitHub / 开源项目 / 框架官方文档
+- 技术实现复杂，需要参考 GitHub / 开源项目 / 框架官方文档
 - 想先研究、再适配、最后实现
 
-`story-reference-impl` 的链路是：
-
-```text
-研究参考实现
--> DDD 适配设计
--> 分层实现
--> Review
-```
+它的链路是：研究参考实现 -> DDD 适配设计 -> 分层实现 -> Review。
+可作为 vj-epic-plan 前置研究，或在 vj-work 执行遇到复杂 Unit 时单独调用。
 
 ### 阶段 C：实现完成后的收口
 
-实现完成后不要直接结束。默认继续跑：
+`vj-work` 自身已包含 Unit Verification 与 risk-based review gate。在此之外按需继续：
 
-1. [story-verify-fix](../.agents/skills/story-verify-fix/SKILL.md)
-2. [review](../.agents/skills/review/SKILL.md)
-3. [diff-aware-qa](../.agents/skills/diff-aware-qa/SKILL.md)（按需）
-
-职责区分：
-
-- `story-verify-fix`
-  - 验证当前 Story 自己是否通过
-  - 启动后端，必要时启动前端
-  - 跑 API / 联调 / 可选视觉检查
-  - 失败时进入有限修复循环
-
-- `review`
-  - 做结构化代码审查
-  - 优先找 blocking 问题、回归风险、缺失测试
-  - 基于 `docs/reference/guides/review-checklist-python-fastapi.md`
-
-- `diff-aware-qa`
-  - 做第二层回归 QA
-  - 关注“这次 diff 还波及了哪些页面 / 路由 / 接口”
-  - 不是 Story 验收，而是影响面回归
+1. [vj-test](../../../.agents/skills/vj-test/SKILL.md) — epic 级跨层 E2E（断言 DB/API/前端真实状态 + 变异自检）
+2. [story-verify-fix](../../../.agents/skills/story-verify-fix/SKILL.md) — 启动前后端做联调验证与视觉对齐
+3. [review](../../../.agents/skills/review/SKILL.md) — 结构化 pre-landing 审查，基于 `docs/reference/guides/review-checklist-python-fastapi.md`
+4. [diff-aware-qa](../../../.agents/skills/diff-aware-qa/SKILL.md) — 第二层回归 QA，关注"这次 diff 还波及了哪些页面 / 路由 / 接口"
+5. [vj-compound](../../../.agents/skills/vj-compound/SKILL.md) — 踩了坑或定了非平凡决策后沉淀到 `docs/solutions/`
 
 ## 3. 什么时候用 api-design 和 data-model
 
-这两个 skill 现在都不是默认前置步骤。
+这两个 skill 都不是默认前置步骤。
 
 ### api-design
 
@@ -161,8 +122,8 @@ vj-product-requirements
 
 如果对应的 `docs/project/api/{module}.md` 或 `docs/project/data/{module}.md` 不存在：
 
-- AI 不能说“实现违反了这些文档”
-- 只能判断“本次改动是否引入了新的 contract / schema delta，需要补说明”
+- AI 不能说"实现违反了这些文档"
+- 只能判断"本次改动是否引入了新的 contract / schema delta，需要补说明"
 - 命中 delta 时同步创建或更新模块文档；旧 `api_spec.md` / `database_schema.md` 仅作为兼容读取 fallback
 
 始终可校验的是：
@@ -172,39 +133,36 @@ vj-product-requirements
 
 ## 4. Plan 应该怎么用
 
-Plan 文件放在 `docs/tasks/plans/`，按该目录下的 `TEMPLATE.md` 创建
-（§0 Triage 8 问 → Flow A/B/C → 分层填写）。
+Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成，落在
+`docs/tasks/plans/{date}-epic-{N}-{slug}/`（review pack 目录）：
 
-### Flow A / B / C
+- `README.md` — reviewer 入口：一屏摘要、Known Conflicts、阅读路径、execution sketch、catalog sync 状态
+- `design.md` — human 技术设计主文档（问题建模、术语场景、架构图、核心流程、Data/API 设计、风险）
+- `decisions.md` — 决策与 AC 偏离的唯一真相源（D/ACD）
+- `docs/tasks/work/epic-{N}-{slug}/` — task packets（`task-index.md` + 每 task 一份执行文档），给 `vj-work` 直接消费
 
-- `Flow A`
-  - 小范围改动
-  - 只填第一层和执行步骤
+### Execution Policy: fast | strict
 
-- `Flow B`
-  - 多层改动
-  - 填第一层 + 第二层
+执行策略按风险触发器判定，不再使用旧的 Flow A/B/C 标签。命中任一项即 strict：
 
-- `Flow C`
-  - 高风险或多模块变更
-  - 填完整 plan
+- 改 DB migration / schema / 数据回填
+- 改公共 API contract / DTO envelope / 错误码
+- 改权限 / 认证 / 安全 / ownership / tenant 边界
+- 引入外部系统或异步任务
+- 复杂状态机 / 幂等 / 事务一致性
+- 需求不清楚（一处歧义会改变行为）
+- 影响多个 bounded context
+- UI shell / navigation / design token 级变更
+- 预计大 diff（跨子系统 ≥400 行或总计 ≥1000 行）
 
-### Plan 里现在有哪些关键 section
+fast 覆盖其余普通任务（CRUD、DTO、字段映射、局部 UI data binding、文案样式）。
+strict 意味着审批门、逐 task 记录与提交、完整 review / trace。
 
-- `§0 Triage`
-  - 判断是不是改 API 契约、DB schema、domain 规则等
+### Delta 同步
 
-- `§8.1 API Contract Delta`
-  - 当改接口时填写
-  - 同步写入 `docs/project/api/{module}.md`；全局约定变化才改 `docs/project/api/conventions.md`
-
-- `§8.2 设计参考`
-  - 当前端 Story 有设计稿时填写
-
-- `§10.1 Schema / Migration Delta`
-  - 当改表结构或 migration 时填写
-  - 同步写入 `docs/project/data/{module}.md`
-  - 如果当前项目维护数据模块索引，同时更新对应索引；没有索引时不要引用已归档的历史 overview
+- **API Contract Delta**：改接口时在 plan 阶段写清，并同步 `docs/project/api/{module}.md`；全局约定变化才改 `docs/project/api/conventions.md`
+- **Schema / Migration Delta**：改表结构时写清，并同步 `docs/project/data/{module}.md` 与 `docs/project/data/overview.md`
+- **UI Surface Delta**：新增/更新 Screen 时写清，并同步 `docs/project/ui/surfaces.md` / `routes.md`
 
 ## 5. 前端设计怎么接入
 
@@ -212,7 +170,7 @@ Plan 文件放在 `docs/tasks/plans/`，按该目录下的 `TEMPLATE.md` 创建
 
 ### 5.1 产品/品牌方向轨（低频）
 
-当项目缺 `docs/project/DESIGN.md`、`DESIGN.md` 明显过期、品牌感不清、登录/落地/首个空态没有 golden screen，或用户明确要求“整体 UI 更好看 / 更有品牌感”时，必须先补产品/品牌方向：
+当项目缺 `docs/project/DESIGN.md`、`DESIGN.md` 明显过期、品牌感不清、登录/落地/首个空态没有 golden screen，或用户明确要求"整体 UI 更好看 / 更有品牌感"时，必须先补产品/品牌方向：
 
 ```text
 产品级 ui-requirement-brief
@@ -221,7 +179,7 @@ Plan 文件放在 `docs/tasks/plans/`，按该目录下的 `TEMPLATE.md` 创建
 -> docs/reference/research/designs/golden/
 ```
 
-这一轨解决“这个产品应该长什么样”：品牌气质、颜色/字体/间距/圆角/阴影、屏型富度地板、Reference Skeletons、front-of-house 的品牌表达和 golden screens。它不是每个 Story 都跑，也不在 `vj-work` 执行期临时跑。
+这一轨解决"这个产品应该长什么样"：品牌气质、颜色/字体/间距/圆角/阴影、屏型富度地板、Reference Skeletons、front-of-house 的品牌表达和 golden screens。它不是每个 Story 都跑，也不在 `vj-work` 执行期临时跑。
 
 ### 5.2 单屏体验轨（按缺口强制）
 
@@ -283,9 +241,9 @@ vj-epic-story 生成/检查页面体验地图
 - `vj-epic-plan` 把页面体验地图投影成 Screen Contract 并同步 `docs/project/ui/`；如果方向源缺失，先把 `ui-requirement-brief -> vj-design-md-matcher` 列为待办/阻塞，不在 plan 里发明风格。
 - `vj-work` 读取 `DESIGN.md + golden + docs/project/ui/` 实现整屏，并用截图 + 独立视觉审查过 gate。
 
-下面是 `do-story` 对 UI 设计图的**发现**顺序：
+`vj-work` 执行 UI task 时对设计图的**发现**顺序：
 
-1. Story 文件里的 `### 设计参考` 表格
+1. task packet / Story 文件里的设计参考（`参考:` 行或 `### 设计参考` 表格）
 2. `docs/reference/research/designs/{epic-id}/` 下以 `{story-id}` 开头的图片
 3. 当前对话里用户显式提供的路径或 URL
 
@@ -304,7 +262,7 @@ docs/reference/research/designs/epic-003/3.2-dashboard-empty.png
 docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 ```
 
-如果自动发现失败，但你又要求“按设计稿还原”，那就需要手动给路径或 URL，不要让 AI 猜。
+如果自动发现失败，但你又要求"按设计稿还原"，那就需要手动给路径或 URL，不要让 AI 猜。
 
 即使没有外部设计图，前端 Story 也不能退化成 AC 最小实现：
 
@@ -315,57 +273,57 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 
 ## 6. 多窗口 / 并行开发怎么做
 
-本仓库当前不内置专门的 Story 状态技能。多人或多窗口同时工作时，优先用以下方式降低冲突：
+并行执行的第一选择是 `vj-work` 自身的 Task DAG / 波次编排（serial-isolation / parallel-isolation）。
+在此之外多人或多窗口同时工作时，优先用以下方式降低冲突：
 
-- 在 Plan 中明确文件所有权、依赖关系和阻塞点
+- 在 plan 的 task-index 中明确文件所有权、依赖关系和阻塞点
 - 用 Git 分支或 worktree 隔离并行实现
 - 对会互相影响的 DB migration、公共接口、共享组件提前串行化
 - 在执行日志或 PR 描述里记录 Story 的 `done / blocked / risk` 状态
 
 ## 7. 几条典型工作流
 
-### 场景 1：默认单入口
+### 场景 1：已有项目加一个功能
 
 ```text
-已有 Story
--> run-story
+vj-feature（澄清 + 生成 Epic/Story）
+-> vj-epic-plan（review pack + task packets）
+-> vj-work（执行）
+-> vj-test / diff-aware-qa（按需）
 ```
 
-### 场景 2：普通后端 Story（手动模式）
+### 场景 2：普通后端 Epic
 
 ```text
-已有 Story
--> do-story
--> 如改接口：补 API Contract Delta
--> 如改 migration：补 Schema / Migration Delta
--> story-verify-fix
--> review
+已有 Epic/Story
+-> vj-epic-plan
+   -> 如改接口：命中 API delta，plan 阶段同步 docs/project/api/
+   -> 如改 migration：命中 data delta，plan 阶段同步 docs/project/data/
+-> vj-work（auto：普通 CRUD 走 fast，迁移/权限自动升 strict）
+-> review（strict 下已内含；fast 下按需）
 ```
 
-### 场景 3：复杂后端 Story，参考开源实现（手动模式）
+### 场景 3：复杂实现，参考开源
 
 ```text
-已有 Story
--> story-reference-impl
--> 研究参考实现
--> DDD 适配设计
--> 实现
--> story-verify-fix
--> review
+已有 Epic/Story
+-> story-reference-impl（研究参考实现 -> DDD 适配设计）
+-> vj-epic-plan 吸收研究结论出计划
+-> vj-work 执行
+-> story-verify-fix -> review
 ```
 
-### 场景 4：前后端联调 Story，且有设计稿（手动模式）
+### 场景 4：前后端联调 Epic，且有设计稿
 
 ```text
-已有 Story
--> do-story
--> Story / docs/designs 中提供设计参考
--> story-verify-fix
-   -> 启动后端
-   -> 启动前端（如存在可运行前端）
-   -> 跑联调
-   -> 做轻量视觉对齐
--> review
+已有 Epic/Story（页面体验地图完整）
+-> vj-epic-plan（Screen Contract + Frontend composition waves）
+-> vj-work
+   -> contract wave 稳定 API-for-UI
+   -> backend capability waves
+   -> frontend composition waves（按 Screen 整体实现 + 截图 gate）
+   -> E2E polish（cross-screen visual polish pass）
+-> vj-test（跨层 E2E + 前端截图证据）
 -> diff-aware-qa
 ```
 
@@ -375,23 +333,23 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 
 - 当前仓库包含可编辑的 `frontend/src/`，前端实现按 `AGENTS.md` 的 React + TypeScript + Vite + Tailwind + shadcn 约束执行。
 - 需要真实前端代码改动时，先确认目标 Route / Screen Contract / 设计来源是否齐备。
-- `story-verify-fix` 可以做运行时验证和视觉检查，但不替代缺失的前端源码
+- `story-verify-fix` 可以做运行时验证和视觉检查，但不替代缺失的前端源码。
 
 ## 9. 一句话决策表
 
 | 你现在手上的任务 | 用什么 |
 |------------------|--------|
-| 已有 Story，想按默认链路一路做完 | `run-story` |
+| 已有项目加一个功能 | `vj-feature` |
 | 只有产品想法，还没拆 Story | `vj-product-requirements -> vj-architecture -> vj-epic-story` |
 | 项目整体缺品牌/视觉方向，或登录/落地页缺 golden | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
-| 已有 Epic/Story，要补前端设计合同 | `vj-epic-plan` 同步 `docs/project/ui/`；单屏缺结构/状态时强制用对应 `ui-*` skill 补齐 |
-| 普通 Story 实现 | `do-story` |
-| 复杂 Story，需要参考开源 | `story-reference-impl` |
-| 实现完成后验证当前 Story | `story-verify-fix` |
+| 已有 Epic/Story，要出实现计划 | `vj-epic-plan`（自动触发 `vj-plan-review`） |
+| 已有 plan，要落地实现 | `vj-work` |
+| 复杂实现，需要参考开源 | `story-reference-impl` |
+| 实现完成后跑 epic 级 E2E | `vj-test` |
+| 实现完成后联调 / 视觉对齐验证 | `story-verify-fix` |
 | 做代码审查 | `review` |
 | 查本次 diff 的回归风险 | `diff-aware-qa` |
-| 多窗口跟踪 Story 占用和阻塞 | `story-status` |
-| 做并行开发分组 / worktree 规划 | `parallel-dev-planner` |
+| 沉淀踩坑 / 决策 | `vj-compound` |
 
 ## 10. 推荐默认顺序
 
@@ -402,17 +360,20 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
   vj-product-requirements
   -> vj-architecture
   -> vj-epic-story
-  -> vj-epic-plan（前端项目同步 Screen Contract）
+
+已有项目加功能:
+  vj-feature
+
+计划与执行:
+  vj-epic-plan（自动 vj-plan-review）
   -> vj-work
 
-开始做 Story:
-  run-story
-  或（手动模式下）do-story / story-reference-impl
-
-实现后:
-  story-verify-fix
+实现后（按需）:
+  vj-test
+  -> story-verify-fix
   -> review
-  -> diff-aware-qa（按需）
+  -> diff-aware-qa
+  -> vj-compound
 ```
 
 这就是当前仓库推荐遵循的 AI 工作流。

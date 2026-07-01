@@ -6,10 +6,13 @@
 
 | 文件 | 用途 |
 |------|------|
-| `run-epic.sh` | Epic 级 Story 自动化编排：解析 Epic markdown → 生成 Makefile DAG → 用 `claude -p` 逐个执行 |
-| `check-story-result.sh` | Story 执行结果检查：解析 `claude -p` 的 JSON 输出，判断 done/blocked |
+| `run-epic.sh` | ⛔ **已弃用**（依赖已移除的 run-story skill；默认拒绝运行，`FORCE_RUN_EPIC=1` 可强制） |
+| `check-story-result.sh` | ⛔ **已弃用**（run-epic.sh 的配套结果检查，随其一同弃用） |
 
-## run-epic.sh
+> Epic 执行的现行方式：`vj-epic-plan` 生成 task packets → `vj-work` 编排执行
+> （自带波次并行、worktree 隔离与 verify/review gate），不再依赖外部 shell DAG。
+
+## run-epic.sh（已弃用，以下为历史文档）
 
 从 Epic 文件自动编排所有 Story 的执行。核心思想：**Epic 文件即 Pipeline**。
 

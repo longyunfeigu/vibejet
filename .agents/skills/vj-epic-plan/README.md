@@ -9,7 +9,7 @@ vj-epic-story (WHAT: Epic/Story + 可执行 AC)
       ↓
 vj-epic-plan  (HOW: 本 skill —— 人工 Review manifest + epic 级 delta + catalog sync + task 文档)
       ↓
-vj-work / run-epic (执行)
+vj-work (执行)
 ```
 
 ## 产出
