@@ -133,14 +133,19 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
 - `review` — Pre-landing code review using `docs/reference/guides/review-checklist-python-fastapi.md`
 - `diff-aware-qa` — Second-layer regression QA driven by the current diff
 
-## Plan 文件规范
+## Plan 规范
 
-- 进入 plan mode 实现 Story 时，plan 文件同步写到 `docs/tasks/plans/{date}-{story-id}-{slug}.md`
-- 必须沿用 `docs/tasks/plans/TEMPLATE.md`：先做 §0 Triage（8 问 + 约束清单），按路由结果填
-  Flow A（第 1 层）/ Flow B（第 1+2 层）/ Flow C（全部 3 层），所有 Flow 必填 §11 执行步骤
-- **强制升级条件**（plan 阶段或开发中碰到任一条 → 至少 Flow B，开发中则暂停并升级 plan）：
-  改 DB migration、改公共 API 契约、改权限/认证/安全、引入外部系统或异步任务、
-  复杂状态机/幂等/事务一致性、需求不清楚、影响多个 bounded context
+- Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成 review pack 目录
+  `docs/tasks/plans/{date}-epic-{N}-{slug}/`（README / design / decisions）+
+  task packets（`docs/tasks/work/epic-{N}-{slug}/`），由 `vj-work` 消费执行
+- 执行策略用 **Execution Policy: fast | strict** 表达（旧 Story 级 Flow A/B/C 模板已废弃，
+  归档于 `docs/archive/story-plan-TEMPLATE.md`）
+- **strict 触发条件**（plan 阶段或开发中碰到任一条 → strict，开发中则暂停并升级）：
+  改 DB migration/schema、改公共 API 契约、改权限/认证/安全/ownership、引入外部系统或
+  异步任务、复杂状态机/幂等/事务一致性、需求不清楚、影响多个 bounded context、
+  UI shell/navigation/design token 级变更、预计大 diff（跨子系统 ≥400 行或总计 ≥1000 行）
+- Simple 档小改动（单文件 <20 行）可不出 review pack 直接实现；但命中 strict 触发条件的
+  改动必须走完整 plan 链路
 
 ## 架构文档策略
 
@@ -150,9 +155,9 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
 | 永久基线 | `AGENTS.md`（`CLAUDE.md` 经 `@AGENTS.md` 导入） | 规则变更时更新 |
 | 永久基线 | `docs/project/*.md` | 对应项目事实或设计契约变化时更新 |
 | 历史归档 | `docs/archive/` | 过期/被取代的文档需要保留但不再作为当前基线时 |
-| 执行基线 | `docs/tasks/plans/TEMPLATE.md` | Plan 结构变更时更新 |
+| 执行基线 | `vj-epic-plan` 的 review pack / task 模板（`.agents/skills/vj-epic-plan/references/`） | Plan 结构变更时更新 |
 | 审查基线 | `docs/reference/guides/review-checklist-python-fastapi.md` | review 规则变更时更新 |
-| 执行计划 | `docs/tasks/plans/{date}-{story-id}-{slug}.md` | 每次 feature 实现时 |
+| 执行计划 | `docs/tasks/plans/{date}-epic-{N}-{slug}/`（review pack）+ `docs/tasks/work/epic-{N}-{slug}/`（task packets） | 每次 epic/feature 实现时 |
 | 设计参考 | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
 | 按需生成/更新 | `docs/project/api/{module}.md` | 由 `api-design` skill 在公共接口契约变化时增量更新 |
 | 按需生成/更新 | `docs/project/data/{module}.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
@@ -211,9 +216,9 @@ If the task is verification-only, use `story-verify-fix`. If design refs exist, 
 |------|----------|----------|
 | **Simple** | Single file, <20 lines, local impact | Execute directly with minimal explanation |
 | **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `vj-epic-plan`（最小 review pack）+ `vj-work`, or a concise execution plan, then implement |
-| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Write a plan per `docs/tasks/plans/TEMPLATE.md` + the appropriate skill workflow |
+| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Full `vj-epic-plan` review pack（Execution policy 通常为 strict）+ the appropriate skill workflow |
 
-Complex workflow: RESEARCH → PLAN（TEMPLATE.md 或 `story-reference-impl`）→ EXECUTE →
+Complex workflow: RESEARCH → PLAN（`vj-epic-plan`，需要外部参考时先 `story-reference-impl`）→ EXECUTE →
 VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ REGRESSION QA
 （变更涉及 UI、路由、共享组件或高风险流程时跑 `diff-aware-qa`）。
 
@@ -316,7 +321,7 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 - Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`
 
 ### Workflow
-- Plan template: `docs/tasks/plans/TEMPLATE.md`
+- Plan templates: `.agents/skills/vj-epic-plan/references/`（review pack + task doc 模板）
 - Review checklist: `docs/reference/guides/review-checklist-python-fastapi.md`
 - Verify-fix design: `docs/reference/guides/story-verify-fix-design.md`
 - Skills: `.agents/skills/`
