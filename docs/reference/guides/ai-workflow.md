@@ -212,15 +212,10 @@ Design source pointers
 | 可复用组件需要沉淀规格 | `ui-component-spec-audit` |
 | 交付研发/QA 前规格不完整 | `ui-handoff-readiness-check` |
 
-复杂操作流不按页面名称枚举，按流程特征判定。命中任一项，就必须补 `ui-user-journey-audit`：
-
-- 用户需要连续完成 2 步以上。
-- 中途有权限、资格、库存、余额、次数、审核、风控或依赖数据判断。
-- 有提交、保存、发布、支付、删除、审批等不可轻易撤销动作。
-- 需要 loading / success / error / retry / rollback / cancel / back / resume 等恢复路径。
-- 操作结果会改变业务状态，或影响其他用户 / 下游流程。
-
-登录、注册、提交、审核、支付、上传、发布、导入、开通、邀请、删除等只是常见示例，不是白名单。
+复杂操作流不按页面名称枚举，按流程特征判定（多步、权限/资格判断、不可撤销动作、
+恢复路径、改变业务状态——完整判定条目见
+`.agents/skills/_shared/ui-planning-contract.md` §3，那是唯一真相源）。命中任一项，
+就必须补 `ui-user-journey-audit`。
 
 清楚的屏不重复跑；不清楚的屏必须补齐。典型链路是：
 
@@ -266,8 +261,7 @@ docs/reference/research/designs/epic-003/3.2-dashboard-mobile.png
 
 即使没有外部设计图，前端 Story 也不能退化成 AC 最小实现：
 
-- `front-of-house`（login / signup / landing / 空首屏 / 营销页）必须有品牌/产品身份、价值点或信任点、视觉锚点、主 CTA 默认可操作态和三态；禁止单一居中表单卡。
-- `operational`（dashboard / table-list / detail / form / settings）必须有主数据容器、工具条/筛选、统计或摘要、行/批量操作和三态；禁止孤立卡片堆和巨型录入框当主视觉。
+- 屏型（front-of-house / operational）的必写项与禁止项以 `.agents/skills/_shared/ui-planning-contract.md` §1/§4 为唯一真相源；实现期出口闸以 `.claude/rules/frontend.md` 为准。
 - 如果 `DESIGN.md` 或 golden screen 缺失，不能指望 `ui-page-goal-structure` / `ui-state-coverage` 让 UI 自动变好看；它们只补单屏体验合同。先补产品/品牌方向轨，再进单屏实现。
 - `vj-work` 完成 UI-critical 屏前必须保留桌面 + 移动截图，并由非实现者或 `ui-visual-consistency-audit` 做 pass/fail。
 

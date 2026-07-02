@@ -154,13 +154,11 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
     禁止 AI 默认风格：紫/蓝渐变背景、三等份 feature 卡片、Inter 字体、通用 glassmorphism。
 
 ──────────── 出口：DESIGN.md 一致性核对清单（按 UI class 触发）────────────
-UI-critical：开工前先取视觉锚点（vj-design-md-matcher 参考图 / design-taste skill）；完成前逐条核对 + 桌面/移动截图；**门面屏（login/首屏/landing/app-shell/导航/theme/视觉重构）截图后必须过独立设计评审 gate（见 `.claude/rules/frontend.md` §门面屏富度 Gate）——非自评**。
+UI-critical：开工前先取视觉锚点（vj-design-md-matcher 参考图 / design-taste skill）；完成前逐条核对 + 桌面/移动截图；**门面屏（login/首屏/landing/app-shell/导航/theme/视觉重构）截图后必须过独立设计评审 gate（见 `.claude/rules/frontend.md` 出口闸 A 轨 A4–A6）——非自评**。
 UI-functional：核对实际相关项 + targeted browser check 或局部截图。
 UI-trivial：不强制截图；仍不得违反已列 DESIGN.md 硬约束。
 凡【2】列到的章节，下列对应项必须勾选；不适用的标 N/A 并说明。**下面的核对项多为"没犯禁"，只查它们=会放过"空/丑"——门面屏另需满足正向存在性 gate（下方 ★ 项）。仅"无溢出/五态"不算通过。**
-  ★ 正向存在性（门面屏，空了就 FAIL）：品牌/价值区刻意构图（mark+产品名+≥2 价值点+克制几何/纹理，非一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量
-  ★ 独立评审：门面屏截图过 `ui-visual-consistency-audit` 或 fresh-eyes 子代理，按 §Richness Floor、§Reference Skeletons、Screen Contract 的 richness floor / forbidden patterns 产出具体缺陷 + pass/fail；红了迭代到过
-  ★ 登录/注册硬线：不得交付为单一居中表单卡；除非 Screen Contract 明确批准极简方案，否则必须有产品身份区、至少 2 个价值/信任点或等价品牌表达、表单区、错误/loading/disabled 状态和桌面+移动截图证据
+  ★ 门面屏三条硬线（正向存在性 / 独立评审 / 登录注册硬线）：按 `.claude/rules/frontend.md` 出口闸 A 轨 A4 / A5 / A6 逐条核对，条目内容以 frontend.md 为唯一真相源，本模板不复述
   □ 壳形态：符合 Screen Contract / routes catalog 的 shell、导航、角色守卫；不得自造导航 frame
   □ 主色：主操作使用 DESIGN.md 定义的 primary / accent token；状态色只用于状态，不把蓝/紫等任意色当默认主按钮
   □ 背景：使用 DESIGN.md 定义的 canvas / surface / muted token；无默认渐变、blob、暗色整壳或 glassmorphism

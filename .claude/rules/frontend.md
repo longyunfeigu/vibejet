@@ -40,6 +40,9 @@ paths:
 - **A1 品味 skill 已真跑**：实现前已调 `design-taste-frontend`（或 `high-end-visual-design`），变更叙事**写明应用了哪几条**启发式，不是空喊"调了"。
 - **A2 建到富度地板**：按 DESIGN.md §Richness Floor（front-of-house 行）+ §Reference Skeletons 建整屏（产品身份/版面结构/层次/三态），显式不做 AC 最小薄屏。
 - **A3 截图对照 + 主观三问**：桌面+移动截图，与一个同类参考**并排对照**版面结构与层次；再自问「像被设计过的产品还是 demo？」「资深设计师直接发版还是打回？」「有无刻意的组成与视觉锚？」任一"否"→迭代。
+- **A4 正向存在性判据（空了就 FAIL）**：自评 checklist 只查"没犯禁"（无渐变/glass/色块/裸 hex），**不计入通过**——它抓不住"空/丑"。done 判据是正向的：品牌区有刻意构图（mark + 产品名 + ≥2 价值点 + 克制几何/纹理，不是一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量。
+- **A5 判定权独立（与 B5 同罪同罚）**：截图后必须过一道**独立** gate——跑 `ui-visual-consistency-audit` 或新开 fresh-eyes 子代理，对桌面+移动截图按 DESIGN.md §Richness Floor / §Reference Skeletons 与 Screen Contract 的 richness floor / forbidden patterns 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
+- **A6 登录页硬线**：`/login`、`/signup`、认证空首屏不得交付为单一居中表单卡。除非 Screen Contract 明确批准极简方案，否则必须有产品身份区、至少 2 个价值/信任点或等价品牌表达、表单区、错误/loading/disabled 状态和桌面+移动截图证据。
 
 ### B 轨 · operational（dashboard / table-list / 审核台 / detail / form / 设置）— 客观硬线
 
