@@ -29,10 +29,22 @@
   --input: #e6e6ec;
   --ring: #5046e5;
 
-  /* 品牌渐变（右侧面板视觉锚） */
+  /* 品牌渐变（AppShell wordmark） */
   --brand-from: #4f46e5;
   --brand-via: #7c3aed;
   --brand-to: #a855f7;
+
+  /* 编辑艺术系（front-of-house 屏：login 等）——纸 / 墨 / 松绿，light-only（不随 .dark 翻转） */
+  --paper: #faf9f6;
+  --ink: #1c1b17;
+  --ink-muted: #75726a;
+  --ink-faint: #8f8c81;
+  --ink-ghost: #a5a296;
+  --line: #d9d5c9;
+  --line-soft: #e2ded2;
+  --pine: #21382c;
+  --pine-deep: #1a2e24;
+  --cream: #f5f2e8;
 }
 
 .dark {
@@ -88,6 +100,16 @@
   --color-brand-from: var(--brand-from);
   --color-brand-via: var(--brand-via);
   --color-brand-to: var(--brand-to);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-ghost: var(--ink-ghost);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-pine: var(--pine);
+  --color-pine-deep: var(--pine-deep);
+  --color-cream: var(--cream);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -99,6 +121,9 @@
     'Geist', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  /* 编辑排印用衬线：CJK 思源宋、Latin 展示衬线（登录屏等 front-of-house 屏使用） */
+  --font-serif: 'Noto Serif SC', 'Songti SC', serif;
+  --font-display: 'Instrument Serif', 'Noto Serif SC', 'Songti SC', serif;
 }
 
 @layer base {
@@ -127,16 +152,7 @@
   animation: fade-up 0.7s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-/* 右侧产品屏卡片墙的竖向无缝滚动（内容复制两份，translateY 0→-50%） */
-@keyframes marquee-y {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-50%);
-  }
-}
-
-@utility animate-marquee-y {
-  animation: marquee-y var(--marquee-duration, 48s) linear infinite;
+/* 胶片颗粒纹理（SVG feTurbulence，配 mix-blend-overlay 叠在图面上用） */
+@utility bg-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>");
 }
