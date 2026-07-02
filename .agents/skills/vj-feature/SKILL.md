@@ -260,6 +260,14 @@ Epic/Story 已生成。接下来要：
 **依赖**: Story X.Z / 无
 ```
 
+## 无人值守模式
+
+作为 subagent 运行或用户不可达时，Phase 1 功能摘要确认与 Phase 2 用户确认 gate 不阻塞——
+按最合理理解继续，所有待确认项记为"假设待审批 + Confidence: H/M/L"，生成的 Epic/Story
+frontmatter 标 `status: draft-unattended`。**例外**：Phase 2 机检 ERROR 是质量闸，仍硬停。
+Phase 4 路由实现在无人值守下默认不启动（只生成文件），除非调用方明确要求继续。
+绝不静默拍板、绝不静默跳过。
+
 ## 停止条件
 
 以下情况应停止并告知用户，不继续往下走：

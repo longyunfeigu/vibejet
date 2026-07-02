@@ -160,3 +160,6 @@ logs/*
 .superpowers/
 .hex-skills/
 .vj/
+
+# Local DB backups (e.g. backend/dev.db.bak-20260624)
+*.db.bak-*

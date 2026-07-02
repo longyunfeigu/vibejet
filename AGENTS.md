@@ -336,3 +336,6 @@ Do not rely on stale generic tool names in this document. Prefer:
 - targeted tests and verification commands from `backend/`
 - `story-verify-fix` + `playwright-interactive` for browser-based validation
 - `diff-aware-qa` for post-implementation regression checks scoped to the current diff
+- 浏览器栈分工（刻意为之，勿混用）：联调/视觉对齐验证走 `playwright-interactive`
+  （story-verify-fix / vj-work 截图 gate）；`vj-test` 的前端 E2E 走全局 `web-access` skill
+  （不引入项目内 Playwright 依赖）
