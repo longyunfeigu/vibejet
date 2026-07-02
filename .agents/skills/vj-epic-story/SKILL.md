@@ -349,11 +349,8 @@ Epic 2: 商品目录
 
 Story 标题禁止用 "**和** / **&** / **+** / **,**" 连接两个独立能力。检测到必须拆成多个 Story。
 
-**自动检查**：用 grep 在拆分输出上跑：
-
-```bash
-grep -nE "^### Story.*(和| 和 |&|\+|,)" <生成的 epic md>
-```
+**自动检查**：写盘前由 `scripts/validate_story.py`（R4）统一机检；拆分阶段先做语义判断。
+确为单一原子能力（见下方例外）时在标题行尾加 `<!-- bundling-ok -->` 豁免机检。
 
 **改写示例**：
 
@@ -596,7 +593,7 @@ Epic 2: 商品目录 (P0, 4 Story, 展开模式)
   ✅ 旅程完整性：用户旅程 section 存在；主旅程每步都有 Story；异常旅程都有 Story/AC
   ✅ 前端体验完整性：前端 Epic 有页面体验地图；UI Story 都映射到页面/区域；控件细节只出现在前端 AC
   ✅ INVEST 检查通过
-  ✅ 无 Feature Bundling（grep "和|&|+|," 无命中）
+  ✅ validate_story.py 机检通过（AC≤7 / 验证三要素 / Assumptions / 无 Bundling / 无前向依赖）
   ✅ 无前向依赖
   ✅ 所有 Story 行为 AC 总数 ≤7；FE AC 单独计数且未承载新增业务行为
   ✅ 所有 Story 有 Assumptions section
@@ -650,6 +647,15 @@ Epic 2: 商品目录 (P0, 4 Story, 展开模式)
 
 注：以下大部分项 Phase 5.2 预览阶段已显示给用户。此处是写盘前最后一次自动校验，发现任意 BLOCKING 项失败则中止写盘并报告。
 
+**第一步（机检，必跑）**：把组装好的内容写入临时文件后执行
+
+```bash
+python3 .agents/skills/vj-epic-story/scripts/validate_story.py <临时文件或 epic 目录>
+```
+
+机检覆盖 R1 行为 AC ≤7 / R2 `验证:` 三要素 / R3 Assumptions 三要素 / R4 Feature Bundling /
+R5 前向依赖，exit 1 则修复后重跑，禁止带 ERROR 写盘。以下人工清单只负责机检覆盖不了的语义项。
+
    - [ ] 所有 PRD 功能需求都有对应 Story
    - [ ] **EARS 反向追溯**（BLOCKING）：本 Epic 每条 EARS `If-Then`（不期望行为）/ `While`（状态驱动）子句都映射到 ≥1 条 Error/Edge AC（空映射=缺口，补齐或显式标 N/A + 理由）
    - [ ] **旅程完整性**（BLOCKING）：每个 Epic 有 `## 用户旅程` section；主旅程每一步都有对应 Story；分支与异常旅程每一项都有 Story 或 Edge/Error AC 映射（缺步骤=漏 Story/AC，回 Phase 3/4）
@@ -671,14 +677,7 @@ Story X.N 的"依赖"字段只能引用：
 
 **禁止**：依赖同 Epic 内序号更大的 Story、依赖未来 Epic、循环依赖。
 
-**自动检查**：
-
-```bash
-# 提取所有依赖声明，校验编号方向
-grep -nE "^\*\*依赖\*\*:" <生成文件> | while read line; do
-  # 解析当前 Story 序号和依赖目标，若依赖 > 当前 → 报错
-done
-```
+**自动检查**：由 `scripts/validate_story.py`（R5）覆盖，Phase 5.5 机检已包含，不单独跑。
 
 发现前向依赖 → **停止写盘**，向用户报告冲突，提示两种解决方式：(a) 调整 Story 顺序使依赖方向正确；(b) 合并两个 Story（如果实际无法解耦）。
 
