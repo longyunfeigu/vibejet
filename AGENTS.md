@@ -119,6 +119,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 ## AI Workflow Entry Points
 
 See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflow and skill selection guide.
+新建或大改 vj 系 skill 时，对照 `.agents/skills/_shared/vj-skill-conventions.md` 的家族约定 checklist。
 
 Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when they match the task:
 
