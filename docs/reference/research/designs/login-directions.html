@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>vibejet 登录页 · 五个风格方向</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  /* ========== 对比页外壳 ========== */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #0e0e12;
+    color: #e8e8ec;
+    font-family: 'Geist', 'Noto Sans SC', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bar { padding: 34px 40px 22px; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .bar h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .bar p { font-family: 'Geist Mono', monospace; font-size: 12px; color: #6d6d7a; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(560px, 1fr));
+    gap: 26px;
+    padding: 0 40px 56px;
+  }
+  figure.card {
+    margin: 0; background: #15151b; border: 1px solid #232330; border-radius: 14px;
+    overflow: hidden; cursor: zoom-in;
+    transition: border-color .25s ease, transform .25s cubic-bezier(.32,.72,0,1);
+  }
+  figure.card:hover { border-color: #3a3a4c; transform: translateY(-3px); }
+  figcaption { padding: 16px 20px 14px; display: flex; flex-direction: column; gap: 5px; }
+  figcaption .t { display: flex; align-items: baseline; gap: 10px; }
+  figcaption b { font-size: 14px; font-weight: 600; }
+  figcaption .bench { font-family: 'Geist Mono', monospace; font-size: 11px; color: #7d7d8c; letter-spacing: .04em; }
+  figcaption em { font-style: normal; font-size: 12.5px; line-height: 1.5; color: #9a9aa8; }
+  .viewport { position: relative; aspect-ratio: 1440 / 900; background: #000; overflow: hidden; }
+  .viewport > .screen { position: absolute; top: 0; left: 0; transform: scale(var(--s, 0.4)); transform-origin: 0 0; pointer-events: none; }
+
+  /* ========== 全屏细看 ========== */
+  .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(8,8,11,.94); display: flex; flex-direction: column; }
+  .overlay[hidden] { display: none; }
+  .ov-bar { height: 56px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+  .ov-bar .name { font-size: 13px; font-weight: 500; }
+  .ov-bar .name span { font-family: 'Geist Mono', monospace; font-size: 11px; color: #7d7d8c; margin-left: 10px; }
+  .ov-bar .hint { font-family: 'Geist Mono', monospace; font-size: 11px; color: #6d6d7a; }
+  .ov-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .ov-holder { width: 1440px; height: 900px; flex: none; border-radius: 6px; overflow: hidden; box-shadow: 0 40px 120px rgba(0,0,0,.6); }
+  .ov-btn {
+    position: fixed; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid #33333f;
+    background: #1a1a22; color: #c5c5d2; font-size: 16px; cursor: pointer;
+  }
+  .ov-btn:hover { background: #24242e; }
+  .ov-prev { left: 18px; } .ov-next { right: 18px; }
+  .ov-close { position: fixed; top: 10px; right: 18px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #33333f; background: #1a1a22; color: #c5c5d2; cursor: pointer; }
+
+  /* ========== 五块 1440×900 画布公共 ========== */
+  .screen { width: 1440px; height: 900px; position: relative; overflow: hidden; font-family: 'Geist','Noto Sans SC',sans-serif; -webkit-font-smoothing: antialiased; }
+  .screen h2, .screen h3, .screen p, .screen label { margin: 0; }
+  .screen button, .screen input { font-family: inherit; }
+  .screen a { text-decoration: none; }
+  .gicon { width: 18px; height: 18px; flex: none; }
+
+  /* ============================================================
+     01 · 虚空 — 对标 Linear
+     机制：做减法的自信。深色虚空 + 元素少到不能再少。
+  ============================================================ */
+  .s1 { background: #08090c; color: #f7f8f8; }
+  .s1-glow { position: absolute; top: -30%; left: 20%; right: 20%; height: 70%;
+    background: radial-gradient(50% 50% at 50% 50%, rgba(94,106,210,.16), transparent 70%); }
+  .s1-col { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -54%);
+    width: 320px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .s1-mark { width: 42px; height: 42px; border-radius: 12px; background: #14151a; border: 1px solid #26272e;
+    display: flex; align-items: center; justify-content: center; color: #e2e3ea; }
+  .s1 h2 { margin-top: 28px; font-size: 21px; font-weight: 500; letter-spacing: -0.01em; }
+  .s1-btns { margin-top: 36px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .s1-btn { height: 44px; width: 100%; border-radius: 10px; border: 1px solid #23242b;
+    background: #15161b; color: #d2d3da; font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+  .s1-btn.pri { background: #e9e9ee; border-color: #e9e9ee; color: #101116; }
+  .s1-alt { margin-top: 28px; font-size: 13px; color: #63676f; }
+  .s1-alt a { color: #a6a9b4; }
+  .s1-foot { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center;
+    font-size: 12px; color: #4a4e57; letter-spacing: .02em; }
+  .s1-foot i { font-style: normal; margin: 0 8px; color: #33363d; }
+
+  /* ============================================================
+     02 · 几何单色 — 对标 Vercel
+     机制：纯黑白 + 几何标 + 蓝图角标，零彩色，靠字重与 hairline 分层。
+  ============================================================ */
+  .s2 { background: #fff; color: #000; }
+  .s2-top { position: absolute; top: 30px; left: 36px; display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .s2-cross { position: absolute; font-family: 'Geist Mono', monospace; font-size: 16px; color: #d0d0d0; }
+  .s2-col { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -52%);
+    width: 384px; display: flex; flex-direction: column; }
+  .s2 h2 { font-size: 30px; font-weight: 600; letter-spacing: -0.045em; text-align: center; }
+  .s2-oauth { margin-top: 36px; height: 44px; border-radius: 8px; border: 1px solid #eaeaea; background: #fff;
+    color: #171717; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+  .s2-oauth .g { font-weight: 700; font-size: 15px; }
+  .s2-div { margin: 22px 0; display: flex; align-items: center; gap: 14px; color: #999; font-size: 12px; }
+  .s2-div i { flex: 1; height: 1px; background: #eaeaea; }
+  .s2 label { font-size: 13px; font-weight: 500; color: #444; margin-bottom: 7px; }
+  .s2 input { height: 44px; border-radius: 8px; border: 1px solid #eaeaea; padding: 0 14px;
+    font-size: 14px; color: #000; outline: none; margin-bottom: 18px; width: 100%; }
+  .s2 input::placeholder { color: #a3a3a3; }
+  .s2-pri { height: 44px; border-radius: 8px; border: 0; background: #000; color: #fff;
+    font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 4px; }
+  .s2-alt { margin-top: 24px; text-align: center; font-size: 13px; color: #666; }
+  .s2-alt a { color: #000; font-weight: 500; }
+  .s2-foot { position: absolute; bottom: 0; left: 0; right: 0; height: 56px; border-top: 1px solid #eaeaea;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 36px;
+    font-family: 'Geist Mono', monospace; font-size: 11.5px; color: #8a8a8a; letter-spacing: .02em; }
+  .s2-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #111; margin-right: 8px; vertical-align: 1px; }
+
+  /* ============================================================
+     03 · 精度工程 — 对标 Stripe
+     机制：多层柔阴影卡片 + 处处打磨的表单细节 + 信任微文案。
+  ============================================================ */
+  .s3 { background: #f6f9fc; color: #32325d; }
+  .s3-band { position: absolute; top: -190px; left: -10%; width: 120%; height: 400px;
+    background: linear-gradient(100deg, #eef2fb 10%, #e9edfb 45%, #eef6fd 90%); transform: skewY(-7deg); }
+  .s3-band2 { position: absolute; top: 168px; left: -10%; width: 120%; height: 46px;
+    background: linear-gradient(90deg, #e3e9fb, #dcedfb); transform: skewY(-7deg); }
+  .s3-card { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -53%);
+    width: 430px; background: #fff; border-radius: 10px; padding: 40px 40px 34px;
+    box-shadow: 0 15px 35px rgba(60,66,87,.10), 0 5px 15px rgba(0,0,0,.06); }
+  .s3-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+  .s3-brand .m { width: 26px; height: 26px; border-radius: 7px; background: #5046e5; color: #fff;
+    display: flex; align-items: center; justify-content: center; }
+  .s3-brand b { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .s3 h3 { font-size: 20px; font-weight: 500; margin-bottom: 26px; }
+  .s3 label { display: block; font-size: 13px; font-weight: 500; color: #3c4257; margin-bottom: 7px; }
+  .s3-lrow { display: flex; align-items: baseline; justify-content: space-between; }
+  .s3-lrow a { font-size: 13px; color: #5046e5; font-weight: 500; }
+  .s3 input[type=text], .s3 input[type=password] { width: 100%; height: 40px; border-radius: 6px;
+    border: 1px solid #dde3ea; padding: 0 12px; font-size: 14px; color: #32325d; outline: none;
+    box-shadow: 0 1px 2px rgba(50,50,93,.04) inset; margin-bottom: 18px; }
+  .s3 input::placeholder { color: #a8b2c0; }
+  .s3-check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #3c4257; margin: 2px 0 20px; }
+  .s3-check span { width: 15px; height: 15px; border-radius: 4px; border: 1px solid #c9d2dd; background: #fff; }
+  .s3-pri { width: 100%; height: 40px; border-radius: 6px; border: 0; background: #5046e5; color: #fff;
+    font-size: 15px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 12px rgba(80,70,229,.30); }
+  .s3-trust { display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 14px; font-size: 12px; color: #8792a2; }
+  .s3-div { margin: 22px 0 18px; display: flex; align-items: center; gap: 12px; color: #a8b2c0; font-size: 12px; }
+  .s3-div i { flex: 1; height: 1px; background: #e6ebf1; }
+  .s3-oauth { width: 100%; height: 40px; border-radius: 6px; border: 1px solid #dde3ea; background: #fff;
+    color: #3c4257; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer; }
+  .s3-alt { position: absolute; top: calc(50% + 268px); left: 0; right: 0; text-align: center; font-size: 14px; color: #6b7c93; }
+  .s3-alt a { color: #5046e5; font-weight: 500; }
+  .s3-foot { position: absolute; bottom: 26px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px;
+    font-size: 13px; color: #8792a2; }
+
+  /* ============================================================
+     04 · 仪式节奏 — 对标 Apple
+     机制：渐进披露，一次只要一个输入；超大字 + 大留白的仪式感。
+  ============================================================ */
+  .s4 { background: #fff; color: #1d1d1f;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro SC', 'PingFang SC', 'Geist', 'Noto Sans SC', sans-serif; }
+  .s4-nav { height: 48px; border-bottom: 1px solid #f0f0f2; display: flex; align-items: center; padding: 0 36px;
+    font-size: 14px; font-weight: 600; letter-spacing: -0.01em; gap: 8px; }
+  .s4-col { position: absolute; top: 47%; left: 50%; transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .s4-bolt { color: #1d1d1f; }
+  .s4 h2 { margin-top: 30px; font-size: 44px; font-weight: 600; letter-spacing: -0.015em; }
+  .s4-sub { margin-top: 14px; font-size: 17px; color: #86868b; }
+  .s4-field { margin-top: 46px; width: 440px; height: 56px; border: 1px solid #d2d2d7; border-radius: 14px;
+    display: flex; align-items: center; padding: 0 8px 0 20px; }
+  .s4-field input { flex: 1; border: 0; outline: none; font-size: 17px; color: #1d1d1f; background: transparent; }
+  .s4-field input::placeholder { color: #a1a1a6; }
+  .s4-go { width: 40px; height: 40px; border-radius: 50%; border: 0; background: #ececf0; color: #86868b;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .s4-keep { margin-top: 22px; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #424245; }
+  .s4-keep span { width: 16px; height: 16px; border-radius: 4px; border: 1px solid #c7c7cc; }
+  .s4-links { margin-top: 34px; display: flex; flex-direction: column; gap: 14px; font-size: 15px; }
+  .s4-links a { color: #0066cc; }
+  .s4-foot { position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid #f0f0f2;
+    padding: 18px 0 22px; text-align: center; font-size: 12px; color: #86868b; line-height: 1.7; }
+
+  /* ============================================================
+     05 · 编辑艺术 — 对标 Mercury
+     机制：衬线排印 + 装裱式艺术画 + 画廊标签，借印刷品的势。
+  ============================================================ */
+  .s5 { background: #faf9f6; color: #1c1b17; display: flex; }
+  .s5-left { width: 46%; height: 100%; padding: 64px 88px; display: flex; flex-direction: column; position: relative; }
+  .s5-word { font-family: 'Instrument Serif', 'Noto Serif SC', serif; font-style: italic; font-size: 26px; color: #1c1b17; }
+  .s5-mid { margin: auto 0; max-width: 360px; width: 100%; }
+  .s5 h2 { font-family: 'Noto Serif SC', serif; font-size: 42px; font-weight: 600; letter-spacing: .01em; }
+  .s5-sub { margin-top: 14px; font-size: 15px; color: #75726a; line-height: 1.7; }
+  .s5-form { margin-top: 48px; display: flex; flex-direction: column; }
+  .s5 label { font-size: 12px; letter-spacing: .32em; color: #8f8c81; margin-bottom: 4px; }
+  .s5 input { border: 0; border-bottom: 1px solid #d9d5c9; background: transparent; height: 42px;
+    font-size: 16px; color: #1c1b17; outline: none; margin-bottom: 30px; font-family: inherit; }
+  .s5 input::placeholder { color: #b9b5a8; }
+  .s5-pri { height: 50px; border: 0; border-radius: 10px; background: #21382c; color: #f5f2e8;
+    font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 6px; letter-spacing: .06em; }
+  .s5-row { margin-top: 20px; display: flex; justify-content: space-between; font-size: 13.5px; color: #75726a; }
+  .s5-row a { color: #21382c; border-bottom: 1px solid #c9c5b8; padding-bottom: 1px; }
+  .s5-foot { font-size: 12px; color: #a5a296; letter-spacing: .04em; }
+  .s5-right { width: 54%; height: 100%; position: relative; padding: 26px 26px 74px; }
+  .s5-art { position: absolute; inset: 26px 26px 74px; border-radius: 2px; overflow: hidden;
+    background: linear-gradient(180deg, #0d1626 0%, #1c3850 44%, #3d6a80 60%, #c99b64 72%, #23201c 72.6%, #171512 100%); }
+  .s5-moon { position: absolute; top: 22%; left: 32%; width: 150px; height: 150px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #f5eddb, #e4d6b4);
+    box-shadow: 0 0 90px 30px rgba(240,225,190,.28); }
+  .s5-grain { position: absolute; inset: 0; opacity: .16; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>"); }
+  .s5-cap { position: absolute; left: 30px; bottom: 26px; font-family: 'Noto Serif SC', serif;
+    font-size: 13.5px; color: #8f8c81; }
+  .s5-cap i { font-family: 'Instrument Serif', serif; font-style: italic; color: #a5a296; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1>vibejet 登录页 — 五个风格方向</h1>
+  <p>点击卡片全屏细看 · esc 退出 · ← / → 切换 · 静态稿，按钮不可交互</p>
+</header>
+
+<main class="grid">
+
+  <!-- ============ 01 虚空 / Linear ============ -->
+  <figure class="card" data-name="01 · 虚空" data-bench="对标 Linear">
+    <figcaption>
+      <div class="t"><b>01 · 虚空</b><span class="bench">对标 Linear</span></div>
+      <em>做减法的自信：一片深色虚空里只有 logo、一句话、两个按钮，留白本身就是气场。</em>
+    </figcaption>
+    <div class="viewport">
+      <section class="screen s1">
+        <div class="s1-glow"></div>
+        <div class="s1-col">
+          <div class="s1-mark">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          </div>
+          <h2>登录 vibejet</h2>
+          <div class="s1-btns">
+            <button class="s1-btn pri">
+              <svg class="gicon" viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 12.2c0-.7-.06-1.4-.18-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.4zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9l3.3-2.5zM12 6c1.5 0 2.8.5 3.8 1.5L18.6 4.7A10 10 0 0 0 3.1 7.5L6.4 10C7.2 7.8 9.4 6 12 6z"/></svg>
+              使用 Google 继续
+            </button>
+            <button class="s1-btn">使用邮箱继续</button>
+          </div>
+          <p class="s1-alt">还没有账号？<a href="#">注册</a></p>
+        </div>
+        <p class="s1-foot">条款<i>·</i>隐私<i>·</i>© vibejet</p>
+      </section>
+    </div>
+  </figure>
+
+  <!-- ============ 02 几何单色 / Vercel ============ -->
+  <figure class="card" data-name="02 · 几何单色" data-bench="对标 Vercel">
+    <figcaption>
+      <div class="t"><b>02 · 几何单色</b><span class="bench">对标 Vercel</span></div>
+      <em>纯黑白零彩色，几何标 + 蓝图角标 + mono 页脚，全部层次靠字重和 hairline。</em>
+    </figcaption>
+    <div class="viewport">
+      <section class="screen s2">
+        <header class="s2-top">
+          <svg width="18" height="16" viewBox="0 0 18 16" fill="#000"><polygon points="9,0 18,16 0,16"/></svg>
+          vibejet
+        </header>
+        <span class="s2-cross" style="top:180px;left:452px">+</span>
+        <span class="s2-cross" style="top:180px;right:452px">+</span>
+        <span class="s2-cross" style="bottom:180px;left:452px">+</span>
+        <span class="s2-cross" style="bottom:180px;right:452px">+</span>
+        <div class="s2-col">
+          <h2>登录 vibejet</h2>
+          <button class="s2-oauth"><span class="g">G</span>使用 Google 继续</button>
+          <div class="s2-div"><i></i>或<i></i></div>
+          <label>邮箱</label>
+          <input type="text" placeholder="you@example.com" />
+          <label>密码</label>
+          <input type="password" placeholder="••••••••" />
+          <button class="s2-pri">登录</button>
+          <p class="s2-alt">还没有账号？<a href="#">注册 ↗</a></p>
+        </div>
+        <footer class="s2-foot">
+          <span>© 2026 vibejet, inc.</span>
+          <span><i class="s2-dot"></i>ALL SYSTEMS NORMAL</span>
+        </footer>
+      </section>
+    </div>
+  </figure>
+
+  <!-- ============ 03 精度工程 / Stripe ============ -->
+  <figure class="card" data-name="03 · 精度工程" data-bench="对标 Stripe">
+    <figcaption>
+      <div class="t"><b>03 · 精度工程</b><span class="bench">对标 Stripe</span></div>
+      <em>多层柔阴影卡片、被打磨过的每个表单细节、信任微文案——高级感来自工程精度。</em>
+    </figcaption>
+    <div class="viewport">
+      <section class="screen s3">
+        <div class="s3-band"></div>
+        <div class="s3-band2"></div>
+        <div class="s3-card">
+          <div class="s3-brand">
+            <span class="m">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+            </span>
+            <b>vibejet</b>
+          </div>
+          <h3>登录您的账户</h3>
+          <label>邮箱</label>
+          <input type="text" placeholder="you@example.com" />
+          <div class="s3-lrow"><label>密码</label><a href="#">忘记密码？</a></div>
+          <input type="password" placeholder="••••••••" />
+          <div class="s3-check"><span></span>在这台设备上记住我</div>
+          <button class="s3-pri">登录</button>
+          <div class="s3-trust">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            登录受 256 位加密保护
+          </div>
+          <div class="s3-div"><i></i>或<i></i></div>
+          <button class="s3-oauth">
+            <svg class="gicon" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.52 12.27c0-.82-.07-1.6-.21-2.36H12v4.46h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.58-5.17 3.58-8.72z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.08 7.94-2.9l-3.88-3a7.2 7.2 0 0 1-4.06 1.16 7.14 7.14 0 0 1-6.71-4.94H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.29 14.32a7.2 7.2 0 0 1 0-4.63v-3.1H1.28a12 12 0 0 0 0 10.83l4.01-3.1z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.44-3.44A11.99 11.99 0 0 0 12 0 12 12 0 0 0 1.28 6.59l4.01 3.1A7.14 7.14 0 0 1 12 4.77z"/></svg>
+            使用 Google 登录
+          </button>
+        </div>
+        <p class="s3-alt">还没有账号？<a href="#">注册</a></p>
+        <footer class="s3-foot"><span>© vibejet</span><span>隐私与条款</span><span>帮助</span></footer>
+      </section>
+    </div>
+  </figure>
+
+  <!-- ============ 04 仪式节奏 / Apple ============ -->
+  <figure class="card" data-name="04 · 仪式节奏" data-bench="对标 Apple ID">
+    <figcaption>
+      <div class="t"><b>04 · 仪式节奏</b><span class="bench">对标 Apple ID</span></div>
+      <em>渐进披露：一次只要一个输入框，超大字 + 大留白把登录做成一次仪式。</em>
+    </figcaption>
+    <div class="viewport">
+      <section class="screen s4">
+        <nav class="s4-nav">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          vibejet 账户
+        </nav>
+        <div class="s4-col">
+          <svg class="s4-bolt" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+          <h2>登录 vibejet。</h2>
+          <p class="s4-sub">一个账户，通向你的所有构建。</p>
+          <div class="s4-field">
+            <input type="text" placeholder="邮箱或用户名" />
+            <button class="s4-go">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div class="s4-keep"><span></span>保持登录状态</div>
+          <div class="s4-links">
+            <a href="#">忘记密码？↗</a>
+            <a href="#">创建 vibejet 账户 ↗</a>
+          </div>
+        </div>
+        <footer class="s4-foot">
+          你的账户信息仅用于登录验证，受隐私政策保护。<br />
+          © 2026 vibejet · 隐私政策 · 使用条款
+        </footer>
+      </section>
+    </div>
+  </figure>
+
+  <!-- ============ 05 编辑艺术 / Mercury ============ -->
+  <figure class="card" data-name="05 · 编辑艺术" data-bench="对标 Mercury">
+    <figcaption>
+      <div class="t"><b>05 · 编辑艺术</b><span class="bench">对标 Mercury</span></div>
+      <em>衬线排印 + 装裱在纸色底上的一幅画 + 画廊式标签——往界面里借印刷品和艺术的势。</em>
+    </figcaption>
+    <div class="viewport">
+      <section class="screen s5">
+        <div class="s5-left">
+          <div class="s5-word">vibejet</div>
+          <div class="s5-mid">
+            <h2>欢迎回来。</h2>
+            <p class="s5-sub">登录以继续你的构建。</p>
+            <div class="s5-form">
+              <label>邮 箱</label>
+              <input type="text" placeholder="you@example.com" />
+              <label>密 码</label>
+              <input type="password" placeholder="••••••••" />
+              <button class="s5-pri">登 录</button>
+              <div class="s5-row">
+                <span>还没有账号？ <a href="#">注册</a></span>
+                <a href="#">忘记密码</a>
+              </div>
+            </div>
+          </div>
+          <p class="s5-foot">© vibejet 2026 · 条款 · 隐私</p>
+        </div>
+        <div class="s5-right">
+          <div class="s5-art">
+            <div class="s5-moon"></div>
+            <div class="s5-grain"></div>
+          </div>
+          <p class="s5-cap">《想法，即产品》 <i>no.01 — vibejet studio, 2026</i></p>
+        </div>
+      </section>
+    </div>
+  </figure>
+
+</main>
+
+<!-- 全屏细看 -->
+<div class="overlay" hidden>
+  <div class="ov-bar">
+    <p class="name"></p>
+    <p class="hint">esc 关闭 · ← / → 切换</p>
+  </div>
+  <div class="ov-stage"><div class="ov-holder"></div></div>
+  <button class="ov-btn ov-prev" aria-label="上一版">←</button>
+  <button class="ov-btn ov-next" aria-label="下一版">→</button>
+  <button class="ov-close" aria-label="关闭">✕</button>
+</div>
+
+<script>
+  const cards = [...document.querySelectorAll('figure.card')];
+  const overlay = document.querySelector('.overlay');
+  const holder = overlay.querySelector('.ov-holder');
+  const nameEl = overlay.querySelector('.name');
+  let cur = -1;
+
+  function fitThumbs() {
+    document.querySelectorAll('.viewport').forEach(v => {
+      v.style.setProperty('--s', v.clientWidth / 1440);
+    });
+  }
+
+  function fitOverlay() {
+    const s = Math.min((innerWidth - 48) / 1440, (innerHeight - 88) / 900);
+    holder.style.transform = `scale(${s})`;
+    holder.style.transformOrigin = 'center';
+  }
+
+  function show(i) {
+    cur = (i + cards.length) % cards.length;
+    const card = cards[cur];
+    holder.innerHTML = '';
+    holder.appendChild(card.querySelector('.screen').cloneNode(true));
+    holder.firstChild.style.pointerEvents = 'none';
+    nameEl.innerHTML = `${card.dataset.name}<span>${card.dataset.bench}</span>`;
+    overlay.hidden = false;
+    fitOverlay();
+  }
+
+  function close() { overlay.hidden = true; cur = -1; }
+
+  cards.forEach((c, i) => c.addEventListener('click', () => show(i)));
+  overlay.querySelector('.ov-close').addEventListener('click', close);
+  overlay.querySelector('.ov-prev').addEventListener('click', () => show(cur - 1));
+  overlay.querySelector('.ov-next').addEventListener('click', () => show(cur + 1));
+  addEventListener('keydown', e => {
+    if (overlay.hidden) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') show(cur - 1);
+    if (e.key === 'ArrowRight') show(cur + 1);
+  });
+  addEventListener('resize', () => { fitThumbs(); if (!overlay.hidden) fitOverlay(); });
+  fitThumbs();
+</script>
+</body>
+</html>
