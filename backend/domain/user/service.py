@@ -23,3 +23,23 @@ class UserDomainService:
     async def ensure_email_available(self, email: str) -> None:
         if await self._users.get_by_email(email) is not None:
             raise UserAlreadyExistsException(email)
+
+    async def derive_unique_username(self, email: str) -> str:
+        """Generate a valid, unique username from an email local-part.
+
+        Used when creating users from federated logins (no chosen username).
+        Sanitizes to the allowed charset ``[a-zA-Z0-9_.-]``, pads to >= 3 chars,
+        then appends an incrementing suffix until unused.
+        """
+        local = email.split("@", 1)[0]
+        base = "".join(ch for ch in local if ch.isalnum() or ch in "_.-") or "user"
+        base = base[:40]
+        if len(base) < 3:
+            base = f"{base}_user"[:40]
+
+        candidate = base
+        suffix = 0
+        while await self._users.get_by_username(candidate) is not None:
+            suffix += 1
+            candidate = f"{base}{suffix}"[:50]
+        return candidate

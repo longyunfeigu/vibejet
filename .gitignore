@@ -16,6 +16,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# 例外：frontend 源码目录 src/lib（apiClient/authStore/utils 等）不是 Python 构建产物，必须纳入版本控制
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -160,6 +162,7 @@ logs/*
 .superpowers/
 .hex-skills/
 .vj/
+.gstack/
 
 # Local DB backups (e.g. backend/dev.db.bak-20260624)
 *.db.bak-*

@@ -28,7 +28,8 @@ class User(BaseEntity[int]):
 
     username: str = ""
     email: str = ""
-    hashed_password: str = ""
+    # 联合登录用户（如 Google）可无本地密码，故为可空
+    hashed_password: Optional[str] = None
     full_name: Optional[str] = None
     is_active: bool = True
     is_superuser: bool = False

@@ -230,6 +230,61 @@ class Settings(BaseSettings):
         description="应用密钥，生产环境必须设置",
     )
 
+    # Google 登录（OAuth 授权码流）：Web 类型 OAuth Client。
+    # 前端拿 authorization code，后端用 id+secret 去 Google token 端点换 id_token 后验签。
+    # 需 GOOGLE_CLIENT_ID 与 GOOGLE_CLIENT_SECRET 同时配置，缺任一则 Google 登录不可用。
+    GOOGLE_CLIENT_ID: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("GOOGLE_CLIENT_ID"),
+        description="Google OAuth Web Client ID，用于校验 ID Token 的 aud",
+    )
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("GOOGLE_CLIENT_SECRET"),
+        description="Google OAuth Web Client Secret，用于授权码换 token（仅后端持有）",
+    )
+    GOOGLE_OAUTH_REDIRECT_URI: str = Field(
+        default="postmessage",
+        validation_alias=AliasChoices("GOOGLE_OAUTH_REDIRECT_URI"),
+        description="授权码换 token 的 redirect_uri；@react-oauth/google popup 模式固定为 'postmessage'",
+    )
+
+    # 飞书登录（OAuth 授权码流，open.feishu.cn）：自建应用 App ID/Secret。
+    # 前端整页跳转授权页拿 code，后端用 id+secret 去 v2 token 端点换 access_token 后调 user_info。
+    # 需 FEISHU_APP_ID 与 FEISHU_APP_SECRET 同时配置，缺任一则飞书登录不可用。
+    FEISHU_APP_ID: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("FEISHU_APP_ID"),
+        description="飞书自建应用 App ID",
+    )
+    FEISHU_APP_SECRET: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("FEISHU_APP_SECRET"),
+        description="飞书自建应用 App Secret（仅后端持有）",
+    )
+    FEISHU_OAUTH_REDIRECT_URI: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("FEISHU_OAUTH_REDIRECT_URI"),
+        description="授权码换 token 的 redirect_uri，须与飞书开放平台控制台注册的回调地址一致",
+    )
+
+    # Lark 国际登录（OAuth 授权码流，open.larksuite.com）：与飞书同形，独立 app 注册。
+    LARK_APP_ID: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("LARK_APP_ID"),
+        description="Lark 自建应用 App ID",
+    )
+    LARK_APP_SECRET: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("LARK_APP_SECRET"),
+        description="Lark 自建应用 App Secret（仅后端持有）",
+    )
+    LARK_OAUTH_REDIRECT_URI: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("LARK_OAUTH_REDIRECT_URI"),
+        description="授权码换 token 的 redirect_uri，须与 Lark 开放平台控制台注册的回调地址一致",
+    )
+
     # CORS配置
     CORS_ORIGINS: list[str] = Field(
         default=["http://localhost:3000", "http://localhost:8000"],
