@@ -174,6 +174,11 @@ import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
 class EmailService(ABC):
     """邮件服务抽象接口"""
     
@@ -232,8 +237,7 @@ class SMTPEmailService(EmailService):
             )
             return True
         except Exception as e:
-            # 记录日志
-            print(f"邮件发送失败: {e}")
+            logger.error("邮件发送失败", error=str(e))
             return False
 ```
 

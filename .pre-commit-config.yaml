@@ -27,10 +27,14 @@ repos:
           - --max-line-length=100
           - --extend-ignore=E203,E501,W503
           - --exclude=backend/alembic/versions/*,backend/grpc_app/generated/*
+          # 与 backend/.flake8 保持一致（pre-commit 从仓库根运行，读不到该文件）：
+          # __init__ 豁免 F401；scripts/ 与 alembic/env.py 属 CLI/迁移工具，print 合法，豁免 T20
+          - --per-file-ignores=*__init__.py:F401 *backend/scripts/*.py:T201,T203 *backend/alembic/env.py:T201,T203
         additional_dependencies:
           - flake8-bugbear
           - flake8-comprehensions
           - flake8-simplify
+          - flake8-print
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -97,6 +101,18 @@ repos:
     hooks:
       - id: hadolint-docker
         args: [--ignore, DL3008, --ignore, DL3013]
+
+  # Local: DDD 依赖方向契约（import 图必须全量检查，不适用 changed-files）。
+  # 契约本体在 backend/pyproject.toml，改契约同样要触发检查。
+  # --no-sync：避免每次 commit 触发依赖同步/网络请求（环境由 uv sync --extra dev 预先建好）
+  - repo: local
+    hooks:
+      - id: lint-imports
+        name: import-linter (DDD dependency direction)
+        entry: bash -c 'cd backend && uv run --no-sync lint-imports'
+        language: system
+        files: ^backend/(.*\.py|pyproject\.toml)$
+        pass_filenames: false
 
   # Local: validate PO files syntax (i18n)
   - repo: local

@@ -37,6 +37,16 @@ vibejet/
 `vibejet` is a full-stack application with a Python backend (`backend/`) and a React frontend
 (`frontend/`). Current project facts live under `docs/project/`.
 
+**仓库定位**：本仓库同时是一个**基础库/模板**——沉淀经过验证的架构、参考实现与工作流，
+供 AI 在其上开发而不漂移。因此内容有策展纪律（完整论证见
+`docs/reference/guides/base-library-principles.md`）：
+
+- 每种能力只保留一个 canonical 参考；新增前先找既有实现扩展，不造第二个
+- 弃用即删除或移入 `docs/archive/`，不留"改成不可用但保留"的墓碑
+- 断言当前状态的文档必须与现实一致；删除/移动任何资产时，同步更新所有指向它的文档
+- 不沉淀可从代码推导的事实；文档只承载意图、约束与被拒绝的方案
+- 给规则加强制前先确认规则本身成立；写"必须"的规则要有会失败的检查兜底
+
 Known current gaps:
 - JWT auth (login gate) is implemented, but routes such as files, storage, conversations, chat,
   and documents only require login — they are not safe to expose as product endpoints until
@@ -74,6 +84,13 @@ Composition-root exception: `backend/main.py` and `backend/api/dependencies.py` 
 infrastructure implementations into FastAPI. Route handlers must still stay thin and must not
 directly operate repositories, ORM models, or SQLAlchemy sessions.
 
+依赖方向由 import-linter **机器强制**（`backend/pyproject.toml` 的 `[tool.importlinter]`，
+pre-commit `lint-imports` hook + CI 全量执行，`cd backend && uv run lint-imports` 可本地跑）。
+例外只有两类，均在契约的 `ignore_imports` 中显式声明并注明原因：组合根
+（`api/dependencies.py`）与基础设施探针（`api/routes/metrics.py`、
+`core/observability/` 的 health/tracing）。完整清单以契约为准；新增例外必须改契约，
+不允许口头豁免。
+
 ### Domain Service vs Application Service
 
 **Domain Service** (`domain/*/service.py`): pure business rules across entities/aggregates —
@@ -88,7 +105,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 - UoW is an application-layer transaction boundary: `backend/application/ports/unit_of_work.py`
 - Concrete SQLAlchemy implementation: `backend/infrastructure/unit_of_work.py`
 - The central UoW port must stay repository-agnostic. Do not add every new module's repository as
-  an attribute on the global abstract UoW.
+  an attribute on the global abstract UoW（由 `backend/tests/test_architecture.py` 白名单兜底）.
 - Application services should define small service-local `Protocol`s for the repositories they need
   (see `FileAssetUnitOfWork`, `ConversationUnitOfWork`, `ChatUnitOfWork`).
 - Domain repository interfaces remain in `backend/domain/<module>/repository.py`; domain must not
@@ -100,6 +117,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 - Names: files/modules/functions/vars `snake_case`; classes `CapWords`
 - DTOs use Pydantic v2 models; validate at boundaries
 - Logging: never `print`; use `core.logging_config.get_logger(__name__)` (structlog)
+  （flake8-print T20 强制；`backend/scripts/` 属 CLI 工具豁免）
 - Exceptions: domain raises `BusinessException` (`backend/domain/common/exceptions.py`);
   API translates to HTTP responses via handlers in `backend/core/exceptions.py`
 
@@ -124,8 +142,8 @@ See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflo
 Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when they match the task:
 
 - `vj-feature` — 给已有项目追加功能：澄清需求，生成/追加 Epic+Story，可选同步 PRD，路由到实现
-- `vj-design-md-matcher` — 产品/品牌方向轨：当 `DESIGN.md` 缺失/过期、品牌感不清、front-of-house 无 golden screen，或用户要求整体视觉升级时，先用产品级 `ui-requirement-brief` 明确方向，再生成 `docs/project/DESIGN.md` + golden references；不用于日常单屏结构/状态补全
-- `ui-requirement-brief` / `ui-page-goal-structure` / `ui-state-coverage` / `ui-visual-consistency-audit` — 前端设计生产与审查辅助：产品级 brief 喂 `vj-design-md-matcher`；单屏级 brief 喂 `ui-page-goal-structure` / `ui-state-coverage` 产出页面体验地图和状态覆盖；稳定合同写入 `docs/project/DESIGN.md` 与 `docs/project/ui/`，由 `vj-epic-plan` / `vj-work` 消费
+- `vj-design-md-matcher` — 产品/品牌方向轨：`DESIGN.md` 缺失/过期、品牌感不清或要求整体视觉升级时，生成 `docs/project/DESIGN.md` + golden references；不用于日常单屏结构/状态补全
+- `ui-requirement-brief` / `ui-page-goal-structure` / `ui-state-coverage` / `ui-visual-consistency-audit` — 前端设计生产与审查辅助：产品级 brief 喂 `vj-design-md-matcher`；单屏级产出页面体验地图和状态覆盖；稳定合同写入 `docs/project/DESIGN.md` 与 `docs/project/ui/`（按需创建），由 `vj-epic-plan` / `vj-work` 消费
 - `vj-epic-story` — 从 PRD + 架构全量拆解 Epic/Story，产出可执行验收标准（WHAT）
 - `vj-epic-plan` — Epic 级实现计划：生成 human review pack + task packets，并同步 `docs/project/api|data|ui/` 契约目录（HOW）
 - `vj-work` — Epic 执行器（默认实现入口）：消费 vj-epic-plan 的 task packets，auto 模式按风险自动走 fast/strict，内含 verify / review gate；单 Story 小需求同样由它按单 Unit 执行
@@ -195,10 +213,12 @@ Stack: Vite 8 + React 19 + TS 6 (strict) + Tailwind v4 + shadcn/ui (Radix) + Tan
 3. Create `useSuspenseQuery` wrapper in `hooks/use<Name>.ts`
 4. UI component in `components/<Name>Card.tsx`：用 shadcn 组件（`@/components/ui/*`）+ Tailwind class + `cn()`，consumes the hook (no early-return loading; rely on outer `<SuspenseLoader>`)
 5. 需要的 shadcn 组件用 `npx shadcn@latest add <component>` 拉进 `@/components/ui/`（网络抖动时见 SKILL.md 的 curl 兜底）
-6. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute` + `lazy` + `<SuspenseLoader>`
+6. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute`（需要登录的路由加
+   `beforeLoad` 守卫，参考 `routes/index.tsx`）；`<SuspenseLoader>` 在 feature 组件内包裹数据子组件（参考 `HomePage`）
 7. Run `pnpm dev` once to regenerate `src/routeTree.gen.ts` (tracked file, do not hand-edit)
 
-Reference impl: `frontend/src/features/health/` + `frontend/src/routes/health/`.
+Reference impl（canonical）: `frontend/src/features/home/`（标准数据流：`useSuspenseQuery` hook +
+`<SuspenseLoader>`）；更完整的 feature 结构（`helpers/`、Zod schema + 测试）参考 `frontend/src/features/auth/`。
 If the task is verification-only, use `story-verify-fix`. If design refs exist, store them under
 `docs/reference/research/designs/{epic-id}/` and reference them from the Story or plan.
 
@@ -231,7 +251,7 @@ VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ 
 - **默认 TDD**: 测试用例从 Story 验收标准（Given-When-Then）推导，不从 AI 生成的代码推导
 - **后端**: 在 `backend/` 内运行 pytest；测试放 `backend/tests/` 下的 `test_*.py`；
   异步测试用 `pytest-asyncio`，API 测试优先 `httpx.AsyncClient`；隔离副作用（事务 fixture 或清理 DB 状态）
-- **联调 / UI**: 用 `story-verify-fix`；需要页面交互时优先用 `playwright-interactive`
+- **联调 / UI**: 用 `story-verify-fix`；页面交互/截图验证走全局 `web-access` skill
 - **跳过条件**: 配置文件、生成代码、纯类型定义可跳过 TDD，需注释说明
 
 人工审查分级：🔴 数据库操作/认证/核心业务规则 → 人工逐行；🟡 API 路由/服务编排/错误处理 →
@@ -280,7 +300,8 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 
 - Commits: imperative, present tense, concise (e.g., "add user routes")
 - PRs: clear description, linked issues, steps to test, migration notes, and screenshots or curl examples for new endpoints
-- 涉及设计取舍的 commit 追加结构化 trailers（trivial commit 全部跳过；PreToolUse hook 会在 `git commit` 时提醒）：
+- 涉及设计取舍的 commit 追加结构化 trailers（trivial commit 全部跳过；`.claude/settings.json`
+  的 PreToolUse hook 会在 `git commit` 时提醒）：
 
 | Trailer | Purpose | Example |
 |---------|---------|---------|
@@ -309,14 +330,14 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 
 ### Frontend
 - Dev entrypoint: `frontend/src/main.tsx`
-- Routes (file-based): `frontend/src/routes/` (e.g. `routes/index.tsx`, `routes/health/index.tsx`)
+- Routes (file-based): `frontend/src/routes/` (e.g. `routes/index.tsx`, `routes/login/index.tsx`)
 - Features: `frontend/src/features/` (each: `api/`, `components/`, `hooks/`, `types/`)
 - shadcn 组件（vendored）: `frontend/src/components/ui/`（`npx shadcn add` 生成，可改）；布局: `frontend/src/components/layout/`
 - 样式工具: `frontend/src/lib/utils.ts` 的 `cn()`（clsx + tailwind-merge）；设计 token: `frontend/src/index.css`（`@theme` + `:root`，源自 `docs/project/DESIGN.md`）
 - Toast: 直接用 `sonner`（`import { toast } from 'sonner'`；`<Toaster/>` 已挂在 `main.tsx`）
 - Reusable infra: `frontend/src/components/SuspenseLoader/`
 - API client: `frontend/src/lib/apiClient.ts` (axios, `baseURL = VITE_API_URL`, `withCredentials`)
-- Auth hook (placeholder): `frontend/src/hooks/useAuth.ts`
+- Auth hook: `frontend/src/hooks/useAuth.ts`（`useSyncExternalStore` 订阅 `@/lib/authStore` 的会话门面，提供 `session`/`isAuthenticated`/`logout`）
 - Path alias: `@/` → `src/`（单一别名，configured in `tsconfig.app.json` + `vite.config.ts` + `vitest.config.ts`）
 - Vite config: `frontend/vite.config.ts` (proxies `/api/*` to `VITE_API_URL`)
 - Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`
@@ -334,8 +355,6 @@ Do not rely on stale generic tool names in this document. Prefer:
 - repo-local skills under `.agents/skills/`
 - shell + `rg` for codebase search
 - targeted tests and verification commands from `backend/`
-- `story-verify-fix` + `playwright-interactive` for browser-based validation
+- browser-based validation（联调/视觉对齐/前端 E2E）统一走全局 `web-access` skill
+  （story-verify-fix / vj-work / vj-test 均用它；不引入项目内 Playwright 依赖）
 - `diff-aware-qa` for post-implementation regression checks scoped to the current diff
-- 浏览器栈分工（刻意为之，勿混用）：联调/视觉对齐验证走 `playwright-interactive`
-  （story-verify-fix / vj-work 截图 gate）；`vj-test` 的前端 E2E 走全局 `web-access` skill
-  （不引入项目内 Playwright 依赖）

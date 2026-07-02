@@ -84,7 +84,8 @@
 - **魔法状态字符串跨三层硬编码，缺 StrEnum**：domain 有私有校验 set（`_DOCUMENT_STATUSES` 等）但值是裸字符串，application（`file_asset_service.py:136,574`、`chat_service.py:94,115,141`）与 infrastructure（`document_repository.py:121,125,141` domain 词汇泄漏进 infra 裸比较）各自重抄同一套词汇。→ 各模块定义 `StrEnum`（`DocumentStatus`/`RunStatus`/`MessageRole`/`ConversationStatus`/`FileAssetStatus`），校验 set 改 `set(DocumentStatus)`，三层统一引用。StrEnum 与 SQLAlchemy/Pydantic 兼容，不改存储格式。**面最广的一条债。**
 - **config 假能力 + 幽灵配置**：`core/config.py:297-316` 的 `SMTP_*`/`EMAIL_FROM`/`STRIPE_API_KEY`/`SENTRY_DSN`/`REALTIME_WS_*`/`MAX_UPLOAD_SIZE`/`UPLOAD_DIR` 零消费路径；`pyproject.toml:53-61` 的 mypy override 还挂着 `stripe.*`/`wechatpayv3.*` 两个不存在的模块。与 `extra="forbid"` 初衷自相矛盾。→ 删除或移到路线图文档；真要 Sentry 就补 `sentry_sdk.init`。（注：`RATE_LIMIT_PER_MINUTE` 是真能力，已接入 auth，不算死配置。）
 - **api_clients 整个模块死代码**：`infrastructure/external/api_clients/{base.py,example.py,__init__.py}` 外部零引用，`example.py` 是带 `print()`（:26,28,30,34）的中文 demo 住在生产包里。→ 删除，顺带清 3 处 print。
-- **文件头注释覆盖率约 50%**（68/136）：缺头的恰是 `core/config.py`、`core/response.py`、`core/exceptions.py`、`infrastructure/repositories/base_repository.py`、`infrastructure/database.py`、`application/dto.py` 等核心文件，违反 `.claude/rules/doc-maintenance.md`。→ 批量补 input/output/pos 三行，优先 core/ 与 base_repository/dto。
+- ~~**文件头注释覆盖率约 50%**（68/136）：缺头的恰是 `core/config.py`、`core/response.py`、`core/exceptions.py`、`infrastructure/repositories/base_repository.py`、`infrastructure/database.py`、`application/dto.py` 等核心文件，违反 `.claude/rules/doc-maintenance.md`。→ 批量补 input/output/pos 三行，优先 core/ 与 base_repository/dto。~~
+  **[2026-07-02 更新] 此条作废**：`.claude/rules/doc-maintenance.md` 规则本身已删除（第一性原理复盘：input/output/pos 是可从代码推导的冗余缓存，必然腐烂）。**不要补头注释**。见 `docs/reference/guides/base-library-principles.md`。
 - **测试覆盖偏科**：document 模块质量高（状态机 + 负路径 + 并发语义 + 强断言），但 `auth_service`/`chat_service`/`conversation_service`、`domain/user/service`、6 条路由、整个 gRPC 层**零测试**，全仓无一条越权/未授权测试——恰是 CLAUDE.md 标🔴的最高风险面。CI（`.github/workflows/ci.yml`、`.gitlab-ci.yml`）用 `uv sync --extra dev` 不装 documents/s3 extra，导致 parser/provider 代码在 CI 从不执行（`test_document_parsers.py` 全 SKIPPED），绿 ≠ 可用。→ 优先补 auth_service + auth 路由（401/403）集成测试；CI 增加 `--all-extras` job + `--cov` 阈值。
 - **其余 minor**：
   - `api/routes/storage.py:105,123,130` 混用 `HTTPException` 与 `BusinessException`，错误信封不统一。
@@ -135,7 +136,7 @@
 ### 批次 D — 质量债（一个 sprint 收拾模板残留）
 1. StrEnum 收敛魔法状态字符串（面最广）。
 2. 删假能力配置 + api_clients 死代码 + stripe/wechatpayv3 幽灵 override。
-3. 补文件头注释（优先 core/ 与 base_repository/dto）。
+3. ~~补文件头注释（优先 core/ 与 base_repository/dto）。~~ **[作废]** 头注释规则已删除，见 P2 节更新说明。
 4. 补 auth/chat/conversation 服务与越权测试；CI 加 `--all-extras` + `--cov` 阈值。
 5. 工具链评估迁 ruff；清理 flake8 双份配置。
 

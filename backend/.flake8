@@ -11,5 +11,8 @@ exclude =
     alembic/versions
     grpc_app/generated
 max-complexity = 10
+# scripts/ 与 alembic/env.py 属 CLI/迁移工具，print 为合法输出，仅豁免 T20（flake8-print）
 per-file-ignores =
     __init__.py:F401
+    scripts/*.py:T201,T203
+    alembic/env.py:T201,T203

@@ -33,6 +33,10 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --extra dev --locked
 
+      # DDD 依赖方向契约必须全量跑（import 图检查不适用 changed-files 策略）
+      - name: Architecture contracts (import-linter)
+        run: uv run lint-imports
+
       - name: Audit dependencies
         run: |
           uv export --no-emit-project --no-dev --all-extras -o /tmp/requirements-audit.txt
@@ -85,7 +89,7 @@ jobs:
         if: steps.changed-py.outputs.files == ''
         run: echo "No Python file changes detected; skipping lint/security."
 
+      # SECRET_KEY 由 tests/conftest.py 的 setdefault 兜底（该值能通过弱值/长度校验）；
+      # 此处不要显式传 test-secret-key 之类的弱值——会被 Settings 校验拒绝导致收集失败
       - name: Test
-        env:
-          SECRET_KEY: test-secret-key
         run: uv run pytest

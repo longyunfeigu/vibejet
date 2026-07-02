@@ -13,6 +13,7 @@ This directory contains reusable knowledge that supports development across Stor
 
 ## Guides
 
+- [基础库原则（base-library principles + 策展 checklist）](guides/base-library-principles.md)
 - [AI workflow](guides/ai-workflow.md)
 - [Review checklist](guides/review-checklist-python-fastapi.md)
 - [Story verify-fix design](guides/story-verify-fix-design.md)
