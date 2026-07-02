@@ -1,3 +1,6 @@
+# input: 阿里云 OSS (oss2 SDK), StorageConfig（endpoint/bucket/AK, connect+read 双超时）
+# output: OSSProvider（上传/下载/multipart 含 abort/预签名）
+# pos: 基础设施层 - OSS 存储 provider 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Aliyun OSS storage provider implementation."""
 
 import hashlib
@@ -360,6 +363,15 @@ class OSSProvider(AdvancedStorageProvider):
         except Exception as e:
             self._handle_exception(e, f"complete multipart upload {key}")
 
+    async def multipart_upload_abort(self, upload_id: str, key: str) -> None:
+        """Abort an in-progress multipart upload and discard uploaded parts."""
+        try:
+            await anyio.to_thread.run_sync(
+                partial(self.bucket.abort_multipart_upload, key, upload_id)
+            )
+        except Exception as e:
+            self._handle_exception(e, f"abort multipart upload {key}")
+
     async def batch_upload(
         self, files: list[tuple[bytes, str]], metadata: Optional[dict] = None
     ) -> list[UploadResult]:
@@ -453,8 +465,14 @@ async def build_oss_provider(config: StorageConfig) -> OSSProvider:
     auth = oss2.Auth(config.oss_access_key_id, config.oss_access_key_secret)
 
     # Create bucket instance
+    # oss2 的 connect_timeout 原样透传给 requests：元组 = (connect, read)，
+    # 只给标量会缺 read timeout（对齐 s3.py 的 connect+read 双超时）
     bucket = oss2.Bucket(
-        auth, config.endpoint, config.bucket, connect_timeout=config.timeout, enable_crc=True
+        auth,
+        config.endpoint,
+        config.bucket,
+        connect_timeout=(config.timeout, config.timeout),
+        enable_crc=True,
     )
 
     # Create and return provider

@@ -29,8 +29,10 @@ async def chat(
     service: ChatApplicationService = Depends(get_chat_service),
 ):
     if payload.stream:
+        # send_message_stream 先 await 完成会话校验（不存在/已归档 → 4xx），
+        # 校验通过后才返回 SSE 生成器进入流式响应
         return StreamingResponse(
-            service.send_message_stream(conversation_id, payload),
+            await service.send_message_stream(conversation_id, payload),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

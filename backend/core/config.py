@@ -1,3 +1,6 @@
+# input: 环境变量 / backend/.env（SECRET_KEY 必填且须为强随机值，嵌套键如 DATABASE__URL）
+# output: settings 全局配置对象, Settings 及各分组配置类, MIN_SECRET_KEY_LENGTH
+# pos: 核心配置 - 配置管理与启动期 fail-fast 校验（弱 SECRET_KEY/生产 DEBUG 拒绝启动）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 配置文件 - 项目配置管理
 """
@@ -196,6 +199,26 @@ class HealthSettings(BaseModel):
     access_token: Optional[str] = None
 
 
+# SECRET_KEY 硬门槛：HS256 需要足够熵，32 字符起步（openssl rand -hex 32 → 64 字符）
+MIN_SECRET_KEY_LENGTH = 32
+# 公开模板/文档里出现过的默认值与常见占位词，出现即拒绝启动（小写比较）
+_KNOWN_WEAK_SECRET_KEYS = frozenset(
+    {
+        "your-secret-key-here",
+        "your-secret-key-here-change-in-production",
+        "your-secret-key",
+        "change-me",
+        "changeme",
+        "secret",
+        "secret-key",
+        "password",
+        "dev-secret",
+        "test-secret",
+        "test-secret-key",
+    }
+)
+
+
 class Settings(BaseSettings):
     """项目配置"""
 
@@ -205,7 +228,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("PROJECT_NAME", "APP_NAME"),
     )
     VERSION: str = Field(default="1.0.0", validation_alias=AliasChoices("VERSION", "APP_VERSION"))
-    DEBUG: bool = Field(default=True, validation_alias=AliasChoices("DEBUG"))
+    # 缺省关闭：debug 响应体会携带 traceback，绝不能靠"忘了配"就在生产开着
+    DEBUG: bool = Field(default=False, validation_alias=AliasChoices("DEBUG"))
     ENVIRONMENT: str = Field(default="development", validation_alias=AliasChoices("ENVIRONMENT"))
     AUTO_RUN_MIGRATIONS: bool = Field(
         default=False, validation_alias=AliasChoices("AUTO_RUN_MIGRATIONS")
@@ -397,6 +421,24 @@ class Settings(BaseSettings):
         # 所有环境均要求显式配置 SECRET_KEY
         if not self.SECRET_KEY:
             raise ValueError("SECRET_KEY 未配置。请在环境变量或 .env 中设置 SECRET_KEY")
+        # JWT 用 HS256 + 该值签名：模板/常见弱值等于把签名密钥公开，任何人可伪造令牌
+        if self.SECRET_KEY.strip().lower() in _KNOWN_WEAK_SECRET_KEYS:
+            raise ValueError(
+                "SECRET_KEY 是公开的模板/弱默认值，禁止使用。"
+                "请生成随机密钥，例如：openssl rand -hex 32"
+            )
+        if len(self.SECRET_KEY) < MIN_SECRET_KEY_LENGTH:
+            raise ValueError(
+                f"SECRET_KEY 长度不足 {MIN_SECRET_KEY_LENGTH} 字符，签名强度不够。"
+                "请生成随机密钥，例如：openssl rand -hex 32"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_debug_environment(self):
+        # 生产环境禁止 DEBUG：debug 响应体会泄露 traceback（core/exceptions.py）
+        if self.ENVIRONMENT.strip().lower() == "production" and self.DEBUG:
+            raise ValueError("ENVIRONMENT=production 时禁止 DEBUG=true，请关闭 DEBUG")
         return self
 
     @field_validator("CORS_ORIGINS", "CORS_ALLOW_METHODS", "CORS_ALLOW_HEADERS", mode="before")

@@ -22,7 +22,8 @@ services:
       - "8000:8000"
     environment:
       DATABASE__URL: postgresql+asyncpg://user:password@postgres:5432/userdb
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      # 无弱默认：未设置则 compose 直接报错（生成方式：openssl rand -hex 32）
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set (e.g. openssl rand -hex 32)}
       DEBUG: ${DEBUG:-false}
     depends_on:
       - postgres
@@ -39,7 +40,8 @@ services:
       - "50051:50051"
     environment:
       DATABASE__URL: postgresql+asyncpg://user:password@postgres:5432/userdb
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      # 无弱默认：未设置则 compose 直接报错（生成方式：openssl rand -hex 32）
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set (e.g. openssl rand -hex 32)}
       DEBUG: ${DEBUG:-false}
       GRPC__ENABLED: "true"
       GRPC__HOST: 0.0.0.0

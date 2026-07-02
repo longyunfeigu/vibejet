@@ -1,3 +1,6 @@
+# input: AWS S3 / 兼容对象存储 (boto3), StorageConfig（connect+read 超时与重试）
+# output: S3Provider（上传/下载/multipart 含 abort/预签名）
+# pos: 基础设施层 - S3 存储 provider 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """AWS S3 storage provider implementation."""
 
 import hashlib
@@ -385,6 +388,20 @@ class S3Provider(AdvancedStorageProvider):
             )
         except Exception as e:
             self._handle_exception(e, f"complete multipart upload {key}")
+
+    async def multipart_upload_abort(self, upload_id: str, key: str) -> None:
+        """Abort an in-progress multipart upload and discard uploaded parts."""
+        try:
+            await anyio.to_thread.run_sync(
+                partial(
+                    self.client.abort_multipart_upload,
+                    Bucket=self.bucket,
+                    Key=key,
+                    UploadId=upload_id,
+                )
+            )
+        except Exception as e:
+            self._handle_exception(e, f"abort multipart upload {key}")
 
     async def batch_upload(
         self, files: list[tuple[bytes, str]], metadata: Optional[dict] = None

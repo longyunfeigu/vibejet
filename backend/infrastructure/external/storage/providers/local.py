@@ -1,5 +1,9 @@
+# input: 本地文件系统 (config.local_base_path), aiofiles
+# output: LocalStorageProvider（上传/下载/multipart 含 abort/sidecar 元数据）
+# pos: 基础设施层 - 本地存储 provider 实现，开发与单机部署用；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Local file system storage provider implementation."""
 
+import contextlib
 import hashlib
 import shutil
 from pathlib import Path
@@ -142,7 +146,9 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             file_path = self._safe_path(key)
             return file_path.exists() and file_path.is_file()
-        except:
+        except (OSError, StorageError) as exc:
+            # 非法 key（路径穿越）或文件系统错误都按"不存在"处理，但留痕
+            logger.debug("local_exists_check_failed", key=key, error=str(exc))
             return False
 
     async def list_objects(self, prefix: str = "", limit: int = 1000) -> list[StorageObject]:
@@ -376,6 +382,12 @@ class LocalProvider(AdvancedStorageProvider):
             url=self.public_url(key) if self.config.public_base_url else None,
         )
 
+    async def multipart_upload_abort(self, upload_id: str, key: str) -> None:
+        """Abort multipart upload (remove the accumulating temp file)."""
+        temp_path = self.base_path / ".uploads" / upload_id
+        with contextlib.suppress(FileNotFoundError):
+            await aiofiles.os.remove(temp_path)
+
     async def batch_upload(
         self, files: list[tuple[bytes, str]], metadata: Optional[dict] = None
     ) -> list[UploadResult]:
@@ -483,7 +495,9 @@ class LocalProvider(AdvancedStorageProvider):
             async with aiofiles.open(meta_path, "r") as f:
                 content = await f.read()
                 return json.loads(content)
-        except:
+        except (OSError, ValueError) as exc:
+            # sidecar 元数据损坏/不可读时降级为空元数据，但留痕（ValueError 覆盖 JSONDecodeError）
+            logger.warning("local_metadata_read_failed", path=str(meta_path), error=str(exc))
             return {}
 
     async def _calculate_etag(self, file_path: Path) -> str:

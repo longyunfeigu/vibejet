@@ -447,7 +447,7 @@ class FileAssetApplicationService:
         info = self._storage.info()
         db_url = self._storage.public_url(outcome.key)
 
-        asset_dto = await self.upsert_active_asset(
+        asset_dto = await self._persist_relay_upload(
             owner_id=user_id,
             storage_type=info.type,
             bucket=info.bucket,
@@ -509,7 +509,7 @@ class FileAssetApplicationService:
         info = self._storage.info()
         db_url = self._storage.public_url(outcome.key)
 
-        asset_dto = await self.upsert_active_asset(
+        asset_dto = await self._persist_relay_upload(
             owner_id=user_id,
             storage_type=info.type,
             bucket=info.bucket,
@@ -533,6 +533,29 @@ class FileAssetApplicationService:
             file_id=asset_dto.id,
             file_status=asset_dto.status,
         )
+
+    async def _persist_relay_upload(self, **asset_kwargs: Any) -> FileAssetDTO:
+        """Upsert DB record for an object already written to storage.
+
+        DB 写入失败时对象会变孤儿（UoW 只回滚 DB）：best-effort 删掉已上传对象，
+        删除失败仅记 warning，不掩盖原始异常。
+        """
+        try:
+            return await self.upsert_active_asset(**asset_kwargs)
+        except BaseException:
+            # BaseException：客户端断连的 CancelledError 是 relay 中断的常见形态，同样要清孤儿
+            key = asset_kwargs.get("key")
+            try:
+                if key and self._storage is not None:
+                    await self._storage.delete(key)
+                    logger.warning("relay_upload_db_failed_object_cleaned", key=key)
+            except Exception as cleanup_exc:
+                logger.warning(
+                    "relay_upload_orphan_object",
+                    key=key,
+                    cleanup_error=str(cleanup_exc),
+                )
+            raise
 
     async def upsert_active_asset(
         self,

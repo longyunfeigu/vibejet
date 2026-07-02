@@ -1,3 +1,6 @@
+# input: infrastructure.external.storage 的 StorageProvider 实现
+# output: StorageProviderPortAdapter（实现 application StoragePort；流式上传中断自动 abort multipart）
+# pos: 基础设施层 - 存储端口适配器，应用层与具体 provider 的转换边界；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Infrastructure adapter that implements the application StoragePort
 by delegating to the concrete StorageProvider and translating models.
 """
@@ -13,8 +16,38 @@ from application.ports.storage import (
     StorageInfo,
     UploadOutcome,
 )
+from core.logging_config import get_logger
 from infrastructure.external.storage import StorageProvider
 from infrastructure.external.storage.base import AdvancedStorageProvider
+
+logger = get_logger(__name__)
+
+_PART_SIZE = 5 * 1024 * 1024
+
+
+class _MultipartState:
+    """Mutable pump state shared across upload_stream helpers (also visible to the abort path)."""
+
+    __slots__ = ("buffer", "total", "upload_id", "parts")
+
+    def __init__(self) -> None:
+        self.buffer = bytearray()
+        self.total = 0
+        self.upload_id: Optional[str] = None
+        self.parts: list[dict[str, int | str]] = []
+
+
+async def _abort_multipart_quietly(provider: StorageProvider, upload_id: str, key: str) -> None:
+    """Best-effort abort：失败仅告警，绝不掩盖调用方正在传播的原始异常。"""
+    try:
+        await provider.multipart_upload_abort(upload_id, key)  # type: ignore[attr-defined]
+    except Exception as abort_exc:
+        logger.warning(
+            "multipart_upload_abort_failed",
+            key=key,
+            upload_id=upload_id,
+            error=str(abort_exc),
+        )
 
 
 class StorageProviderPortAdapter(StoragePort):
@@ -98,68 +131,75 @@ class StorageProviderPortAdapter(StoragePort):
         metadata: Optional[dict] = None,
         content_type: Optional[str] = None,
     ) -> UploadOutcome:
-        provider = self.provider
+        state = _MultipartState()
+        try:
+            await self._pump_stream(stream, key, content_type, state)
 
-        part_size = 5 * 1024 * 1024
-        threshold = part_size
+            if state.upload_id is None:
+                # Small file: do a normal upload to preserve metadata when possible.
+                result = await self.provider.upload(
+                    bytes(state.buffer), key, metadata=metadata, content_type=content_type
+                )
+                return UploadOutcome(
+                    key=getattr(result, "key", key),
+                    etag=getattr(result, "etag", None),
+                    size=int(getattr(result, "size", state.total) or state.total),
+                    content_type=getattr(result, "content_type", content_type),
+                    url=getattr(result, "url", None),
+                )
 
-        buffer = bytearray()
-        total = 0
+            if state.buffer:
+                await self._flush_part(key, state, bytes(state.buffer))
 
-        upload_id: Optional[str] = None
-        parts: list[dict[str, int | str]] = []
-        part_number = 1
-
-        async def _ensure_multipart() -> str:
-            nonlocal upload_id
-            if upload_id is not None:
-                return upload_id
-            if not isinstance(provider, AdvancedStorageProvider):
-                raise RuntimeError("Provider does not support multipart upload")
-            upload_id = await provider.multipart_upload_start(key, content_type=content_type)
-            return upload_id
-
-        async for chunk in stream:
-            if not chunk:
-                continue
-            total += len(chunk)
-            buffer.extend(chunk)
-
-            if upload_id is None and len(buffer) >= threshold:
-                await _ensure_multipart()
-
-            if upload_id is None:
-                continue
-
-            while len(buffer) >= part_size:
-                part = bytes(buffer[:part_size])
-                del buffer[:part_size]
-                etag = await provider.multipart_upload_part(key, upload_id, part_number, part)
-                parts.append({"PartNumber": part_number, "ETag": etag})
-                part_number += 1
-
-        if upload_id is None:
-            # Small file: do a normal upload to preserve metadata when possible.
-            result = await provider.upload(
-                bytes(buffer), key, metadata=metadata, content_type=content_type
+            result = await self.provider.multipart_upload_complete(  # type: ignore[attr-defined]
+                state.upload_id, key, state.parts
             )
-            return UploadOutcome(
-                key=getattr(result, "key", key),
-                etag=getattr(result, "etag", None),
-                size=int(getattr(result, "size", total) or total),
-                content_type=getattr(result, "content_type", content_type),
-                url=getattr(result, "url", None),
-            )
+        except BaseException:
+            # 源流中断（如超限截断/客户端断连取消）或分片失败：已开启的 multipart 会话
+            # 不 abort 就会在对象存储侧长期挂着占空间。best-effort abort，失败仅告警。
+            if state.upload_id is not None:
+                await _abort_multipart_quietly(self.provider, state.upload_id, key)
+            raise
 
-        if buffer:
-            etag = await provider.multipart_upload_part(key, upload_id, part_number, bytes(buffer))
-            parts.append({"PartNumber": part_number, "ETag": etag})
-
-        result = await provider.multipart_upload_complete(upload_id, key, parts)
         return UploadOutcome(
             key=getattr(result, "key", key),
             etag=getattr(result, "etag", None),
-            size=total,
+            size=state.total,
             content_type=content_type,
             url=getattr(result, "url", None),
         )
+
+    async def _pump_stream(
+        self,
+        stream: AsyncIterator[bytes],
+        key: str,
+        content_type: Optional[str],
+        state: "_MultipartState",
+    ) -> None:
+        """Read the stream into ``state``; escalate to multipart past the part-size threshold."""
+        async for chunk in stream:
+            if not chunk:
+                continue
+            state.total += len(chunk)
+            state.buffer.extend(chunk)
+
+            if state.upload_id is None:
+                if len(state.buffer) < _PART_SIZE:
+                    continue
+                if not isinstance(self.provider, AdvancedStorageProvider):
+                    raise RuntimeError("Provider does not support multipart upload")
+                state.upload_id = await self.provider.multipart_upload_start(
+                    key, content_type=content_type
+                )
+
+            while len(state.buffer) >= _PART_SIZE:
+                part = bytes(state.buffer[:_PART_SIZE])
+                del state.buffer[:_PART_SIZE]
+                await self._flush_part(key, state, part)
+
+    async def _flush_part(self, key: str, state: "_MultipartState", data: bytes) -> None:
+        part_number = len(state.parts) + 1
+        etag = await self.provider.multipart_upload_part(  # type: ignore[attr-defined]
+            key, state.upload_id, part_number, data
+        )
+        state.parts.append({"PartNumber": part_number, "ETag": etag})

@@ -177,10 +177,23 @@ class ChatApplicationService:
     ) -> AsyncIterator[str]:
         """Send a user message and stream the assistant response as SSE events.
 
-        Yields SSE-formatted strings: `data: {...}\\n\\n`
+        Phase 1（会话存在/归档校验、落用户消息）在这里同步 await 完成：
+        校验失败的域异常在 StreamingResponse 构造之前抛出，路由能正常映射 4xx，
+        而不是 200 之后流被掐断。
         """
         started = await self._start_run(conversation_id, dto)
+        return self._stream_started_run(started, conversation_id, dto)
 
+    async def _stream_started_run(
+        self,
+        started: _StartedRun,
+        conversation_id: int,
+        dto: ChatRequestDTO,
+    ) -> AsyncIterator[str]:
+        """Phases 2-3 as an SSE generator: stream LLM chunks, then finalize the run.
+
+        Yields SSE-formatted strings: `data: {...}\\n\\n`
+        """
         yield _sse_event(
             "message_created",
             {

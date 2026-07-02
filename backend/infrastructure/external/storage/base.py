@@ -1,3 +1,6 @@
+# input: 无外部依赖（纯 Protocol 定义）
+# output: StorageProvider / AdvancedStorageProvider 协议（含 multipart start/part/complete/abort）
+# pos: 基础设施层 - 存储 provider 协议契约，providers/* 与 adapters/storage_port 的公共接口；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Storage provider protocol definitions."""
 
 from typing import Protocol, AsyncIterator, Optional, runtime_checkable
@@ -90,6 +93,10 @@ class AdvancedStorageProvider(StorageProvider, Protocol):
         self, upload_id: str, key: str, parts: list[dict]
     ) -> UploadResult:
         """Complete multipart upload."""
+        ...
+
+    async def multipart_upload_abort(self, upload_id: str, key: str) -> None:
+        """Abort an in-progress multipart upload and discard uploaded parts."""
         ...
 
     async def batch_upload(

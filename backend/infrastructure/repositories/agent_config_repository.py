@@ -9,10 +9,14 @@ from __future__ import annotations
 from typing import Optional
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.conversation.entity import AgentConfig
-from domain.conversation.exceptions import AgentConfigNotFoundException
+from domain.conversation.exceptions import (
+    AgentConfigNameExistsException,
+    AgentConfigNotFoundException,
+)
 from domain.conversation.repository import AgentConfigRepository
 from infrastructure.models.conversation import AgentConfigModel
 
@@ -48,7 +52,12 @@ class SQLAlchemyAgentConfigRepository(AgentConfigRepository):
             updated_at=config.updated_at,
         )
         self.session.add(model)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            # 应用层同名预检在并发下存在 check-then-act 窗口；
+            # 唯一索引 ix_agent_configs_name 兜底后映射回域异常（409），而不是裸 500
+            raise AgentConfigNameExistsException(config.name) from exc
         await self.session.refresh(model)
         return self._to_entity(model)
 
@@ -68,7 +77,11 @@ class SQLAlchemyAgentConfigRepository(AgentConfigRepository):
         model.extra_metadata = config.metadata or {}
         model.updated_at = config.updated_at
 
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            # 改名撞唯一索引同样映射为 409，与 create 一致
+            raise AgentConfigNameExistsException(config.name) from exc
         await self.session.refresh(model)
         return self._to_entity(model)
 
