@@ -103,7 +103,7 @@
 ## 已确认为「做对了」的点（避免后续误伤）
 
 - 依赖方向零违规；六边形方向正确（infrastructure 只 import `application.ports.*`，无反向依赖）。
-- UoW 用 `_REPOSITORY_FACTORIES` 注册表 + `__getattr__` 懒实例化，各服务定义 service-local Protocol（ChatUoW/ConversationUoW/DocumentUoW/FileAssetUoW），无全局属性膨胀。
+- UoW 仓储用带类型的 `cached_property` 懒实例化（同日审计后由注册表 + `__getattr__` 重构而来，mypy 可静态校验 Protocol 兼容），各服务定义 service-local Protocol（ChatUoW/ConversationUoW/DocumentUoW/FileAssetUoW），无全局属性膨胀。
 - bounded context 隔离干净；gRPC 无重复业务逻辑（当前是纯骨架）；domain 实体充血非贫血（User/Run/Document/FileAsset 均有真实状态机与不变量）。
 - SQL 全参数化无注入面；路径穿越有 `providers/local.py:426 _safe_path` 防御；响应头有 `_sanitize_filename_for_header` CRLF 剥离；密码用 pwdlib argon2 且 fail-closed；登录防用户枚举；JWT 强制校验 type claim + 单一 algorithms 无算法混淆。
 - 三段式 chat 事务从不跨 LLM 调用；文档解析幂等 claim 原子安全（条件 UPDATE + `claimed_at` token）；chat 断连用 `asyncio.shield` 兜底；purge 存储删除失败记结构化 warning（正确降级非静默吞）。

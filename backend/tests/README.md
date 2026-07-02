@@ -12,6 +12,7 @@ pytest + pytest-asyncio；从 `backend/` 目录运行：`uv run pytest tests/ -v
 | `test_settings_config.py` | Settings 校验：别名、未知键 fail-fast、SECRET_KEY 弱值/长度、DEBUG 默认与生产互斥 |
 | `test_base_entity.py` | 领域基础实体行为 |
 | `test_base_repository.py` | 泛型仓储基类 + 软删过滤 |
+| `test_unit_of_work.py` | UoW 事务语义：干净退出自动 commit、异常回滚、中途 commit 后续写入仍落库、readonly 写保护 |
 | `test_agent_config_repository.py` | AgentConfig 唯一名冲突（create/改名撞唯一索引 → 域异常 409） |
 | `test_user_oauth_repository.py` | 用户仓储 OAuth 联合身份与 (provider,sub) 唯一性 |
 | `test_auth_google_service.py` / `test_auth_lark_service.py` | Google / 飞书登录应用服务 |

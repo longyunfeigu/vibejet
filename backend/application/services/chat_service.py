@@ -33,9 +33,14 @@ logger = get_logger(__name__)
 
 
 class ChatUnitOfWork(Protocol):
-    conversation_repository: ConversationRepository
-    message_repository: MessageRepository
-    run_repository: RunRepository
+    @property
+    def conversation_repository(self) -> ConversationRepository: ...
+
+    @property
+    def message_repository(self) -> MessageRepository: ...
+
+    @property
+    def run_repository(self) -> RunRepository: ...
 
     async def __aenter__(self) -> "ChatUnitOfWork": ...
 
@@ -108,7 +113,6 @@ class ChatApplicationService:
             run = await uow.run_repository.create(run)
 
             history = await self._load_history(uow, conversation_id)
-            await uow.commit()
 
         llm_messages: list[LLMMessage] = []
         if conv.system_prompt:
@@ -155,7 +159,6 @@ class ChatApplicationService:
                 )
                 await uow.run_repository.update(run_entity)
 
-            await uow.commit()
         return assistant_msg, run_entity
 
     async def _fail_run(self, run_id: int, error: str) -> None:
@@ -165,7 +168,6 @@ class ChatApplicationService:
             if run_entity and run_entity.status == "running":
                 run_entity.mark_failed(error)
                 await uow.run_repository.update(run_entity)
-            await uow.commit()
 
     # ------------------------------------------------------------------
     # Use cases

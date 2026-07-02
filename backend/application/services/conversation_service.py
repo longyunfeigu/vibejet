@@ -34,10 +34,17 @@ from domain.conversation.repository import (
 
 
 class ConversationUnitOfWork(Protocol):
-    conversation_repository: ConversationRepository
-    message_repository: MessageRepository
-    run_repository: RunRepository
-    agent_config_repository: AgentConfigRepository
+    @property
+    def conversation_repository(self) -> ConversationRepository: ...
+
+    @property
+    def message_repository(self) -> MessageRepository: ...
+
+    @property
+    def run_repository(self) -> RunRepository: ...
+
+    @property
+    def agent_config_repository(self) -> AgentConfigRepository: ...
 
     async def __aenter__(self) -> "ConversationUnitOfWork": ...
 

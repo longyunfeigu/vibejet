@@ -15,6 +15,7 @@ from typing import AsyncIterator, Optional
 import pytest
 
 from application.ports.llm import LLMChunk, LLMMessage
+from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.chat_service import ChatApplicationService
 from application.utils.time import utcnow
 from domain.conversation.entity import Conversation, Message, Run
@@ -66,21 +67,21 @@ class _FakeRunRepo:
         return run
 
 
-class _FakeUoW:
+class _FakeUoW(AbstractUnitOfWork):
+    """继承端口基类以复用真实退出语义（干净退出即提交，异常回滚）。"""
+
     def __init__(self, conversation: Optional[Conversation]):
+        super().__init__()
         self.conversation_repository = _FakeConversationRepo(conversation)
         self.message_repository = _FakeMessageRepo()
         self.run_repository = _FakeRunRepo()
         self.committed = False
 
-    async def __aenter__(self) -> "_FakeUoW":
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        return None
-
     async def commit(self) -> None:
         self.committed = True
+
+    async def rollback(self) -> None:
+        return None
 
 
 class _FakeLLM:

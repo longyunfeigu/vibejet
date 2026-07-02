@@ -11,6 +11,7 @@ import pytest
 
 from application.ports.oauth import GoogleIdentity
 from application.ports.security import TokenPair
+from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.auth_service import AuthApplicationService
 from application.utils.time import utcnow
 from domain.common.exceptions import UserAlreadyExistsException, UserInactiveException
@@ -62,19 +63,19 @@ class FakeUserRepo:
         return account
 
 
-class FakeUoW:
+class FakeUoW(AbstractUnitOfWork):
+    """继承端口基类以复用真实退出语义（干净退出即提交，异常回滚）。"""
+
     def __init__(self, repo: FakeUserRepo) -> None:
+        super().__init__()
         self.user_repository = repo
         self.commits = 0
 
-    async def __aenter__(self) -> "FakeUoW":
-        return self
-
-    async def __aexit__(self, *exc) -> None:
-        return None
-
     async def commit(self) -> None:
         self.commits += 1
+
+    async def rollback(self) -> None:
+        return None
 
 
 class FakeTokens:

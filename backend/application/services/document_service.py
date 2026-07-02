@@ -33,8 +33,11 @@ logger = get_logger(__name__)
 
 
 class DocumentUnitOfWork(Protocol):
-    document_repository: DocumentRepository
-    file_asset_repository: FileAssetRepository
+    @property
+    def document_repository(self) -> DocumentRepository: ...
+
+    @property
+    def file_asset_repository(self) -> FileAssetRepository: ...
 
     async def __aenter__(self) -> "DocumentUnitOfWork": ...
 
@@ -98,7 +101,6 @@ class DocumentApplicationService:
                 logger.warning("document_process_claim_failed", document_id=document_id)
                 return
             asset = await uow.file_asset_repository.get_by_id(doc.file_asset_id)
-            await uow.commit()
         # 认领 token：落盘时校验行仍属于本次认领，防止 stale 恢复后僵尸任务覆写新结果
         claimed_at = doc.updated_at
 
@@ -174,7 +176,6 @@ class DocumentApplicationService:
         """条件落盘：认领已失效（stale 恢复后被新任务接管/已软删）则丢弃本次结果。"""
         async with self._uow_factory() as uow:
             updated = await uow.document_repository.update_if_claimed(doc, claimed_at=claimed_at)
-            await uow.commit()
         if not updated:
             logger.warning(
                 "document_parse_result_discarded",

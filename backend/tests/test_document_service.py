@@ -11,6 +11,7 @@ import pytest
 
 from application.dto import CreateDocumentDTO
 from application.ports.document_parser import DocumentParserError, ParsedDocument
+from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.document_service import DocumentApplicationService
 from domain.common.exceptions import FileAssetNotFoundException
 from domain.document import (
@@ -88,22 +89,23 @@ class FakeFileAssetRepository:
         return self.items.get(asset_id)
 
 
-class FakeUnitOfWork:
-    """Shared-state fake：所有实例共享同一份仓储，模拟跨事务可见性。"""
+class FakeUnitOfWork(AbstractUnitOfWork):
+    """Shared-state fake：所有实例共享同一份仓储，模拟跨事务可见性。
+
+    继承端口基类以复用真实退出语义（干净退出即提交，异常回滚）。
+    """
 
     def __init__(self, documents: FakeDocumentRepository, assets: FakeFileAssetRepository):
+        super().__init__()
         self.document_repository = documents
         self.file_asset_repository = assets
         self.committed = False
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
     async def commit(self):
         self.committed = True
+
+    async def rollback(self):
+        return None
 
 
 class FakeParser:

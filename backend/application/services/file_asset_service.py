@@ -30,7 +30,8 @@ logger = get_logger(__name__)
 
 
 class FileAssetUnitOfWork(Protocol):
-    file_asset_repository: FileAssetRepository
+    @property
+    def file_asset_repository(self) -> FileAssetRepository: ...
 
     async def __aenter__(self) -> "FileAssetUnitOfWork": ...
 
@@ -175,8 +176,6 @@ class FileAssetApplicationService:
             )
             asset.mark_active()
             updated = await repo.update(asset)
-            # 显式提交，确保在作用域内完成持久化
-            await uow.commit()
             return self._to_dto(updated)
 
     # ---------------------- Orchestration with Storage ----------------------
@@ -712,16 +711,13 @@ class FileAssetApplicationService:
                     error_type=type(exc).__name__,
                 )
             await repo.hard_delete(asset.id)
-            await uow.commit()
 
     async def delete_record_by_id(self, asset_id: int) -> None:
         """Delete DB record only by id (soft API should be preferred)."""
         async with self._uow_factory() as uow:
             await uow.file_asset_repository.hard_delete(asset_id)
-            await uow.commit()
 
     async def delete_record_by_key(self, key: str) -> None:
         """Delete DB record only by key (no remote object deletion)."""
         async with self._uow_factory() as uow:
             await uow.file_asset_repository.hard_delete_by_key(key)
-            await uow.commit()

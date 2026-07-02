@@ -33,7 +33,8 @@ logger = get_logger(__name__)
 
 
 class AuthUnitOfWork(Protocol):
-    user_repository: UserRepository
+    @property
+    def user_repository(self) -> UserRepository: ...
 
     async def __aenter__(self) -> "AuthUnitOfWork": ...
 
@@ -78,7 +79,6 @@ class AuthApplicationService:
                 updated_at=now,
             )
             user = await uow.user_repository.create(user)
-            await uow.commit()
 
         logger.info("user_registered", user_id=user.id, username=user.username)
         return UserDTO.model_validate(user)
@@ -186,7 +186,6 @@ class AuthApplicationService:
                         created_at=utcnow(),
                     )
                 )
-            await uow.commit()
 
         if not user.can_authenticate():
             raise UserInactiveException()
