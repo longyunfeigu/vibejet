@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "vibejet Architecture",
+    "subtitle": "FastAPI DDD scaffold — REST + gRPC, async SQLAlchemy, Redis / Kafka / Celery",
+    "output": "vibejet-architecture.html"
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Clients",
+      "sublabel": "Browser · gRPC",
+      "pos": [
+        20,
+        320
+      ]
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "React SPA",
+      "sublabel": "Vite · React 19",
+      "pos": [
+        210,
+        320
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI REST",
+      "sublabel": ":8000 · middleware",
+      "pos": [
+        400,
+        320
+      ],
+      "tag": "JWT"
+    },
+    {
+      "id": "app",
+      "type": "backend",
+      "label": "Application",
+      "sublabel": "services · DTOs · ports",
+      "pos": [
+        590,
+        320
+      ]
+    },
+    {
+      "id": "domain",
+      "type": "backend",
+      "label": "Domain",
+      "sublabel": "entities · interfaces",
+      "pos": [
+        780,
+        320
+      ]
+    },
+    {
+      "id": "infra",
+      "type": "backend",
+      "label": "Infrastructure",
+      "sublabel": "repos · UoW · adapters",
+      "pos": [
+        970,
+        320
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "asyncpg :5432",
+      "pos": [
+        1170,
+        320
+      ],
+      "tag": "Alembic"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM Providers",
+      "sublabel": "Anthropic · OpenAI",
+      "pos": [
+        590,
+        170
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "cloud",
+      "label": "Object Storage",
+      "sublabel": "Local · S3 · OSS",
+      "pos": [
+        975,
+        170
+      ]
+    },
+    {
+      "id": "grpc",
+      "type": "backend",
+      "label": "gRPC Runtime",
+      "sublabel": "grpc_main :50051",
+      "pos": [
+        400,
+        470
+      ]
+    },
+    {
+      "id": "kafka",
+      "type": "messagebus",
+      "label": "Kafka",
+      "sublabel": "aiokafka adapters",
+      "pos": [
+        780,
+        470
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "cache · broker",
+      "pos": [
+        975,
+        470
+      ]
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Celery Worker",
+      "sublabel": "infrastructure/tasks",
+      "pos": [
+        1165,
+        470
+      ],
+      "size": [
+        120,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "vibejet backend — Docker Compose · app-network",
+      "wraps": [
+        "api",
+        "app",
+        "domain",
+        "infra",
+        "db",
+        "grpc",
+        "kafka",
+        "redis",
+        "worker"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "users",
+      "to": "frontend",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "from": "users",
+      "to": "grpc",
+      "label": "gRPC",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "route": "orthogonal-v"
+    },
+    {
+      "from": "frontend",
+      "to": "api",
+      "label": "REST",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "app",
+      "variant": "emphasis"
+    },
+    {
+      "from": "app",
+      "to": "domain",
+      "variant": "emphasis"
+    },
+    {
+      "from": "domain",
+      "to": "infra",
+      "variant": "emphasis"
+    },
+    {
+      "from": "infra",
+      "to": "db",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "from": "app",
+      "to": "llm",
+      "label": "LLM port",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "infra",
+      "to": "storage",
+      "label": "file port",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "grpc",
+      "to": "app",
+      "label": "reuses services",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          460,
+          425
+        ],
+        [
+          650,
+          425
+        ]
+      ]
+    },
+    {
+      "from": "domain",
+      "to": "kafka",
+      "label": "events",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 45
+    },
+    {
+      "from": "infra",
+      "to": "redis",
+      "label": "cache",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 45
+    },
+    {
+      "from": "redis",
+      "to": "worker",
+      "label": "broker",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Entry Points",
+      "items": [
+        "React SPA (Vite) calls the REST API on :8000",
+        "gRPC runtime on :50051 reuses application services",
+        "Middleware: request-id · logging · locale · metrics · health"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "DDD Layering",
+      "items": [
+        "API → Application → Domain → Infrastructure",
+        "Async SQLAlchemy repositories + Unit of Work",
+        "Alembic migrations · pytest suite"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Async & Adapters",
+      "items": [
+        "Redis doubles as cache and Celery broker",
+        "Kafka adapters (aiokafka) carry domain events",
+        "External adapters: LLM (Anthropic/OpenAI) · storage (Local/S3/OSS) · Lark · Google"
+      ]
+    }
+  ]
+}
