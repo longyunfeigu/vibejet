@@ -31,6 +31,19 @@ GOOGLE_PROVIDER = "google"
 
 logger = get_logger(__name__)
 
+# 进程级缓存的 dummy hash（argon2 hash 代价高，不能每请求算一次）。
+# verify(输入密码, dummy) 理论上可为 True（输入恰为 dummy 明文），
+# 调用方必须仍按 user 存在性判定，不得只看 verify 结果。
+_LOGIN_DUMMY_HASH: Optional[str] = None
+
+
+async def _login_dummy_hash(hasher: PasswordHasher) -> str:
+    # 首次并发调用可能重复计算，结果幂等、无需加锁
+    global _LOGIN_DUMMY_HASH
+    if _LOGIN_DUMMY_HASH is None:
+        _LOGIN_DUMMY_HASH = await hasher.hash("vibejet-login-timing-equalizer")
+    return _LOGIN_DUMMY_HASH
+
 
 class AuthUnitOfWork(Protocol):
     @property
@@ -63,21 +76,27 @@ class AuthApplicationService:
 
     async def register(self, dto: RegisterRequestDTO) -> UserDTO:
         """Create a new user with a hashed password."""
-        async with self._uow_factory() as uow:
+        # 唯一性预检走短只读事务；写入与预检之间的并发窗口由 users 表唯一约束
+        # 兜底（user_repository.create 将 IntegrityError 映射为域冲突）
+        async with self._uow_factory(readonly=True) as uow:
             domain_service = UserDomainService(uow.user_repository)
             await domain_service.ensure_username_available(dto.username)
             await domain_service.ensure_email_available(dto.email)
 
-            now = utcnow()
-            user = User(
-                id=None,
-                username=dto.username,
-                email=dto.email,
-                hashed_password=self._hasher.hash(dto.password),
-                full_name=dto.full_name,
-                created_at=now,
-                updated_at=now,
-            )
+        # argon2 哈希在事务外计算：不占数据库连接，也不阻塞事件循环（实现已卸载线程池）
+        hashed_password = await self._hasher.hash(dto.password)
+
+        now = utcnow()
+        user = User(
+            id=None,
+            username=dto.username,
+            email=dto.email,
+            hashed_password=hashed_password,
+            full_name=dto.full_name,
+            created_at=now,
+            updated_at=now,
+        )
+        async with self._uow_factory() as uow:
             user = await uow.user_repository.create(user)
 
         logger.info("user_registered", user_id=user.id, username=user.username)
@@ -95,12 +114,13 @@ class AuthApplicationService:
             if user is None and "@" in dto.username:
                 user = await uow.user_repository.get_by_email(dto.username)
 
-        # 联合登录用户可能没有本地密码（hashed_password 为空）→ 视作凭据错误
-        if (
-            user is None
-            or not user.hashed_password
-            or not self._hasher.verify(dto.password, user.hashed_password)
-        ):
+        # 时序防枚举：查无此人/无本地密码（联合登录用户）时也对 dummy hash 做
+        # 一次同代价 verify，避免响应时间区分"用户不存在"与"密码错误"
+        candidate_hash = (user.hashed_password if user else None) or await _login_dummy_hash(
+            self._hasher
+        )
+        password_ok = await self._hasher.verify(dto.password, candidate_hash)
+        if user is None or not user.hashed_password or not password_ok:
             raise PasswordErrorException()
         if not user.can_authenticate():
             raise UserInactiveException()
@@ -153,8 +173,10 @@ class AuthApplicationService:
         - existing oauth link (provider + sub) → that user;
         - else if email is verified and matches an existing user → link to it;
         - else create a new (password-less) user and link.
-        Unverified emails never auto-link. 无邮箱时合成占位邮箱 ``{sub}@{provider}.local``
-        以满足 users.email 非空+唯一约束（合成域不与真实邮箱冲突）。
+        Unverified emails never auto-link. 未验证邮箱也**不得写入 users.email**：
+        否则后续同邮箱的 verified 登录会匹配到这条记录（预注册接管链），撞唯一
+        约束还会泄露邮箱注册状态。无邮箱/未验证一律合成占位邮箱
+        ``{sub}@{provider}.local``（满足非空+唯一，合成域不与真实邮箱冲突）。
         """
         async with self._uow_factory() as uow:
             user = await uow.user_repository.get_by_oauth(provider, identity.sub)
@@ -163,7 +185,8 @@ class AuthApplicationService:
                     user = await uow.user_repository.get_by_email(identity.email)
                 if user is None:
                     domain_service = UserDomainService(uow.user_repository)
-                    email = identity.email or f"{identity.sub}@{provider}.local"
+                    trusted_email = identity.email if identity.email_verified else None
+                    email = trusted_email or f"{identity.sub}@{provider}.local"
                     username = await domain_service.derive_unique_username(email)
                     now = utcnow()
                     user = await uow.user_repository.create(

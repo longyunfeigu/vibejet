@@ -27,6 +27,7 @@ class Conversation(BaseEntity[int]):
     model: Optional[str] = None
     status: str = "active"
     metadata: dict[str, Any] = field(default_factory=dict)
+    owner_id: Optional[int] = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -56,12 +57,20 @@ class Conversation(BaseEntity[int]):
         self.status = "archived"
         self._touch()
 
+    def record_activity(self) -> None:
+        """会话内发生聊天等活动时刷新 updated_at，驱动列表"最近活跃"排序。"""
+        self._touch()
+
     def soft_delete(self) -> None:
         self.status = "archived"
         self.mark_deleted()
 
     def is_active(self) -> bool:
         return self.status == "active" and self.deleted_at is None
+
+    def belongs_to(self, user_id: int) -> bool:
+        # NULL owner（遗留孤儿行）不属于任何用户
+        return self.owner_id == user_id
 
 
 @dataclass

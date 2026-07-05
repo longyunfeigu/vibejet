@@ -58,15 +58,8 @@ class Document(BaseEntity[int]):
             self.metadata = {}
 
     # ── 状态机 ──────────────────────────────────────────────────────
-
-    def start_parsing(self) -> None:
-        """pending/failed/ready → parsing；parsing 中禁止重复进入。"""
-        if self.status == "parsing":
-            raise DocumentAlreadyProcessingException(self.id)
-        self.status = "parsing"
-        self.error_code = None
-        self.error_message = None
-        self._touch()
+    # 注意：进入 parsing 没有实体方法——认领必须走仓储的原子条件 UPDATE
+    # （try_mark_parsing），实体级 set 状态无法防并发双认领。
 
     def mark_ready(
         self,

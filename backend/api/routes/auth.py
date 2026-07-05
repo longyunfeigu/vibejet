@@ -97,6 +97,7 @@ async def login_oauth(
     "/refresh",
     summary="刷新令牌",
     response_model=ApiResponse[TokenPairDTO],
+    dependencies=[Depends(rate_limit("auth:refresh"))],
 )
 async def refresh(
     payload: RefreshRequestDTO,

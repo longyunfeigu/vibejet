@@ -6,15 +6,16 @@
 
 from __future__ import annotations
 
-import hashlib
 from typing import Optional
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.file_asset import FileAsset, FileAssetRepository
-from domain.common.exceptions import FileAssetNotFoundException
+from domain.common.exceptions import FileAssetKeyConflictException, FileAssetNotFoundException
 from infrastructure.models.file_asset import FileAssetModel
+from infrastructure.repositories.base_repository import execute_targeted_update
 from infrastructure.repositories.mixins import SoftDeleteFilterMixin
 
 
@@ -48,11 +49,6 @@ class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
             deleted_at=model.deleted_at,
         )
 
-    @staticmethod
-    def _calc_unique_hash(storage_type: str, bucket: Optional[str], key: str) -> str:
-        raw = f"{storage_type}|{bucket or ''}|{key}"
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
     def _apply_filters(
         self,
         query,
@@ -77,7 +73,6 @@ class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
             bucket=asset.bucket,
             region=asset.region,
             key=asset.key,
-            unique_key_hash=self._calc_unique_hash(asset.storage_type, asset.bucket, asset.key),
             size=asset.size,
             etag=asset.etag,
             content_type=asset.content_type,
@@ -92,60 +87,41 @@ class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
             deleted_at=asset.deleted_at,
         )
         self.session.add(model)
-        await self.session.flush()
+        try:
+            await self.session.flush()
+        except IntegrityError as exc:
+            # 应用层 get_by_key 预检在并发下存在 check-then-act 窗口；
+            # uq_file_assets_key 兜底后映射回域异常，而不是裸 500
+            raise FileAssetKeyConflictException(asset.key) from exc
         await self.session.refresh(model)
         return self._to_entity(model)
 
     async def update(self, asset: FileAsset) -> FileAsset:
-        result = await self.session.execute(
-            select(FileAssetModel).where(FileAssetModel.id == asset.id)
+        await execute_targeted_update(
+            self.session,
+            FileAssetModel,
+            asset.id,
+            {
+                "owner_id": asset.owner_id,
+                "storage_type": asset.storage_type,
+                "bucket": asset.bucket,
+                "region": asset.region,
+                "key": asset.key,
+                "size": asset.size,
+                "etag": asset.etag,
+                "content_type": asset.content_type,
+                "original_filename": asset.original_filename,
+                "kind": asset.kind,
+                "is_public": asset.is_public,
+                "extra_metadata": asset.metadata or {},
+                "url": asset.url,
+                "status": asset.status,
+                "updated_at": asset.updated_at,
+                "deleted_at": asset.deleted_at,
+            },
+            not_found=lambda: FileAssetNotFoundException(asset.id),
         )
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise FileAssetNotFoundException(asset.id)
-
-        model.owner_id = asset.owner_id
-        model.storage_type = asset.storage_type
-        model.bucket = asset.bucket
-        model.region = asset.region
-        model.key = asset.key
-        model.unique_key_hash = self._calc_unique_hash(asset.storage_type, asset.bucket, asset.key)
-        model.size = asset.size
-        model.etag = asset.etag
-        model.content_type = asset.content_type
-        model.original_filename = asset.original_filename
-        model.kind = asset.kind
-        model.is_public = asset.is_public
-        model.extra_metadata = asset.metadata or {}
-        model.url = asset.url
-        model.status = asset.status
-        model.created_at = asset.created_at
-        model.updated_at = asset.updated_at
-        model.deleted_at = asset.deleted_at
-
-        await self.session.flush()
-        await self.session.refresh(model)
-        return self._to_entity(model)
-
-    async def hard_delete(self, asset_id: int) -> None:
-        """物理删除（DELETE FROM）。软删请走 update + mark_deleted。"""
-        result = await self.session.execute(
-            select(FileAssetModel).where(FileAssetModel.id == asset_id)
-        )
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise FileAssetNotFoundException(asset_id)
-        await self.session.delete(model)
-        await self.session.flush()
-
-    async def hard_delete_by_key(self, key: str) -> None:
-        """物理删除（DELETE FROM）。软删请走 update + mark_deleted。"""
-        result = await self.session.execute(select(FileAssetModel).where(FileAssetModel.key == key))
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise FileAssetNotFoundException(key=key)
-        await self.session.delete(model)
-        await self.session.flush()
+        return asset
 
     async def get_by_id(
         self, asset_id: int, *, include_deleted: bool = False

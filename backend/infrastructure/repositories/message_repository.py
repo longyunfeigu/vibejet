@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,13 +46,6 @@ class SQLAlchemyMessageRepository(MessageRepository):
         await self.session.flush()
         await self.session.refresh(model)
         return self._to_entity(model)
-
-    async def get_by_id(self, message_id: int) -> Optional[Message]:
-        result = await self.session.execute(
-            select(MessageModel).where(MessageModel.id == message_id)
-        )
-        model = result.scalar_one_or_none()
-        return self._to_entity(model) if model else None
 
     async def list_by_conversation(
         self,

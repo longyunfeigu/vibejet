@@ -191,8 +191,9 @@ class KafkaConsumer(Consumer):
         try:
             self._consumer.resume(tps)
             self.log.debug("resumed partitions", extra={"count": len(tps)})
-        except Exception:
-            pass
+        except Exception as e:
+            # best-effort resume：失败只影响该批分区的恢复时机，但必须可观测
+            self.log.warning("partition resume failed", extra={"error": str(e)})
 
     def _pause_partition_until(
         self, topic: str, partition: int, offset: int, resume_at_ms: int
@@ -246,8 +247,9 @@ class KafkaConsumer(Consumer):
                             self._consumer.commit(asynchronous=False)
                             processed_since_commit = 0
                             last_commit_time = now_t
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            # commit 失败会导致重复消费（at-least-once 语义内），必须可观测
+                            self.log.warning("offset commit failed", extra={"error": str(e)})
                     continue
                 if msg.error():
                     # log and continue
@@ -274,11 +276,7 @@ class KafkaConsumer(Consumer):
 
                 # deserialize
                 try:
-                    payload = (
-                        value if value is None or isinstance(value, (bytes, bytearray)) else value
-                    )
-                    if value is not None:
-                        payload = self.serializer.loads(value)
+                    payload = self.serializer.loads(value) if value is not None else None
                 except Exception as e:  # noqa: BLE001
                     # deserialization error -> DLQ
                     decision_topic = f"{topic}.{self.retry_cfg.dlq_suffix}"

@@ -19,6 +19,10 @@ from domain.conversation.exceptions import (
 )
 from domain.conversation.repository import AgentConfigRepository
 from infrastructure.models.conversation import AgentConfigModel
+from infrastructure.repositories.base_repository import (
+    execute_targeted_delete,
+    execute_targeted_update,
+)
 
 
 class SQLAlchemyAgentConfigRepository(AgentConfigRepository):
@@ -62,38 +66,34 @@ class SQLAlchemyAgentConfigRepository(AgentConfigRepository):
         return self._to_entity(model)
 
     async def update(self, config: AgentConfig) -> AgentConfig:
-        result = await self.session.execute(
-            select(AgentConfigModel).where(AgentConfigModel.id == config.id)
-        )
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise AgentConfigNotFoundException(config.id)
-
-        model.name = config.name
-        model.system_prompt = config.system_prompt
-        model.model = config.model
-        model.temperature = config.temperature
-        model.max_tokens = config.max_tokens
-        model.extra_metadata = config.metadata or {}
-        model.updated_at = config.updated_at
-
+        # 改名撞唯一索引同样映射为 409，与 create 一致
         try:
-            await self.session.flush()
+            await execute_targeted_update(
+                self.session,
+                AgentConfigModel,
+                config.id,
+                {
+                    "name": config.name,
+                    "system_prompt": config.system_prompt,
+                    "model": config.model,
+                    "temperature": config.temperature,
+                    "max_tokens": config.max_tokens,
+                    "extra_metadata": config.metadata or {},
+                    "updated_at": config.updated_at,
+                },
+                not_found=lambda: AgentConfigNotFoundException(config.id),
+            )
         except IntegrityError as exc:
-            # 改名撞唯一索引同样映射为 409，与 create 一致
             raise AgentConfigNameExistsException(config.name) from exc
-        await self.session.refresh(model)
-        return self._to_entity(model)
+        return config
 
     async def delete(self, config_id: int) -> None:
-        result = await self.session.execute(
-            select(AgentConfigModel).where(AgentConfigModel.id == config_id)
+        await execute_targeted_delete(
+            self.session,
+            AgentConfigModel,
+            config_id,
+            not_found=lambda: AgentConfigNotFoundException(config_id),
         )
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise AgentConfigNotFoundException(config_id)
-        await self.session.delete(model)
-        await self.session.flush()
 
     async def get_by_id(self, config_id: int) -> Optional[AgentConfig]:
         result = await self.session.execute(

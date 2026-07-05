@@ -64,8 +64,8 @@ The base library currently provides these reusable capabilities:
 | Persistence | `backend/infrastructure/database.py`, `backend/alembic/` | Async SQLAlchemy and Alembic migrations |
 | Repository/UoW | `backend/domain/*/repository.py`, `backend/application/ports/unit_of_work.py`, `backend/infrastructure/repositories/`, `backend/infrastructure/unit_of_work.py` | Domain repository interfaces, application transaction port, and SQLAlchemy implementations |
 | File storage | `backend/application/ports/storage.py`, `backend/infrastructure/external/storage/` | Local, S3, and OSS providers behind a storage port |
-| Messaging | `backend/infrastructure/external/messaging/` | Kafka driver abstraction with retry/DLQ-oriented configuration |
-| Background tasks | `backend/infrastructure/tasks/` | Celery app, task base, and dispatcher pattern |
+| Messaging（参考脚手架，未接线） | `backend/infrastructure/external/messaging/` | Kafka driver abstraction with retry/DLQ-oriented configuration。依赖为 optional extras，docker-compose 无 broker，运行时零接线——使用前需装 extras 并自行装配 |
+| Background tasks（参考脚手架，未接线） | `backend/infrastructure/tasks/` | Celery app, task base, and dispatcher pattern。celery 为 optional extra，无 worker/beat 编排，运行时零接线 |
 | Observability | `backend/core/observability/`, `backend/api/routes/health.py`, `backend/api/routes/metrics.py` | Health checks, metrics, tracing hooks |
 | i18n | `backend/core/i18n.py`, `backend/locales/` | Babel-based message catalogs |
 | Testing | `backend/tests/`, `backend/pyproject.toml` | pytest, async test support, repository and config tests |

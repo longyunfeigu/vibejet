@@ -1,5 +1,5 @@
 # input: ASGI scope/receive/send, core.config settings, core.logging_config logger
-# output: LoggingMiddleware (纯 ASGI), AccessLogMiddleware (纯 ASGI)
+# output: LoggingMiddleware (纯 ASGI)
 # owner: wanhua.gu
 # pos: 表示层中间件 - 请求/响应日志记录（纯 ASGI 实现）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
@@ -47,8 +47,23 @@ class LoggingMiddleware:
         "/openapi.json",
     }
 
-    # 敏感字段，日志中需要脱敏
-    SENSITIVE_FIELDS = {"password", "secret", "api_key", "old_password", "new_password"}
+    # 敏感字段，日志中需要脱敏（含凭证/令牌类：refresh_token 可换新令牌对、
+    # OAuth code 在有效期内可换身份，落日志即泄露面）
+    SENSITIVE_FIELDS = {
+        "password",
+        "secret",
+        "api_key",
+        "old_password",
+        "new_password",
+        "token",
+        "access_token",
+        "refresh_token",
+        "id_token",
+        "code",
+        "credential",
+        "client_secret",
+        "authorization",
+    }
 
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -188,10 +203,11 @@ class LoggingMiddleware:
 
     def _should_log_body_from_scope(self, scope: Scope) -> bool:
         """判断是否需要记录请求体。"""
-        # 检查 X-Log-Body 请求头覆盖
+        # X-Log-Body 请求头覆盖：force-true 仅在 DEBUG 下生效——生产环境不允许
+        # 任意客户端用一个请求头强制把请求体刷进服务端日志（日志膨胀 + 令牌入日志）
         header = self._get_header(scope, "X-Log-Body").lower()
         if header in ("true", "1", "yes"):
-            return True
+            return bool(settings.DEBUG)
         if header in ("false", "0", "no"):
             return False
         # 按环境默认
@@ -258,37 +274,3 @@ class LoggingMiddleware:
             logger.warning("request_client_error", **log_data)
         else:
             logger.error("request_server_error", **log_data)
-
-
-class AccessLogMiddleware:
-    """
-    访问日志中间件（轻量级）
-    仅记录访问日志，不记录详细的请求/响应信息
-    """
-
-    def __init__(self, app: ASGIApp):
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        start_time = time.time()
-
-        async def send_wrapper(message: dict) -> None:
-            if message["type"] == "http.response.start":
-                duration = time.time() - start_time
-
-                # 记录访问日志
-                logger.info(
-                    "access",
-                    method=scope["method"],
-                    path=scope["path"],
-                    status=message["status"],
-                    duration=duration,
-                )
-
-            await send(message)
-
-        await self.app(scope, receive, send_wrapper)

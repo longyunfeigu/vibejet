@@ -21,12 +21,15 @@ class GoogleIdTokenVerifier:
 
     def __init__(self, client_id: str) -> None:
         self._client_id = client_id
-        self._request = google_requests.Request()
 
     def verify(self, credential: str) -> GoogleIdentity:
+        # 同步方法：证书拉取走 requests 同步 transport，调用方须经 asyncio.to_thread
+        # 执行（见 code_exchanger）。transport 按调用创建——requests.Session 不保证
+        # 跨线程共享安全，而登录频率低，不值得为连接复用引入锁。
+        request = google_requests.Request()
         try:
             # verify_oauth2_token 校验签名、exp，并断言 aud == client_id、iss 为 Google
-            claims = google_id_token.verify_oauth2_token(credential, self._request, self._client_id)
+            claims = google_id_token.verify_oauth2_token(credential, request, self._client_id)
         except ValueError as exc:
             logger.warning("google_id_token_invalid", error=str(exc))
             raise InvalidTokenException("invalid google credential") from exc

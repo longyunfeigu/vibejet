@@ -91,8 +91,9 @@ class FileAssetApplicationService:
         return FileAssetDTO.model_validate(asset)
 
     def _to_summary(self, asset: FileAsset) -> FileAssetSummaryDTO:
+        assert asset.id is not None  # 只对已持久化实体做摘要
         return FileAssetSummaryDTO(
-            id=asset.id or 0,
+            id=asset.id,
             key=asset.key,
             status=asset.status,
             original_filename=asset.original_filename,
@@ -143,79 +144,22 @@ class FileAssetApplicationService:
             created = await uow.file_asset_repository.create(asset)
             return self._to_summary(created)
 
-    async def mark_asset_active(
-        self,
-        *,
-        asset_id: Optional[int] = None,
-        key: Optional[str] = None,
-        size: Optional[int] = None,
-        etag: Optional[str] = None,
-        content_type: Optional[str] = None,
-        url: Optional[str] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> FileAssetDTO:
-        if asset_id is None and not key:
-            raise FileAssetNotFoundException()
-
-        async with self._uow_factory() as uow:
-            repo = uow.file_asset_repository
-            asset: Optional[FileAsset] = None
-            if asset_id is not None:
-                asset = await repo.get_by_id(asset_id)
-            if asset is None and key:
-                asset = await repo.get_by_key(key)
-            if asset is None:
-                raise FileAssetNotFoundException(asset_id, key=key)
-
-            asset.update_object_metadata(
-                size=size,
-                etag=etag,
-                content_type=content_type,
-                url=url if url is not None else asset.url,
-                metadata=metadata if metadata is not None else asset.metadata,
-            )
-            asset.mark_active()
-            updated = await repo.update(asset)
-            return self._to_dto(updated)
-
     # ---------------------- Orchestration with Storage ----------------------
-    async def purge_asset(self, asset_id: int) -> None:
-        """Physically delete remote object then remove DB record (idempotent)."""
-        if self._storage is None:
-            raise RuntimeError("Storage port not configured for FileAssetApplicationService")
-
-        async with self._uow_factory() as uow:
-            # purge 必须能找到软删记录
-            asset = await uow.file_asset_repository.get_by_id(asset_id, include_deleted=True)
-            if asset is None:
-                raise FileAssetNotFoundException(asset_id)
-
-            try:
-                await self._storage.delete(asset.key)
-            except Exception as exc:
-                # Best effort deletion; continue to keep API idempotent，但必须留下可观测的痕迹
-                logger.warning(
-                    "storage_purge_failed",
-                    asset_id=asset_id,
-                    key=asset.key,
-                    storage_type=asset.storage_type,
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
-
-            await uow.file_asset_repository.hard_delete(asset_id)
-
     async def confirm_direct_upload(
         self,
         *,
         asset_id: Optional[int] = None,
         key: Optional[str] = None,
+        owner_id: int,
     ) -> FileAssetDTO:
         """Confirm client direct upload by reconciling metadata from storage."""
         if self._storage is None:
             raise RuntimeError("Storage port not configured for FileAssetApplicationService")
 
-        async with self._uow_factory() as uow:
+        # 三段式（同 chat/document 的既有纪律）：数据库事务不得跨存储网络调用，
+        # 否则连接被钉住整个存储往返，并发确认下有池耗尽风险。
+        # tx-1：短只读事务完成加载 + 归属校验
+        async with self._uow_factory(readonly=True) as uow:
             repo = uow.file_asset_repository
             asset: Optional[FileAsset] = None
             if asset_id is not None:
@@ -224,19 +168,33 @@ class FileAssetApplicationService:
                 asset = await repo.get_by_key(key)
             if asset is None:
                 raise FileAssetNotFoundException(asset_id, key=key)
-
-            meta = await self._storage.get_metadata(asset.key)
-            public_url = self._storage.public_url(asset.key)
-
-            asset.update_object_metadata(
-                size=getattr(meta, "size", None),
-                etag=getattr(meta, "etag", None),
-                content_type=getattr(meta, "content_type", None) or asset.content_type,
-                url=public_url,
-                metadata=getattr(meta, "custom_metadata", None) or asset.metadata,
+            self._ensure_owned(
+                asset, owner_id, not_found=FileAssetNotFoundException(asset_id, key=key)
             )
-            asset.mark_active()
-            updated = await repo.update(asset)
+
+        # 无事务：存储元数据 HEAD（网络往返）
+        meta = await self._storage.get_metadata(asset.key)
+        public_url = self._storage.public_url(asset.key)
+
+        # tx-2：重新加载并应用元数据（确认幂等；期间被删/易主则同 404）
+        async with self._uow_factory() as uow:
+            repo = uow.file_asset_repository
+            current = await repo.get_by_id(asset.id) if asset.id is not None else None
+            if current is None:
+                raise FileAssetNotFoundException(asset_id, key=key)
+            self._ensure_owned(
+                current, owner_id, not_found=FileAssetNotFoundException(asset_id, key=key)
+            )
+
+            current.update_object_metadata(
+                size=meta.size,
+                etag=meta.etag,
+                content_type=meta.content_type or current.content_type,
+                url=public_url,
+                metadata=meta.custom_metadata or current.metadata,
+            )
+            current.mark_active()
+            updated = await repo.update(current)
             return self._to_dto(updated)
 
     async def generate_access_url_by_info(
@@ -265,10 +223,7 @@ class FileAssetApplicationService:
             response_content_disposition=disposition,
             # response_content_type intentionally omitted for OSS
         )
-        return {
-            "url": getattr(presigned, "url", ""),
-            "expires_in": getattr(presigned, "expires_in", expires_in),
-        }
+        return {"url": presigned.url, "expires_in": presigned.expires_in}
 
     async def generate_access_url_for_asset(
         self,
@@ -339,12 +294,12 @@ class FileAssetApplicationService:
         content_type = mime_type or guess_content_type(fname)
 
         # Check allowed MIME types (presign context)
-        allowed_types = getattr(settings.storage, "presign_content_types", None)
+        allowed_types = settings.storage.presign_content_types
         if allowed_types and content_type and content_type not in allowed_types:
             raise UnsupportedMimeTypeException(content_type)
 
         # Check presign size limit
-        presign_max = int(getattr(settings.storage, "presign_max_size", 0) or 0)
+        presign_max = settings.storage.presign_max_size
         if presign_max and size_bytes and size_bytes > presign_max:
             raise FileTooLargeException(size=size_bytes, max_size=presign_max)
         key = build_storage_key(kind=kind, user_id=_user_id_for_key(user_id), ext=ext)
@@ -409,68 +364,6 @@ class FileAssetApplicationService:
             content_type=content_type,
         )
 
-    async def relay_upload(
-        self,
-        *,
-        user_id: Optional[int],
-        file_bytes: bytes,
-        filename: str,
-        kind: str,
-        content_type: Optional[str] = None,
-    ) -> StorageUploadResponseDTO:
-        """Server-side relay upload and persistence to DB.
-
-        Only persist stable public URL (if any); do not store presigned URL.
-        """
-        if self._storage is None:
-            raise RuntimeError("Storage port not configured for FileAssetApplicationService")
-
-        _, ext = splitext(filename or "")
-        ctype = content_type or guess_content_type(filename or "")
-
-        # Optional validation for relay uploads (based on storage validation settings)
-        if getattr(settings.storage, "validation_enabled", False):
-            max_size = int(getattr(settings.storage, "max_file_size", 0) or 0)
-            if max_size and len(file_bytes) > max_size:
-                raise FileTooLargeException(size=len(file_bytes), max_size=max_size)
-            allowed = getattr(settings.storage, "allowed_types", None)
-            if allowed and ctype and ctype not in allowed:
-                raise UnsupportedMimeTypeException(ctype)
-        key = build_storage_key(kind=kind, user_id=_user_id_for_key(user_id), ext=ext)
-
-        # Upload to storage
-        meta = {"filename": filename or ""}
-        outcome = await self._storage.upload(file_bytes, key, metadata=meta, content_type=ctype)
-
-        # Derive stable public URL only
-        info = self._storage.info()
-        db_url = self._storage.public_url(outcome.key)
-
-        asset_dto = await self._persist_relay_upload(
-            owner_id=user_id,
-            storage_type=info.type,
-            bucket=info.bucket,
-            region=info.region,
-            key=outcome.key,
-            original_filename=filename or None,
-            content_type=outcome.content_type or ctype,
-            kind=kind,
-            size=outcome.size,
-            etag=outcome.etag,
-            url=db_url,
-            metadata={"upload_source": "relay", "filename": filename or ""},
-        )
-
-        return StorageUploadResponseDTO(
-            key=outcome.key,
-            etag=outcome.etag,
-            size=outcome.size,
-            content_type=outcome.content_type or ctype,
-            url=outcome.url,  # response can return provider url if any; not persisted
-            file_id=asset_dto.id,
-            file_status=asset_dto.status,
-        )
-
     async def relay_upload_stream(
         self,
         *,
@@ -488,18 +381,18 @@ class FileAssetApplicationService:
         _, ext = splitext(filename or "")
         ctype = content_type or guess_content_type(filename or "")
 
-        max_size = int(getattr(settings.storage, "max_file_size", 0) or 0)
-        if getattr(settings.storage, "validation_enabled", False):
+        max_size = settings.storage.max_file_size
+        if settings.storage.validation_enabled:
             if max_size and size_hint and size_hint > max_size:
                 raise FileTooLargeException(size=size_hint, max_size=max_size)
-            allowed = getattr(settings.storage, "allowed_types", None)
+            allowed = settings.storage.allowed_types
             if allowed and ctype and ctype not in allowed:
                 raise UnsupportedMimeTypeException(ctype)
 
         key = build_storage_key(kind=kind, user_id=_user_id_for_key(user_id), ext=ext)
 
         stream: AsyncIterator[bytes] = file_stream
-        if getattr(settings.storage, "validation_enabled", False) and max_size:
+        if settings.storage.validation_enabled and max_size:
             stream = _limit_stream(stream, max_bytes=max_size)
 
         meta = {"filename": filename or ""}
@@ -574,7 +467,7 @@ class FileAssetApplicationService:
     ) -> FileAssetDTO:
         async with self._uow_factory() as uow:
             repo = uow.file_asset_repository
-            # 需要含已软删的记录：unique_key_hash 唯一约束下，重传同 key 必须命中老记录复活，否则会 IntegrityError
+            # 需要含已软删的记录：key 唯一约束下，重传同 key 必须命中老记录复活，否则会 IntegrityError
             asset = await repo.get_by_key(key, include_deleted=True)
             if asset is None:
                 now = utcnow()
@@ -618,25 +511,28 @@ class FileAssetApplicationService:
             updated = await repo.update(asset)
             return self._to_dto(updated)
 
-    async def get_asset(self, asset_id: int) -> FileAssetDTO:
-        async with self._uow_factory(readonly=True) as uow:
-            asset = await uow.file_asset_repository.get_by_id(asset_id)
-            if asset is None:
-                raise FileAssetNotFoundException(asset_id)
-            return self._to_dto(asset)
+    @staticmethod
+    def _ensure_owned(asset: FileAsset, owner_id: int, *, not_found: FileAssetNotFoundException) -> None:
+        """越权与不存在同 404（Epic-1 D1）。not_found 必须与调用方的"不存在"分支
+        用相同标识（asset_id vs key）构造，否则两种 404 的 details 不同，泄露资产
+        存在性与内部 asset_id。"""
+        if not asset.belongs_to(owner_id):
+            raise not_found
 
-    async def get_asset_raw(self, asset_id: int) -> FileAsset:
+    async def get_asset_raw(self, asset_id: int, *, owner_id: int) -> FileAsset:
         async with self._uow_factory(readonly=True) as uow:
             asset = await uow.file_asset_repository.get_by_id(asset_id)
             if asset is None:
                 raise FileAssetNotFoundException(asset_id)
+            self._ensure_owned(asset, owner_id, not_found=FileAssetNotFoundException(asset_id))
             return asset
 
-    async def get_asset_by_key_raw(self, key: str) -> FileAsset:
+    async def get_asset_by_key_raw(self, key: str, *, owner_id: int) -> FileAsset:
         async with self._uow_factory(readonly=True) as uow:
             asset = await uow.file_asset_repository.get_by_key(key)
             if asset is None:
                 raise FileAssetNotFoundException(key=key)
+            self._ensure_owned(asset, owner_id, not_found=FileAssetNotFoundException(key=key))
             return asset
 
     async def list_assets(
@@ -664,60 +560,16 @@ class FileAssetApplicationService:
             )
             return [self._to_dto(item) for item in items], total
 
-    async def soft_delete(self, asset_id: int) -> FileAssetDTO:
+    async def soft_delete(self, asset_id: int, *, owner_id: int) -> FileAssetDTO:
         async with self._uow_factory() as uow:
             # 需要看到已软删的记录，才能给出 AlreadyDeleted 而不是 NotFound
             asset = await uow.file_asset_repository.get_by_id(asset_id, include_deleted=True)
             if asset is None:
                 raise FileAssetNotFoundException(asset_id)
+            # 归属断言先于 AlreadyDeleted：不向非 owner 泄露删除状态
+            self._ensure_owned(asset, owner_id, not_found=FileAssetNotFoundException(asset_id))
             if asset.is_deleted():
                 raise FileAssetAlreadyDeletedException(asset_id)
             asset.mark_deleted()
             updated = await uow.file_asset_repository.update(asset)
             return self._to_dto(updated)
-
-    async def purge(self, asset_id: int) -> None:
-        async with self._uow_factory() as uow:
-            await uow.file_asset_repository.hard_delete(asset_id)
-
-    async def purge_by_key(self, key: str) -> None:
-        async with self._uow_factory() as uow:
-            await uow.file_asset_repository.hard_delete_by_key(key)
-
-    # ---- Unified naming (wrappers) ----
-    async def purge_asset_by_id(self, asset_id: int) -> None:
-        """Physically delete remote object and DB record by id (wrapper)."""
-        await self.purge_asset(asset_id)
-
-    async def purge_asset_by_key(self, key: str) -> None:
-        """Physically delete remote object and DB record by key (new)."""
-        if self._storage is None:
-            raise RuntimeError("Storage port not configured for FileAssetApplicationService")
-        async with self._uow_factory() as uow:
-            repo = uow.file_asset_repository
-            # purge 必须能找到软删记录
-            asset = await repo.get_by_key(key, include_deleted=True)
-            if asset is None:
-                raise FileAssetNotFoundException(key=key)
-            try:
-                await self._storage.delete(asset.key)
-            except Exception as exc:
-                logger.warning(
-                    "storage_purge_failed",
-                    asset_id=asset.id,
-                    key=asset.key,
-                    storage_type=asset.storage_type,
-                    error=str(exc),
-                    error_type=type(exc).__name__,
-                )
-            await repo.hard_delete(asset.id)
-
-    async def delete_record_by_id(self, asset_id: int) -> None:
-        """Delete DB record only by id (soft API should be preferred)."""
-        async with self._uow_factory() as uow:
-            await uow.file_asset_repository.hard_delete(asset_id)
-
-    async def delete_record_by_key(self, key: str) -> None:
-        """Delete DB record only by key (no remote object deletion)."""
-        async with self._uow_factory() as uow:
-            await uow.file_asset_repository.hard_delete_by_key(key)

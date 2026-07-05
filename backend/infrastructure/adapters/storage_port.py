@@ -108,22 +108,6 @@ class StorageProviderPortAdapter(StoragePort):
     def public_url(self, key: str) -> Optional[str]:
         return self.provider.public_url(key)
 
-    async def upload(
-        self,
-        data: bytes,
-        key: str,
-        metadata: Optional[dict] = None,
-        content_type: Optional[str] = None,
-    ) -> UploadOutcome:
-        result = await self.provider.upload(data, key, metadata=metadata, content_type=content_type)
-        return UploadOutcome(
-            key=getattr(result, "key", key),
-            etag=getattr(result, "etag", None),
-            size=int(getattr(result, "size", 0) or 0),
-            content_type=getattr(result, "content_type", content_type),
-            url=getattr(result, "url", None),
-        )
-
     async def upload_stream(
         self,
         stream: AsyncIterator[bytes],

@@ -6,6 +6,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Index,
@@ -25,9 +26,12 @@ class DocumentModel(Base):
 
     __tablename__ = "documents"
     __table_args__ = (
-        Index("ix_documents_created_at", "created_at"),
+        # 列表以 owner_id 打头走复合索引；孤立 created_at 索引无查询使用，不建
         Index("ix_documents_owner_created", "owner_id", "created_at"),
         Index("ix_documents_file_asset_id", "file_asset_id"),
+        CheckConstraint(
+            "status IN ('pending', 'parsing', 'ready', 'failed')", name="status"
+        ),
         {
             "comment": "文档表，记录文件解析为 Markdown 的语义层聚合",
         },
@@ -92,7 +96,6 @@ class DocumentModel(Base):
         comment="失败错误详情",
     )
     extra_metadata = Column(
-        "metadata",
         JSON,
         nullable=True,
         default=dict,

@@ -23,6 +23,8 @@ class IdempotencyService:
         self,
         *,
         store: IdempotencyStore,
+        # lock_ttl 必须大于被保护操作的最坏执行时长：锁先于执行完成过期的话，
+        # 并发重试会再次抢锁成功并重复执行 side effect
         lock_ttl_seconds: int = 30,
         result_ttl_seconds: int = 24 * 60 * 60,
     ) -> None:

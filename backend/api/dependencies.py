@@ -1,5 +1,5 @@
 # input: application services, infrastructure 实现（composition root 豁免）, HTTP Bearer 凭证
-# output: get_*_service 依赖工厂, get_current_user 认证依赖
+# output: get_*_service 依赖工厂, get_current_user 认证依赖, shutdown_oauth_exchangers 生命周期钩子
 # owner: wanhua.gu
 # pos: 表示层 - FastAPI 依赖注入装配点（具体实现→端口的唯一绑定处）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """API 依赖项（composition root）。"""
@@ -107,6 +107,18 @@ def _get_oauth_exchangers() -> dict[str, LarkAuthCodeExchanger]:
             )
         _oauth_exchangers = exchangers
     return _oauth_exchangers
+
+
+async def shutdown_oauth_exchangers() -> None:
+    """关闭 OAuth 交换器持有的共享 HTTP 客户端（lifespan 关停时调用）。"""
+    global _google_exchanger, _oauth_exchangers
+    if _google_exchanger is not None:
+        await _google_exchanger.aclose()
+        _google_exchanger = None
+    if _oauth_exchangers:
+        for exchanger in _oauth_exchangers.values():
+            await exchanger.aclose()
+    _oauth_exchangers = None
 
 
 async def get_password_hasher() -> PasswordHasher:

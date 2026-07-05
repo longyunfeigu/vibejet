@@ -55,11 +55,12 @@ class TagRepository(SQLAlchemyBaseRepository[Tag, TagModel, int]):
             deleted_at=entity.deleted_at,
         )
 
-    def _update_model(self, model: TagModel, entity: Tag) -> None:
-        model.name = entity.name
-        model.created_at = entity.created_at
-        model.updated_at = entity.updated_at
-        model.deleted_at = entity.deleted_at
+    def _update_values(self, entity: Tag) -> dict:
+        return {
+            "name": entity.name,
+            "updated_at": entity.updated_at,
+            "deleted_at": entity.deleted_at,
+        }
 
     def _not_found_exception(self, identifier: int) -> BusinessException:
         return BusinessException(

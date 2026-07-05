@@ -53,14 +53,8 @@ class StoragePort(Protocol):
 
     async def get_metadata(self, key: str) -> ObjectMetadata: ...
 
-    async def upload(
-        self,
-        data: bytes,
-        key: str,
-        metadata: Optional[dict] = None,
-        content_type: Optional[str] = None,
-    ) -> UploadOutcome: ...
-
+    # 端口不提供 bytes 版 upload：应用层统一走 upload_stream（降峰值内存），
+    # 小文件由 adapter 内部退化为底层 provider 的单次 upload
     async def upload_stream(
         self,
         stream: AsyncIterator[bytes],

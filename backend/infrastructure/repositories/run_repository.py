@@ -15,6 +15,7 @@ from domain.conversation.entity import Run
 from domain.conversation.exceptions import RunNotFoundException
 from domain.conversation.repository import RunRepository
 from infrastructure.models.conversation import RunModel
+from infrastructure.repositories.base_repository import execute_targeted_update
 
 
 class SQLAlchemyRunRepository(RunRepository):
@@ -57,23 +58,23 @@ class SQLAlchemyRunRepository(RunRepository):
         return self._to_entity(model)
 
     async def update(self, run: Run) -> Run:
-        result = await self.session.execute(select(RunModel).where(RunModel.id == run.id))
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise RunNotFoundException(run.id)
-
-        model.status = run.status
-        model.model = run.model
-        model.prompt_tokens = run.prompt_tokens
-        model.completion_tokens = run.completion_tokens
-        model.total_tokens = run.total_tokens
-        model.error_message = run.error_message
-        model.started_at = run.started_at
-        model.completed_at = run.completed_at
-
-        await self.session.flush()
-        await self.session.refresh(model)
-        return self._to_entity(model)
+        await execute_targeted_update(
+            self.session,
+            RunModel,
+            run.id,
+            {
+                "status": run.status,
+                "model": run.model,
+                "prompt_tokens": run.prompt_tokens,
+                "completion_tokens": run.completion_tokens,
+                "total_tokens": run.total_tokens,
+                "error_message": run.error_message,
+                "started_at": run.started_at,
+                "completed_at": run.completed_at,
+            },
+            not_found=lambda: RunNotFoundException(run.id),
+        )
+        return run
 
     async def get_by_id(self, run_id: int) -> Optional[Run]:
         result = await self.session.execute(select(RunModel).where(RunModel.id == run_id))

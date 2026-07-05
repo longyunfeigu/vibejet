@@ -8,7 +8,7 @@
 worktree 隔离与 verify/review gate），不再依赖外部 shell 编排脚本。
 
 > 早期的 `run-epic.sh` / `check-story-result.sh`（基于已移除的 `run-story` skill 的
-> shell DAG 编排）已随该 skill 一并删除。其历史设计见 `docs/archive/run-story-design.md`。
+> shell DAG 编排）已随该 skill 一并删除。
 >
 > 曾短暂存在的 `check_file_headers.py`（文件头注释 pre-commit gate）已随
 > `.claude/rules/doc-maintenance.md` 规则本身一起移除——第一性原理复盘认定该规则维护的是

@@ -7,5 +7,5 @@ directory `{date}-epic-{N}-{slug}/` (README.md + design.md + decisions.md),
 plus task packets under `docs/tasks/work/epic-{N}-{slug}/` consumed by
 `vj-work`. Execution risk is expressed as `Execution policy: fast | strict`.
 
-The legacy story-level plan template (Triage 8 问 + Flow A/B/C) is archived at
-`docs/archive/story-plan-TEMPLATE.md` and is no longer the current baseline.
+The legacy story-level plan template (Triage 8 问 + Flow A/B/C) has been
+removed and is no longer the current baseline.

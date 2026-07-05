@@ -248,6 +248,5 @@ Keep this repository generic:
 - [Architecture](docs/project/architecture.md)
 - [AI workflow](docs/reference/guides/ai-workflow.md)
 - [FastAPI review checklist](docs/reference/guides/review-checklist-python-fastapi.md)
-- [Feature plan template](docs/tasks/plans/TEMPLATE.md)
 - [Auth API contract](docs/project/api/auth.md)
 - [Auth data model](docs/project/data/auth.md)

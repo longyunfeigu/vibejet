@@ -30,13 +30,16 @@ class ConversationRepository(ABC):
     async def list(
         self,
         *,
+        owner_id: Optional[int] = None,
         status: Optional[str] = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[Conversation]: ...
 
     @abstractmethod
-    async def count(self, *, status: Optional[str] = None) -> int: ...
+    async def count(
+        self, *, owner_id: Optional[int] = None, status: Optional[str] = None
+    ) -> int: ...
 
 
 class MessageRepository(ABC):
@@ -44,9 +47,6 @@ class MessageRepository(ABC):
 
     @abstractmethod
     async def create(self, message: Message) -> Message: ...
-
-    @abstractmethod
-    async def get_by_id(self, message_id: int) -> Optional[Message]: ...
 
     @abstractmethod
     async def list_by_conversation(

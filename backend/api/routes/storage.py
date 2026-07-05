@@ -91,18 +91,16 @@ async def presign_upload(
             service, payload, FileAssetSummaryDTO.model_validate(cached)
         )
 
-    try:
-        file_summary, presigned = await service.presign_upload(
-            user_id=current_user.id,
-            filename=payload.filename,
-            mime_type=payload.mime_type,
-            size_bytes=payload.size_bytes,
-            kind=payload.kind,
-            method=payload.method or "PUT",
-            expires_in=payload.expires_in,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # 校验失败由 service 统一抛 DomainValidationException，经全局异常处理器翻译
+    file_summary, presigned = await service.presign_upload(
+        user_id=current_user.id,
+        filename=payload.filename,
+        mime_type=payload.mime_type,
+        size_bytes=payload.size_bytes,
+        kind=payload.kind,
+        method=payload.method or "PUT",
+        expires_in=payload.expires_in,
+    )
 
     await idem.persist(request_hash, file_summary.model_dump(mode="json"))
     return await _build_presign_response(service, payload, file_summary, presigned=presigned)
@@ -115,6 +113,7 @@ async def presign_upload(
 )
 async def confirm_presigned_upload(
     payload: CompleteUploadRequestDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
     try:
@@ -122,16 +121,11 @@ async def confirm_presigned_upload(
     except ValueError as exc:  # pragma: no cover - defensive guard
         raise HTTPException(status_code=400, detail=t("file.identifier.missing")) from exc
 
-    if payload.id is not None:
-        asset = await service.get_asset_raw(payload.id)
-    elif payload.key:
-        asset = await service.get_asset_by_key_raw(payload.key)
-    else:  # pragma: no cover - already guarded
-        raise HTTPException(status_code=400, detail=t("file.identifier.missing"))
-
-    # No permission check
-
-    await service.confirm_direct_upload(asset_id=asset.id)
+    # confirm_direct_upload 自身按 id/key 定位并强制归属（越权/不存在同 404），
+    # 无需路由层再预取一次
+    await service.confirm_direct_upload(
+        asset_id=payload.id, key=payload.key, owner_id=current_user.id
+    )
 
     return success_response(data={"ok": True}, message=t("file.activate.success"))
 

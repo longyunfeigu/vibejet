@@ -7,7 +7,11 @@ from httpx import AsyncClient
 from api.dependencies import get_current_user, get_file_asset_service, get_idempotency_service
 from api.routes.storage import router as storage_router
 from application.dto import FileAssetSummaryDTO, UserDTO
-from application.ports.idempotency import IdempotencyRecord, IdempotencyStore
+from application.ports.idempotency import (
+    IdempotencyRecord,
+    IdempotencyStore,
+    IdempotencyStoreUnavailableError,
+)
 from application.ports.storage import PresignedURL
 from application.services.idempotency_service import IdempotencyService
 from core.exceptions import register_exception_handlers
@@ -224,3 +228,38 @@ async def test_relay_upload_accepts_multipart_file() -> None:
     assert fake.uploaded_bytes == b"hello multipart"
     assert fake.uploaded_filename == "upload.txt"
     assert fake.uploaded_content_type == "text/plain"
+
+
+class UnavailableIdempotencyStore(InMemoryIdempotencyStore):
+    """模拟 Redis 不可用：try_start 抛 store 不可用（非业务异常）。"""
+
+    async def try_start(self, *, scope: str, key: str, request_hash: str, ttl_seconds: int) -> bool:
+        raise IdempotencyStoreUnavailableError("redis unavailable")
+
+
+@pytest.mark.asyncio
+async def test_presign_upload_fails_open_when_store_unavailable() -> None:
+    """Store 后端不可用必须 fail-open（照常执行、不去重），
+    而不是把基础设施故障误报成 in_progress 4xx。"""
+    fake = FakeFileAssetService()
+    app = make_test_app(fake)
+    idem = IdempotencyService(
+        store=UnavailableIdempotencyStore(), lock_ttl_seconds=5, result_ttl_seconds=60
+    )
+    app.dependency_overrides[get_idempotency_service] = lambda: idem
+
+    payload = {
+        "filename": "a.txt",
+        "mime_type": None,
+        "size_bytes": 1,
+        "kind": "uploads",
+        "method": "PUT",
+        "expires_in": 600,
+    }
+    headers = {"Idempotency-Key": "cccccccc"}
+
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        resp = await client.post("/api/v1/storage/presign-upload", json=payload, headers=headers)
+
+    assert resp.status_code == 200
+    assert fake.presign_calls == 1

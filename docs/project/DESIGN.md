@@ -23,6 +23,10 @@
 - 编辑排印标题（front-of-house）: `Noto Serif SC`（`--font-serif`）
 - 展示衬线 wordmark/引文（front-of-house）: `Instrument Serif` italic（`--font-display`）
 - **禁用** Inter/Roboto/Arial/Helvetica
+- **交付方式：自托管**（`@fontsource/*` 打包进应用，`main.tsx` 按用到的字重导入），
+  不走 Google Fonts 外链——渲染阻塞的第三方请求对 zh-CN 受众不可靠（2026-07 性能审计 PERF-14）。
+  注：`@fontsource/geist-sans` 注册的族名是 `Geist Sans`，`--font-sans` 栈中作为
+  `Geist` 的别名回退（见 `src/index.css`）
 
 ## 调色板（Color Tokens）
 

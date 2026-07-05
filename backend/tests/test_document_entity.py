@@ -33,10 +33,12 @@ def test_document_requires_file_asset() -> None:
         Document(id=1, file_asset_id=0)
 
 
-def test_happy_path_pending_parsing_ready() -> None:
-    doc = _make_document()
-    doc.start_parsing()
-    assert doc.status == "parsing"
+# 注：进入 parsing 没有实体方法——认领走仓储原子条件 UPDATE（try_mark_parsing，
+# 见 test_document_repository.py）。以下测试用构造参数直接进入 parsing 态。
+
+
+def test_happy_path_parsing_to_ready() -> None:
+    doc = _make_document(status="parsing")
 
     doc.mark_ready(content_md="# Title", parser="markitdown", metadata={"pages": 3})
     assert doc.status == "ready"
@@ -47,32 +49,18 @@ def test_happy_path_pending_parsing_ready() -> None:
     assert doc.is_ready() is True
 
 
-def test_failure_path_records_error_and_clears_on_retry() -> None:
-    doc = _make_document()
-    doc.start_parsing()
+def test_failure_path_records_error() -> None:
+    doc = _make_document(status="parsing")
     doc.mark_failed(
         error_code="document.parse.empty_content", error_message="no text", parser="markitdown"
     )
     assert doc.status == "failed"
     assert doc.error_code == "document.parse.empty_content"
-
-    # failed → parsing 重试时清空错误信息
-    doc.start_parsing()
-    assert doc.status == "parsing"
-    assert doc.error_code is None
-    assert doc.error_message is None
-
-
-def test_start_parsing_rejected_while_parsing() -> None:
-    doc = _make_document()
-    doc.start_parsing()
-    with pytest.raises(DocumentAlreadyProcessingException):
-        doc.start_parsing()
+    assert doc.error_message == "no text"
 
 
 def test_reset_for_reparse_clears_artifacts() -> None:
-    doc = _make_document()
-    doc.start_parsing()
+    doc = _make_document(status="parsing")
     doc.mark_ready(content_md="# Title", parser="markitdown")
 
     doc.reset_for_reparse()
@@ -82,8 +70,7 @@ def test_reset_for_reparse_clears_artifacts() -> None:
 
 
 def test_reset_for_reparse_rejected_while_parsing() -> None:
-    doc = _make_document()
-    doc.start_parsing()
+    doc = _make_document(status="parsing")
     with pytest.raises(DocumentAlreadyProcessingException):
         doc.reset_for_reparse()
 
@@ -93,8 +80,8 @@ def test_reset_for_reparse_allows_stale_parsing_recovery() -> None:
 
     from domain.common.entity import utcnow
 
-    doc = _make_document()
-    doc.start_parsing()
+    # updated_at 即认领时间（try_mark_parsing 落库时写入）；None 视为 stale
+    doc = _make_document(status="parsing", updated_at=utcnow())
 
     # 未超时：仍拒绝
     with pytest.raises(DocumentAlreadyProcessingException):

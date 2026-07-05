@@ -1,8 +1,9 @@
 // input: apiClient (POST /auth/login, /auth/google, /auth/oauth/{provider}, GET /auth/me), 后端响应信封 { code, message, data }
-// output: login(input) -> TokenPair, loginWithGoogle(code) -> TokenPair, loginWithOAuth(provider, code) -> TokenPair, fetchMe() -> CurrentUser
+// output: login(input) -> TokenPair, loginWithGoogle(code) -> TokenPair, loginWithOAuth(provider, code) -> TokenPair, fetchMe(signal?) -> CurrentUser
 // owner: wanhua.gu
 // pos: auth feature - 后端接口封装(解包信封 + snake_case→camelCase)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import { apiClient } from '@/lib/apiClient'
+import type { TokenPairResponse } from '@/lib/tokenPair'
 
 import type { CurrentUser, LoginInput, TokenPair } from '../types'
 
@@ -10,13 +11,6 @@ interface ApiEnvelope<T> {
   code: number
   message: string
   data: T
-}
-
-interface TokenPairResponse {
-  access_token: string
-  refresh_token: string
-  token_type: string
-  expires_in: number
 }
 
 interface UserResponse {
@@ -54,8 +48,8 @@ export async function loginWithOAuth(provider: string, code: string): Promise<To
   return mapTokenPair(res.data.data)
 }
 
-export async function fetchMe(): Promise<CurrentUser> {
-  const res = await apiClient.get<ApiEnvelope<UserResponse>>('/auth/me')
+export async function fetchMe(signal?: AbortSignal): Promise<CurrentUser> {
+  const res = await apiClient.get<ApiEnvelope<UserResponse>>('/auth/me', { signal })
   const u = res.data.data
   return {
     id: u.id,

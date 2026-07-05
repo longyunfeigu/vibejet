@@ -10,6 +10,15 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Protocol, runtime_checkable
 
 
+class IdempotencyStoreUnavailableError(RuntimeError):
+    """Store 后端（如 Redis）不可用，无法判定幂等状态。
+
+    刻意不继承 BusinessException：IdempotencyContext 对非业务异常走 fail-open
+    （告警 + 本请求禁用幂等去重 + 继续执行），而不是把基础设施故障误报成
+    "请求处理中" 的 4xx。
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class IdempotencyRecord:
     scope: str

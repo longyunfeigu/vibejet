@@ -44,7 +44,7 @@
    DDD 依赖方向用 import-linter 拦；头注释用 pre-commit 拦；「公共 API 变了要更新契约」用 diff 检查。
    已落地（2026-07 第一批）：DDD 依赖方向 import-linter 四条契约 + `print` 禁令
    flake8-print + UoW 形状 `backend/tests/test_architecture.py`；
-   设计与被拒绝的方案见 `docs/superpowers/specs/2026-07-02-architecture-rule-locking-design.md`。
+   设计与被拒绝的方案见 `docs/reference/adrs/0001-architecture-rule-locking.md`。
 3. **断言「当前状态」的文档必须生成或被校验，不能手维护。**
    断言型文档（README 索引、「当前架构」、状态清单）一旦和现实矛盾，AI 会信文档——这是最毒的腐烂。
 4. **弃用 = 删除或硬隔离，不留墓碑。**

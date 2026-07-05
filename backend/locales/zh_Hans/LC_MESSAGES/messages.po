@@ -131,6 +131,9 @@ msgstr "文件资源不存在"
 msgid "file.already_deleted"
 msgstr "文件已被删除"
 
+msgid "file.key.conflict"
+msgstr "文件 key 已存在"
+
 # 文件权限与标识错误
 msgid "file.permission.denied.view"
 msgstr "无权查看该文件"

@@ -375,6 +375,11 @@ class BaseAPIClient:
 
         try:
             return await _send_once()
+        except APIError:
+            # _handle_error_response 抛出的类型化子类（NotFoundError/RateLimitError/...）
+            # 必须原样上抛——落进下面的兜底 catch 会被重包成通用 APIError，
+            # 调用方将永远匹配不到具体错误类型
+            raise
         except httpx.TimeoutException as exc:
             raise APIError(f"Request timeout after {self.timeout}s") from exc
         except httpx.RequestError as exc:

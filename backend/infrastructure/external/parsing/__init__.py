@@ -1,5 +1,5 @@
 # input: core.config.settings.document（DOCUMENT__PARSER 二选一）
-# output: create_parser/get_parser 工厂（DocumentParserPort 进程级单例）
+# output: create_parser/get_parser 工厂（DocumentParserPort 进程级单例）+ init_parser/shutdown_parser 生命周期
 # pos: 基础设施层 - 文档解析 provider 工厂（按配置实例化 markitdown 或 textin，懒加载）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Document parsing provider factory.
 
@@ -49,4 +49,15 @@ async def init_parser() -> None:
     get_parser()
 
 
-__all__ = ["create_parser", "get_parser", "init_parser"]
+async def shutdown_parser() -> None:
+    """关闭解析器持有的资源（如 TextIn 共享 HTTP 客户端），与 init 对称。"""
+    global _parser
+    if _parser is None:
+        return
+    aclose = getattr(_parser, "aclose", None)
+    if callable(aclose):
+        await aclose()
+    _parser = None
+
+
+__all__ = ["create_parser", "get_parser", "init_parser", "shutdown_parser"]

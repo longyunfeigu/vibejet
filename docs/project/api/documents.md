@@ -3,6 +3,9 @@
 文档解析模块公共接口。所有端点位于 `/api/v1/documents`，要求 Bearer 认证，
 返回统一业务信封 `Response[T]`（见 `docs/project/api/conventions.md`）。
 
+**归属**：全部文档端点 owner-scoped——创建写 `owner_id=当前用户`，列表只返回自己的文档，
+详情/内容/重解析/删除越权 → `DOCUMENT_NOT_FOUND (60020)` / HTTP 404（与不存在同响应）。
+
 异步模型：创建/重解析立即返回，解析在后台执行；客户端轮询详情接口直到
 `status` 变为 `ready` 或 `failed`，再从 content 端点取 Markdown。
 
@@ -23,11 +26,13 @@
 ```
 
 响应 `data`: `DocumentDTO`（status 为 `pending`，解析随即开始）。
-文件资产不存在或已删除 → 业务码 `NOT_FOUND (20004)`。
+文件资产不存在、已删除或越权 → 业务码 `NOT_FOUND (20004)`。
+文件资产非 `active`（直传后未调 `/storage/complete`）→ 校验错误 422（入口快速失败，
+不产生注定解析失败的文档）。
 
 ### GET /api/v1/documents
 
-分页列表。Query：`page`、`size`、`status`（pending/parsing/ready/failed）、`file_asset_id`。
+分页列表（仅当前用户）。Query：`page`、`size`、`status`（pending/parsing/ready/failed）、`file_asset_id`。
 
 ### GET /api/v1/documents/{id}
 
@@ -41,7 +46,7 @@
 | `error_message` | failed 时的错误详情 |
 | `metadata` | 解析元数据（chars、pages 等） |
 
-不存在 → `DOCUMENT_NOT_FOUND (60020)`。
+不存在或非 owner → `DOCUMENT_NOT_FOUND (60020)` / HTTP 404。
 
 ### GET /api/v1/documents/{id}/content
 

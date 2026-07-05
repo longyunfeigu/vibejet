@@ -28,9 +28,15 @@ from domain.conversation.exceptions import (
 class _FakeConversationRepo:
     def __init__(self, conversation: Optional[Conversation]):
         self._conversation = conversation
+        self.updated: list[Conversation] = []
 
     async def get_by_id(self, conversation_id: int) -> Optional[Conversation]:
         return self._conversation
+
+    async def update(self, conversation: Conversation) -> Conversation:
+        self.updated.append(conversation)
+        self._conversation = conversation
+        return conversation
 
 
 class _FakeMessageRepo:
@@ -111,24 +117,28 @@ async def test_stream_raises_not_found_before_returning_generator() -> None:
 
     # 关键断言：异常在 await 阶段抛出，而不是首次迭代生成器时
     with pytest.raises(ConversationNotFoundException):
-        await service.send_message_stream(1, _chat_dto())
+        await service.send_message_stream(1, _chat_dto(), owner_id=1)
 
 
 async def test_stream_raises_archived_before_returning_generator() -> None:
     now = utcnow()
-    conv = Conversation(id=1, title="t", status="archived", created_at=now, updated_at=now)
+    conv = Conversation(
+        id=1, title="t", status="archived", owner_id=1, created_at=now, updated_at=now
+    )
     service, _ = _service(conversation=conv)
 
     with pytest.raises(ConversationArchivedException):
-        await service.send_message_stream(1, _chat_dto())
+        await service.send_message_stream(1, _chat_dto(), owner_id=1)
 
 
 async def test_stream_happy_path_emits_full_event_sequence() -> None:
     now = utcnow()
-    conv = Conversation(id=1, title="t", status="active", created_at=now, updated_at=now)
+    conv = Conversation(
+        id=1, title="t", status="active", owner_id=1, created_at=now, updated_at=now
+    )
     service, uow = _service(conversation=conv)
 
-    stream = await service.send_message_stream(1, _chat_dto())
+    stream = await service.send_message_stream(1, _chat_dto(), owner_id=1)
     events = [chunk async for chunk in stream]
 
     joined = "".join(events)
@@ -144,3 +154,54 @@ async def test_stream_happy_path_emits_full_event_sequence() -> None:
     # run 已完结
     run = await uow.run_repository.get_by_id(1)
     assert run is not None and run.status == "completed"
+
+
+class _FailOnAssistantCreateMessageRepo(_FakeMessageRepo):
+    """phase-3 落助手消息时抛错，模拟流式完成后的 DB 故障。"""
+
+    async def create(self, message: Message) -> Message:
+        if message.role == "assistant":
+            raise RuntimeError("db down at finalize")
+        return await super().create(message)
+
+
+async def test_stream_finalize_failure_fails_run_and_emits_terminal_events() -> None:
+    """phase-3 持久化失败：run 必须收敛到 failed，且客户端收到 error+done 终态事件。"""
+    now = utcnow()
+    conv = Conversation(
+        id=1, title="t", status="active", owner_id=1, created_at=now, updated_at=now
+    )
+    uow = _FakeUoW(conv)
+    uow.message_repository = _FailOnAssistantCreateMessageRepo()
+    service = ChatApplicationService(uow_factory=lambda: uow, llm=_FakeLLM())
+
+    stream = await service.send_message_stream(1, _chat_dto(), owner_id=1)
+    events = [chunk async for chunk in stream]
+
+    joined = "".join(events)
+    assert "event: message_delta" in joined  # LLM 流本身成功
+    assert "event: error" in joined
+    assert "event: done" in joined
+    assert "event: message_complete" not in joined
+    assert "event: run_complete" not in joined
+
+    run = await uow.run_repository.get_by_id(1)
+    assert run is not None and run.status == "failed"
+
+
+async def test_send_message_bumps_conversation_updated_at() -> None:
+    """发消息即视为会话活跃：phase 1 必须 bump updated_at（驱动列表排序）。"""
+    now = utcnow()
+    conv = Conversation(
+        id=1, title="t", status="active", owner_id=1, created_at=now, updated_at=now
+    )
+    before = conv.updated_at
+    service, uow = _service(conversation=conv)
+
+    stream = await service.send_message_stream(1, _chat_dto(), owner_id=1)
+    async for _ in stream:
+        pass
+
+    repo = uow.conversation_repository
+    assert repo.updated, "会话未被更新（updated_at 未 bump）"
+    assert repo.updated[0].updated_at > before

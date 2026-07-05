@@ -199,6 +199,30 @@ async def test_unverified_email_does_not_link_to_existing() -> None:
     # 未验证邮箱：不得链接到已有账号，应新建独立账号
     assert repo.oauth[("google", "sub-4")] != existing.id
     assert len(repo.users) == 2
+    # 且未验证邮箱不得写入 users.email（防预注册接管：后续 verified 登录不能匹配到它；
+    # 也避免撞 email 唯一约束泄露注册状态）——新账号用占位邮箱
+    new_user = repo.users[repo.oauth[("google", "sub-4")]]
+    assert new_user.email == "sub-4@google.local"
+
+
+async def test_unverified_email_never_matched_by_later_verified_login() -> None:
+    """接管链回归：攻击者未验证邮箱先登录，受害者 verified 同邮箱后登录，
+    两者必须是相互隔离的账号。"""
+    repo = FakeUserRepo()
+
+    attacker = GoogleIdentity(
+        sub="attacker-sub", email="victim@corp.com", email_verified=False, name="Mallory"
+    )
+    svc, _ = _service(repo, attacker)
+    await svc.login_with_google("cred-a")
+
+    victim = GoogleIdentity(
+        sub="victim-sub", email="victim@corp.com", email_verified=True, name="Victim"
+    )
+    svc2, _ = _service(repo, victim)
+    await svc2.login_with_google("cred-v")
+
+    assert repo.oauth[("google", "victim-sub")] != repo.oauth[("google", "attacker-sub")]
 
 
 async def test_not_configured_raises() -> None:

@@ -61,7 +61,17 @@ class ConversationApplicationService:
 
     # ── Conversation CRUD ──────────────────────────────────────────
 
-    async def create_conversation(self, dto: CreateConversationDTO) -> ConversationDTO:
+    @staticmethod
+    async def _get_owned(uow, conversation_id: int, owner_id: int) -> Conversation:
+        """加载会话并断言归属；不存在与越权同样抛 404（不泄露存在性）。"""
+        conv = await uow.conversation_repository.get_by_id(conversation_id)
+        if conv is None or not conv.belongs_to(owner_id):
+            raise ConversationNotFoundException(conversation_id)
+        return conv
+
+    async def create_conversation(
+        self, dto: CreateConversationDTO, *, owner_id: int
+    ) -> ConversationDTO:
         now = utcnow()
         conv = Conversation(
             id=None,
@@ -69,6 +79,7 @@ class ConversationApplicationService:
             system_prompt=dto.system_prompt,
             model=dto.model,
             metadata=dto.metadata or {},
+            owner_id=owner_id,
             created_at=now,
             updated_at=now,
         )
@@ -76,32 +87,31 @@ class ConversationApplicationService:
             created = await uow.conversation_repository.create(conv)
             return ConversationDTO.model_validate(created)
 
-    async def get_conversation(self, conversation_id: int) -> ConversationDTO:
+    async def get_conversation(self, conversation_id: int, *, owner_id: int) -> ConversationDTO:
         async with self._uow_factory(readonly=True) as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
+            conv = await self._get_owned(uow, conversation_id, owner_id)
             return ConversationDTO.model_validate(conv)
 
     async def list_conversations(
         self,
         *,
+        owner_id: int,
         status: Optional[str] = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Tuple[list[ConversationDTO], int]:
         async with self._uow_factory(readonly=True) as uow:
-            items = await uow.conversation_repository.list(status=status, skip=skip, limit=limit)
-            total = await uow.conversation_repository.count(status=status)
+            items = await uow.conversation_repository.list(
+                owner_id=owner_id, status=status, skip=skip, limit=limit
+            )
+            total = await uow.conversation_repository.count(owner_id=owner_id, status=status)
             return [ConversationDTO.model_validate(c) for c in items], total
 
     async def update_conversation(
-        self, conversation_id: int, dto: UpdateConversationDTO
+        self, conversation_id: int, dto: UpdateConversationDTO, *, owner_id: int
     ) -> ConversationDTO:
         async with self._uow_factory() as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
+            conv = await self._get_owned(uow, conversation_id, owner_id)
             if dto.title is not None:
                 conv.update_title(dto.title)
             if dto.system_prompt is not None:
@@ -111,11 +121,9 @@ class ConversationApplicationService:
             updated = await uow.conversation_repository.update(conv)
             return ConversationDTO.model_validate(updated)
 
-    async def delete_conversation(self, conversation_id: int) -> ConversationDTO:
+    async def delete_conversation(self, conversation_id: int, *, owner_id: int) -> ConversationDTO:
         async with self._uow_factory() as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
+            conv = await self._get_owned(uow, conversation_id, owner_id)
             conv.soft_delete()
             updated = await uow.conversation_repository.update(conv)
             return ConversationDTO.model_validate(updated)
@@ -126,13 +134,12 @@ class ConversationApplicationService:
         self,
         conversation_id: int,
         *,
+        owner_id: int,
         skip: int = 0,
         limit: int = 100,
     ) -> Tuple[list[MessageDTO_Agent], int]:
         async with self._uow_factory(readonly=True) as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
+            await self._get_owned(uow, conversation_id, owner_id)
             items = await uow.message_repository.list_by_conversation(
                 conversation_id, skip=skip, limit=limit
             )
@@ -145,13 +152,12 @@ class ConversationApplicationService:
         self,
         conversation_id: int,
         *,
+        owner_id: int,
         skip: int = 0,
         limit: int = 50,
     ) -> list[RunDTO]:
         async with self._uow_factory(readonly=True) as uow:
-            conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
-                raise ConversationNotFoundException(conversation_id)
+            await self._get_owned(uow, conversation_id, owner_id)
             items = await uow.run_repository.list_by_conversation(
                 conversation_id, skip=skip, limit=limit
             )

@@ -1,5 +1,5 @@
 # input: ASGI scope/receive/send, core.config settings, core.observability.tracing
-# output: RequestIDMiddleware (纯 ASGI), get_request_id, get_client_ip, request_id_var, client_ip_var, user_id_var
+# output: RequestIDMiddleware (纯 ASGI), get_request_id, get_client_ip, request_id_var, client_ip_var
 # owner: wanhua.gu
 # pos: 表示层中间件 - 请求追踪 ID 注入与上下文绑定（纯 ASGI 实现）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
@@ -22,7 +22,6 @@ from core.observability.tracing import get_current_trace_id, set_request_span_at
 # 定义context变量，用于在请求生命周期内共享request_id
 request_id_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
 client_ip_var: ContextVar[Optional[str]] = ContextVar("client_ip", default=None)
-user_id_var: ContextVar[Optional[str]] = ContextVar("user_id", default=None)
 
 
 class RequestIDMiddleware:

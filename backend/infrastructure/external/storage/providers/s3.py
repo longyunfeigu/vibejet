@@ -38,6 +38,10 @@ class S3Provider(AdvancedStorageProvider):
         self.bucket = config.bucket
         self.region = config.region or "us-east-1"
 
+    async def aclose(self) -> None:
+        """关闭 boto3 客户端连接池（与 init 对称，进程关停时由 shutdown_storage_client 调用）。"""
+        await anyio.to_thread.run_sync(self.client.close)
+
     async def upload(
         self,
         file: bytes,

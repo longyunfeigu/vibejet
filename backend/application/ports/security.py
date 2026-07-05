@@ -23,9 +23,16 @@ class TokenPair:
 
 
 class PasswordHasher(Protocol):
-    def hash(self, password: str) -> str: ...
+    """密码哈希端口。
 
-    def verify(self, password: str, hashed: str) -> bool: ...
+    方法为 async：argon2 这类哈希算法故意昂贵（几十~上百毫秒/次），实现必须把
+    计算卸载出事件循环（如 ``asyncio.to_thread``），否则单 worker 下每次登录会
+    冻结所有并发请求。
+    """
+
+    async def hash(self, password: str) -> str: ...
+
+    async def verify(self, password: str, hashed: str) -> bool: ...
 
 
 class TokenProvider(Protocol):

@@ -144,3 +144,24 @@ async def test_happy_path_multipart_completes_without_abort() -> None:
     assert outcome.etag == "final"
     assert provider.completed == ["upload-1"]
     assert provider.aborted == []
+
+
+async def test_multipart_works_through_middleware_wrapper() -> None:
+    """生产装配回归：init_storage_client 总是把 provider 包成 MiddlewareStorage
+    （LoggingMiddleware 无条件挂载）。包装层必须转发 multipart 能力，
+    否则 >分片阈值的流式上传会被误判为不支持而 500。"""
+    from infrastructure.external.storage.utils import LoggingMiddleware, apply_middleware
+
+    provider = _FakeAdvancedProvider()
+    wrapped = apply_middleware(provider, [LoggingMiddleware()])
+    adapter = StorageProviderPortAdapter(wrapped)
+
+    async def _big_stream() -> AsyncIterator[bytes]:
+        yield b"x" * _PART
+        yield b"y" * 10
+
+    outcome = await adapter.upload_stream(_big_stream(), "k/big.bin")
+
+    assert outcome.etag == "final"
+    assert provider.completed == ["upload-1"]
+    assert provider.aborted == []

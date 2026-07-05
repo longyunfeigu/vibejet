@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 from application.ports.oauth import GoogleIdentity, GoogleIdentityVerifier
 from core.logging_config import get_logger
 from domain.common.exceptions import InvalidTokenException
+from infrastructure.external.http_client import LazyAsyncClient
 
 logger = get_logger(__name__)
 
@@ -38,6 +41,12 @@ class GoogleAuthCodeExchanger:
         self._client_secret = client_secret
         self._redirect_uri = redirect_uri
         self._verifier = verifier
+        # 共享 HTTP 客户端（懒创建）：避免每次登录新建连接池 + TLS 握手
+        self._http = LazyAsyncClient(timeout=_EXCHANGE_TIMEOUT_SECONDS)
+
+    async def aclose(self) -> None:
+        """关闭共享客户端（进程关停时由 composition root 调用）。"""
+        await self._http.aclose()
 
     async def exchange(self, code: str) -> GoogleIdentity:
         payload = {
@@ -49,8 +58,7 @@ class GoogleAuthCodeExchanger:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=_EXCHANGE_TIMEOUT_SECONDS) as client:
-                resp = await client.post(_GOOGLE_TOKEN_ENDPOINT, data=payload)
+            resp = await self._http.get().post(_GOOGLE_TOKEN_ENDPOINT, data=payload)
         except httpx.HTTPError as exc:
             logger.warning("google_token_exchange_request_failed", error=str(exc))
             raise InvalidTokenException("google token exchange failed") from exc
@@ -76,7 +84,8 @@ class GoogleAuthCodeExchanger:
             raise InvalidTokenException("google token response missing id_token")
 
         # 复用 ID Token 验签（签名/aud/iss/exp），失败时 verifier 抛 InvalidTokenException。
-        return self._verifier.verify(id_token)
+        # verifier 走同步 transport（证书拉取 + RS256），必须卸载线程池以免阻塞事件循环
+        return await asyncio.to_thread(self._verifier.verify, id_token)
 
 
 def _safe_error(resp: httpx.Response) -> str:

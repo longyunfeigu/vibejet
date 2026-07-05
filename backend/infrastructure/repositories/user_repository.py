@@ -21,6 +21,7 @@ from domain.user.entity import User
 from domain.user.oauth_account import OAuthAccount
 from domain.user.repository import UserRepository
 from infrastructure.models.user import OAuthAccountModel, UserModel
+from infrastructure.repositories.base_repository import execute_targeted_update
 
 
 class SQLAlchemyUserRepository(UserRepository):
@@ -71,23 +72,30 @@ class SQLAlchemyUserRepository(UserRepository):
         return self._to_entity(model)
 
     async def update(self, user: User) -> User:
-        result = await self.session.execute(select(UserModel).where(UserModel.id == user.id))
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise UserNotFoundException(str(user.id))
-
-        model.username = user.username
-        model.email = user.email
-        model.hashed_password = user.hashed_password
-        model.full_name = user.full_name
-        model.is_active = user.is_active
-        model.is_superuser = user.is_superuser
-        model.updated_at = user.updated_at
-        model.deleted_at = user.deleted_at
-
-        await self.session.flush()
-        await self.session.refresh(model)
-        return self._to_entity(model)
+        # 改名/改邮箱撞唯一索引与 create 同映射
+        try:
+            await execute_targeted_update(
+                self.session,
+                UserModel,
+                user.id,
+                {
+                    "username": user.username,
+                    "email": user.email,
+                    "hashed_password": user.hashed_password,
+                    "full_name": user.full_name,
+                    "is_active": user.is_active,
+                    "is_superuser": user.is_superuser,
+                    "updated_at": user.updated_at,
+                    "deleted_at": user.deleted_at,
+                },
+                not_found=lambda: UserNotFoundException(str(user.id)),
+            )
+        except IntegrityError as exc:
+            detail = str(exc.orig or exc)
+            if "ix_users_username" in detail or "username" in detail:
+                raise UsernameAlreadyExistsException(user.username) from exc
+            raise UserAlreadyExistsException(user.email) from exc
+        return user
 
     async def get_by_id(self, user_id: int) -> Optional[User]:
         return await self._get_one(UserModel.id == user_id)

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from application.ports.idempotency import IdempotencyRecord, IdempotencyStore
+from application.ports.idempotency import (
+    IdempotencyRecord,
+    IdempotencyStore,
+    IdempotencyStoreUnavailableError,
+)
 from core.logging_config import get_logger
 from infrastructure.external.cache import get_redis_client
 
@@ -42,13 +46,25 @@ class RedisIdempotencyStore(IdempotencyStore):
         ttl_seconds: int,
     ) -> bool:
         cache = await get_redis_client()
+        lock_key = self._lock_key(scope, key)
         ok = await cache.set(
-            self._lock_key(scope, key),
+            lock_key,
             {"request_hash": request_hash},
             ttl=int(ttl_seconds),
             nx=True,
         )
-        return bool(ok)
+        if ok:
+            return True
+        # RedisClient 把连接异常吞成 False（缓存语义），这里必须区分"锁被占"
+        # 与"Redis 不可用"：探测锁持有者——探测不到 → store 不可用（或锁刚
+        # 过期，fail-open 等价于抢锁成功），抛非业务异常让 IdempotencyContext
+        # 降级为不去重，而不是把基础设施故障误报成 in_progress 4xx
+        holder = await cache.get(lock_key)
+        if holder is None:
+            raise IdempotencyStoreUnavailableError(
+                f"idempotency lock probe returned nothing (redis unavailable?): {lock_key}"
+            )
+        return False
 
     async def set_result(
         self,

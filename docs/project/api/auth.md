@@ -32,7 +32,8 @@
 行为与安全：
 - 后端用 `google-auth` 验签：校验签名、`aud == GOOGLE_CLIENT_ID`、`iss`、`exp`；失败返回令牌错误。
 - 找/链/建用户后签发**我们自己的** JWT（复用 `TokenProvider.issue_pair`），下游与密码登录完全一致。
-- 链接策略：`email_verified` 为真才自动链接已有邮箱账号；否则新建独立账号（详见 `docs/project/data/auth.md`）。
+- 链接策略：`email_verified` 为真才自动链接已有邮箱账号；否则新建独立账号且**不落未验证邮箱**
+  （用占位邮箱 `{sub}@google.local`，防预注册接管，详见 `docs/project/data/auth.md`）。
 - 配置：后端 `GOOGLE_CLIENT_ID`（未配置时非生产降级 `DevGoogleVerifier`，生产应拒绝）；前端 `VITE_GOOGLE_CLIENT_ID`。
 
 ## POST /auth/oauth/{provider}（新增）
@@ -69,3 +70,7 @@
 - `/auth/login` 请求 `{ username, password }`（username 接受用户名或邮箱）→ `TokenPairDTO`。
 - `/auth/refresh` 请求 `{ refresh_token }` → `TokenPairDTO`。
 - `/auth/me` 需 `Authorization: Bearer <access_token>` → `UserDTO`。
+
+已知限制：
+- refresh token 无轮换/吊销（无状态 JWT 的刻意取舍）：refresh 签发新令牌对后，
+  旧 refresh token 在其 `exp` 前仍有效。需要主动吊销能力时再引入 jti + Redis 黑名单。

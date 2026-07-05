@@ -46,6 +46,9 @@ def _business_code_to_grpc_status(code: int) -> grpc.StatusCode:
         BusinessCode.PARAM_TYPE_ERROR: grpc.StatusCode.INVALID_ARGUMENT,
         BusinessCode.USER_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
         BusinessCode.NOT_FOUND: grpc.StatusCode.NOT_FOUND,
+        # 与 HTTP 层一致（core/exceptions.py）：越权伪装为 not-found，跨传输层同语义
+        BusinessCode.CONVERSATION_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
+        BusinessCode.DOCUMENT_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
         BusinessCode.USER_ALREADY_EXISTS: grpc.StatusCode.ALREADY_EXISTS,
         BusinessCode.PASSWORD_ERROR: grpc.StatusCode.UNAUTHENTICATED,
         BusinessCode.UNAUTHORIZED: grpc.StatusCode.UNAUTHENTICATED,

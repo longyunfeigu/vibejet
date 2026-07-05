@@ -30,7 +30,7 @@ from core.response import (
     success_response,
 )
 
-# 认证闸门：文档端点要求登录；ownership 细粒度校验由下游项目补充
+# 认证闸门 + 归属校验：文档端点要求登录，且只作用于当前用户的文档（越权 404）
 router = APIRouter(
     prefix="/documents",
     tags=["文档解析"],
@@ -64,11 +64,12 @@ async def list_documents(
     size: int = Query(default=settings.DEFAULT_PAGE_SIZE, ge=1, le=settings.MAX_PAGE_SIZE),
     status: Optional[str] = Query(default=None, description="pending/parsing/ready/failed"),
     file_asset_id: Optional[int] = Query(default=None),
+    user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
     skip = (page - 1) * size
     items, total = await service.list_documents(
-        owner_id=None,  # No user filtering（与 files 模块一致，留给下游项目）
+        owner_id=user.id,
         file_asset_id=file_asset_id,
         status=status,
         skip=skip,
@@ -84,9 +85,10 @@ async def list_documents(
 )
 async def get_document(
     document_id: int,
+    user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
-    dto = await service.get_document(document_id)
+    dto = await service.get_document(document_id, owner_id=user.id)
     return success_response(dto, message=t("ok"))
 
 
@@ -97,9 +99,10 @@ async def get_document(
 )
 async def get_document_content(
     document_id: int,
+    user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
-    dto = await service.get_document_content(document_id)
+    dto = await service.get_document_content(document_id, owner_id=user.id)
     return success_response(dto, message=t("ok"))
 
 
@@ -111,9 +114,10 @@ async def get_document_content(
 async def reparse_document(
     document_id: int,
     background_tasks: BackgroundTasks,
+    user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
-    dto = await service.reset_for_reparse(document_id)
+    dto = await service.reset_for_reparse(document_id, owner_id=user.id)
     background_tasks.add_task(service.process_document, document_id)
     return success_response(dto, message=t("document.reparse.success"))
 
@@ -125,9 +129,10 @@ async def reparse_document(
 )
 async def delete_document(
     document_id: int,
+    user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
-    updated = await service.soft_delete(document_id)
+    updated = await service.soft_delete(document_id, owner_id=user.id)
     return success_response(
         {"deleted": True, "status": updated.status},
         message=t("document.delete.soft.success"),

@@ -7,6 +7,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -28,8 +29,10 @@ class ConversationModel(Base):
 
     __tablename__ = "conversations"
     __table_args__ = (
-        Index("ix_conversations_status", "status"),
-        Index("ix_conversations_created_at", "created_at"),
+        # 列表按 owner_id 过滤 + updated_at desc 排序（最近活跃优先），复合索引与之对齐；
+        # 单列 status/created_at 索引无独立查询使用，不建
+        Index("ix_conversations_owner_updated", "owner_id", "updated_at"),
+        CheckConstraint("status IN ('active', 'archived')", name="status"),
         {
             "comment": "对话表，记录 AI 对话会话",
         },
@@ -37,6 +40,11 @@ class ConversationModel(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     title = Column(String(255), nullable=False, comment="对话标题")
+    owner_id = Column(
+        Integer,
+        nullable=True,
+        comment="归属用户ID（软引用 users.id，与 file_assets/documents 一致；NULL 为遗留孤儿行）",
+    )
     system_prompt = Column(Text, nullable=True, comment="系统提示词")
     model = Column(String(100), nullable=True, comment="默认使用的模型")
     status = Column(
@@ -47,7 +55,6 @@ class ConversationModel(Base):
         comment="对话状态：active/archived",
     )
     extra_metadata = Column(
-        "metadata",
         JSON,
         nullable=True,
         default=dict,
@@ -83,8 +90,10 @@ class MessageModel(Base):
 
     __tablename__ = "messages"
     __table_args__ = (
-        Index("ix_messages_conversation_id", "conversation_id"),
+        # 复合索引前缀即覆盖 conversation_id 单列用途（含 CASCADE 查找），
+        # 不再另建单列索引（messages 是写入最频繁的表，避免写放大）
         Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+        CheckConstraint("role IN ('system', 'user', 'assistant')", name="role"),
         {
             "comment": "消息表，记录对话中的消息",
         },
@@ -105,7 +114,7 @@ class MessageModel(Base):
     content = Column(Text, nullable=False, comment="消息内容")
     run_id = Column(
         Integer,
-        ForeignKey("runs.id", ondelete="SET NULL"),
+        ForeignKey("llm_runs.id", ondelete="SET NULL"),
         nullable=True,
         comment="关联的 Run ID",
     )
@@ -117,7 +126,6 @@ class MessageModel(Base):
         comment="Token 数量",
     )
     extra_metadata = Column(
-        "metadata",
         JSON,
         nullable=True,
         default=dict,
@@ -139,14 +147,16 @@ class MessageModel(Base):
 
 
 class RunModel(Base):
-    """ORM mapping for runs table."""
+    """ORM mapping for llm_runs table."""
 
-    __tablename__ = "runs"
+    __tablename__ = "llm_runs"
     __table_args__ = (
-        Index("ix_runs_conversation_id", "conversation_id"),
-        Index("ix_runs_status", "status"),
+        # list_by_conversation 按 conversation_id 过滤 + created_at desc 排序，
+        # 复合索引与之对齐（同 messages）；status 无查询使用不建索引
+        Index("ix_llm_runs_conversation_created", "conversation_id", "created_at"),
+        CheckConstraint("status IN ('running', 'completed', 'failed')", name="status"),
         {
-            "comment": "Run 表，记录 LLM 调用追踪",
+            "comment": "LLM Run 表，记录 LLM 调用追踪",
         },
     )
 
@@ -213,6 +223,7 @@ class AgentConfigModel(Base):
     """ORM mapping for agent_configs table."""
 
     __tablename__ = "agent_configs"
+    # 无 deleted_at：共享配置资源，删除即硬删（execute_targeted_delete），无恢复语义
     __table_args__ = (
         Index("ix_agent_configs_name", "name", unique=True),
         {
@@ -228,7 +239,6 @@ class AgentConfigModel(Base):
     temperature = Column(Float, nullable=True, comment="温度参数")
     max_tokens = Column(Integer, nullable=True, comment="最大 token 数")
     extra_metadata = Column(
-        "metadata",
         JSON,
         nullable=True,
         default=dict,

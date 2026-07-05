@@ -20,6 +20,7 @@ from application.dto import (
     RunDTO,
     UpdateAgentConfigDTO,
     UpdateConversationDTO,
+    UserDTO,
 )
 from application.services.conversation_service import ConversationApplicationService
 from core.config import settings
@@ -31,7 +32,8 @@ from core.response import (
     success_response,
 )
 
-# 认证闸门：所有对话/Agent 配置端点要求登录；ownership 细粒度校验由下游项目补充
+# 认证闸门：所有端点要求登录；conversation 端点强制 owner 归属（越权 404），
+# agent-configs 维持共享资源现状（Epic-1 D5）
 router = APIRouter(tags=["对话管理"], dependencies=[Depends(get_current_user)])
 
 
@@ -45,9 +47,10 @@ router = APIRouter(tags=["对话管理"], dependencies=[Depends(get_current_user
 )
 async def create_conversation(
     payload: CreateConversationDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    conv = await service.create_conversation(payload)
+    conv = await service.create_conversation(payload, owner_id=current_user.id)
     return success_response(conv, message=t("ok"))
 
 
@@ -60,10 +63,13 @@ async def list_conversations(
     page: int = Query(1, ge=1),
     size: int = Query(default=settings.DEFAULT_PAGE_SIZE, ge=1, le=settings.MAX_PAGE_SIZE),
     status: Optional[str] = Query(default=None),
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
     skip = (page - 1) * size
-    items, total = await service.list_conversations(status=status, skip=skip, limit=size)
+    items, total = await service.list_conversations(
+        owner_id=current_user.id, status=status, skip=skip, limit=size
+    )
     return paginated_response(items=items, total=total, page=page, size=size)
 
 
@@ -74,9 +80,10 @@ async def list_conversations(
 )
 async def get_conversation(
     conversation_id: int,
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    conv = await service.get_conversation(conversation_id)
+    conv = await service.get_conversation(conversation_id, owner_id=current_user.id)
     return success_response(conv, message=t("ok"))
 
 
@@ -88,9 +95,10 @@ async def get_conversation(
 async def update_conversation(
     conversation_id: int,
     payload: UpdateConversationDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    conv = await service.update_conversation(conversation_id, payload)
+    conv = await service.update_conversation(conversation_id, payload, owner_id=current_user.id)
     return success_response(conv, message=t("ok"))
 
 
@@ -101,9 +109,10 @@ async def update_conversation(
 )
 async def delete_conversation(
     conversation_id: int,
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    conv = await service.delete_conversation(conversation_id)
+    conv = await service.delete_conversation(conversation_id, owner_id=current_user.id)
     return success_response(conv, message=t("ok"))
 
 
@@ -116,10 +125,13 @@ async def list_messages(
     conversation_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(default=100, ge=1, le=500),
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
     skip = (page - 1) * size
-    items, total = await service.list_messages(conversation_id, skip=skip, limit=size)
+    items, total = await service.list_messages(
+        conversation_id, owner_id=current_user.id, skip=skip, limit=size
+    )
     return paginated_response(items=items, total=total, page=page, size=size)
 
 
@@ -132,9 +144,12 @@ async def list_runs(
     conversation_id: int,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    items = await service.list_runs(conversation_id, skip=skip, limit=limit)
+    items = await service.list_runs(
+        conversation_id, owner_id=current_user.id, skip=skip, limit=limit
+    )
     return success_response(items, message=t("ok"))
 
 

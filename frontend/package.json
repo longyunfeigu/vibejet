@@ -19,6 +19,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/geist-mono": "^5.2.8",
+    "@fontsource/geist-sans": "^5.2.5",
+    "@fontsource/instrument-serif": "^5.2.8",
+    "@fontsource/noto-sans-sc": "^5.2.9",
+    "@fontsource/noto-serif-sc": "^5.2.9",
     "@hookform/resolvers": "^5.2.2",
     "@react-oauth/google": "^0.13.5",
     "@tanstack/react-query": "^5.100.11",

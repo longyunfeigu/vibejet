@@ -208,8 +208,13 @@ class AiokafkaConsumer(Consumer):
                             )
                             await self._consumer.commit()
                             self._assignments[(topic, partition)] = offset + 1
-                        except Exception:
-                            pass
+                        except Exception as send_exc:
+                            # 未 commit → 消息会重投（at-least-once 安全），但必须可观测
+                            self.log.warning(
+                                "dlq send failed, message will be redelivered",
+                                extra={"topic": topic, "partition": partition, "offset": offset,
+                                       "error": str(send_exc)},
+                            )
                         continue
 
                     env = Envelope(payload=payload, key=key, headers=headers)
@@ -255,8 +260,13 @@ class AiokafkaConsumer(Consumer):
                                 )
                                 await self._consumer.commit()
                                 self._assignments[(topic, partition)] = offset + 1
-                            except Exception:
-                                pass
+                            except Exception as send_exc:
+                                # 未 commit → 消息会重投（at-least-once 安全），但必须可观测
+                                self.log.warning(
+                                    "retry requeue failed, message will be redelivered",
+                                    extra={"topic": topic, "partition": partition,
+                                           "offset": offset, "error": str(send_exc)},
+                                )
                         elif result == HandleResult.DROP:
                             dlq = f"{topic}.{self.retry_cfg.dlq_suffix}"
                             if err is not None:
@@ -271,8 +281,13 @@ class AiokafkaConsumer(Consumer):
                                 )
                                 await self._consumer.commit()
                                 self._assignments[(topic, partition)] = offset + 1
-                            except Exception:
-                                pass
+                            except Exception as send_exc:
+                                # 未 commit → 消息会重投（at-least-once 安全），但必须可观测
+                                self.log.warning(
+                                    "dlq send failed, message will be redelivered",
+                                    extra={"topic": topic, "partition": partition,
+                                           "offset": offset, "error": str(send_exc)},
+                                )
                     finally:
                         for m in self.middlewares:
                             m.after_handle(topic, partition, offset, env, result, err)

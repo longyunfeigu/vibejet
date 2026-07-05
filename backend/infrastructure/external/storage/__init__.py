@@ -124,8 +124,14 @@ async def shutdown_storage_client() -> None:
         return
 
     try:
-        # Perform any cleanup if needed
-        # Most providers don't need explicit cleanup
+        # 逐层解包 middleware 找到底层 provider；实现了 aclose 的（如 boto3 S3）
+        # 关闭其连接池，保持与 init 对称。local/oss 无需显式清理。
+        provider = _storage_client
+        while hasattr(provider, "provider"):
+            provider = provider.provider
+        aclose = getattr(provider, "aclose", None)
+        if callable(aclose):
+            await aclose()
         logger.info("Storage client shutdown")
     except Exception as e:
         logger.error(f"Error during storage shutdown", error=str(e))

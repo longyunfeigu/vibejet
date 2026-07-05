@@ -14,6 +14,7 @@ from api.dependencies import (
 from application.dto import (
     FileAssetDTO,
     FileAccessURLRequestDTO,
+    UserDTO,
 )
 from application.services.file_asset_service import FileAssetApplicationService
 from core.response import (
@@ -25,7 +26,7 @@ from core.response import (
 from core.config import settings
 from core.i18n import t
 
-# 认证闸门：文件端点要求登录；ownership 细粒度校验由下游项目补充
+# 认证闸门 + 归属校验：文件端点要求登录，且只作用于当前用户的资产（越权 404）
 router = APIRouter(
     prefix="/files",
     tags=["文件管理"],
@@ -45,9 +46,10 @@ async def list_files(
     status: Optional[str] = Query(default="active"),
     signed: bool = Query(False, description="是否返回带签名的临时URL"),
     expires_in: int = Query(600, ge=60, le=3600, description="签名URL有效期(秒)"),
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    owner_id = None  # No user filtering
+    owner_id = current_user.id
     skip = (page - 1) * size
     assets, total = await service.list_assets(
         owner_id=owner_id,
@@ -92,10 +94,10 @@ async def get_file_detail(
     signed: bool = Query(False, description="是否返回带签名的临时URL"),
     expires_in: int = Query(600, ge=60, le=3600, description="签名URL有效期(秒)"),
     filename: Optional[str] = Query(None, description="下载/预览文件名，默认原始文件名"),
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    asset = await service.get_asset_raw(asset_id)
-    # No permission check
+    asset = await service.get_asset_raw(asset_id, owner_id=current_user.id)
     dto = FileAssetDTO.model_validate(asset)
     if signed:
         fname = filename or dto.original_filename or f"file-{dto.id}"
@@ -110,9 +112,6 @@ async def get_file_detail(
     return success_response(dto, message=t("ok"))
 
 
-# Controller no longer handles storage orchestration; use service methods instead.
-
-
 @router.post(
     "/{asset_id}/preview-url",
     summary="生成预览链接",
@@ -121,10 +120,10 @@ async def get_file_detail(
 async def generate_preview_url(
     asset_id: int,
     payload: FileAccessURLRequestDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    asset = await service.get_asset_raw(asset_id)
-    # No permission check
+    asset = await service.get_asset_raw(asset_id, owner_id=current_user.id)
     data = await service.generate_access_url_for_asset(
         asset=asset,
         expires_in=payload.expires_in,
@@ -142,10 +141,10 @@ async def generate_preview_url(
 async def generate_download_url(
     asset_id: int,
     payload: FileAccessURLRequestDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    asset = await service.get_asset_raw(asset_id)
-    # No permission check
+    asset = await service.get_asset_raw(asset_id, owner_id=current_user.id)
     data = await service.generate_access_url_for_asset(
         asset=asset,
         expires_in=payload.expires_in,
@@ -162,12 +161,10 @@ async def generate_download_url(
 )
 async def delete_file(
     asset_id: int,
+    current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    await service.get_asset_raw(asset_id)
-    # No permission check
-
-    updated = await service.soft_delete(asset_id)
+    updated = await service.soft_delete(asset_id, owner_id=current_user.id)
     return success_response(
         {"deleted": True, "status": updated.status}, message=t("file.delete.soft.success")
     )

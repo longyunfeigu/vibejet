@@ -1,7 +1,8 @@
-// input: localStorage('vibejet.session'), Session{accessToken, refreshToken}
+// input: localStorage('vibejet.session'), Session{accessToken, refreshToken}, queryClient
 // output: type Session + getSession/setSession/clearSession/subscribe(useSyncExternalStore 兼容的会话外部存储)
 // owner: wanhua.gu
 // pos: 跨域基础设施 - 客户端会话存储(token 持久化 + 变更订阅)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+import { queryClient } from '@/lib/queryClient'
 
 const STORAGE_KEY = 'vibejet.session'
 
@@ -54,6 +55,8 @@ export function clearSession(): void {
   } catch {
     // ignore
   }
+  // 清空 React Query 缓存：否则换用户重新登录后，上一用户的 profile 仍可能在 staleTime 内被命中。
+  queryClient.clear()
   emit()
 }
 

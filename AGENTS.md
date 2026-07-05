@@ -48,11 +48,13 @@ vibejet/
 - 给规则加强制前先确认规则本身成立；写"必须"的规则要有会失败的检查兜底
 
 Known current gaps:
-- JWT auth (login gate) is implemented, but routes such as files, storage, conversations, chat,
-  and documents only require login — they are not safe to expose as product endpoints until
-  ownership and role/tenant checks are added.
-- Schema changes go through Alembic (baseline `0001` + incremental revisions are tracked in
-  `backend/alembic/versions/`); do not rely on `create_tables()` in production.
+- JWT auth (login gate) + resource ownership are implemented: files / storage / conversations /
+  chat / documents endpoints are owner-scoped (non-owner access → 404). Role/tenant checks and
+  `/agent-configs` ownership are still missing — multi-role products need an RBAC pass first
+  (see `docs/project/api/conventions.md` 鉴权与归属).
+- Schema changes go through Alembic (single init revision `0001` in
+  `backend/alembic/versions/`; new changes autogenerate incremental revisions on top);
+  do not rely on `create_tables()` in production.
 
 ## Backend Architecture
 
@@ -157,8 +159,7 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
 - Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成 review pack 目录
   `docs/tasks/plans/{date}-epic-{N}-{slug}/`（README / design / decisions）+
   task packets（`docs/tasks/work/epic-{N}-{slug}/`），由 `vj-work` 消费执行
-- 执行策略用 **Execution Policy: fast | strict** 表达（旧 Story 级 Flow A/B/C 模板已废弃，
-  归档于 `docs/archive/story-plan-TEMPLATE.md`）
+- 执行策略用 **Execution Policy: fast | strict** 表达（旧 Story 级 Flow A/B/C 模板已废弃删除）
 - **strict 触发条件**（plan 阶段或开发中碰到任一条 → strict，开发中则暂停并升级）：
   改 DB migration/schema、改公共 API 契约、改权限/认证/安全/ownership、引入外部系统或
   异步任务、复杂状态机/幂等/事务一致性、需求不清楚、影响多个 bounded context、

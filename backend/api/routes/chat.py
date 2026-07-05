@@ -10,12 +10,12 @@ from fastapi import APIRouter, Depends
 from starlette.responses import StreamingResponse
 
 from api.dependencies import get_chat_service, get_current_user
-from application.dto import ChatRequestDTO
+from application.dto import ChatRequestDTO, UserDTO
 from application.services.chat_service import ChatApplicationService
 from core.i18n import t
 from core.response import success_response
 
-# 调用付费 LLM 的端点必须认证；细粒度 ownership 校验由下游项目按需补充
+# 调用付费 LLM 的端点必须认证 + owner 归属（越权 404，且零副作用）
 router = APIRouter(tags=["聊天"], dependencies=[Depends(get_current_user)])
 
 
@@ -26,13 +26,16 @@ router = APIRouter(tags=["聊天"], dependencies=[Depends(get_current_user)])
 async def chat(
     conversation_id: int,
     payload: ChatRequestDTO,
+    current_user: UserDTO = Depends(get_current_user),
     service: ChatApplicationService = Depends(get_chat_service),
 ):
     if payload.stream:
-        # send_message_stream 先 await 完成会话校验（不存在/已归档 → 4xx），
+        # send_message_stream 先 await 完成会话校验（不存在/越权/已归档 → 4xx），
         # 校验通过后才返回 SSE 生成器进入流式响应
         return StreamingResponse(
-            await service.send_message_stream(conversation_id, payload),
+            await service.send_message_stream(
+                conversation_id, payload, owner_id=current_user.id
+            ),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -41,5 +44,5 @@ async def chat(
             },
         )
 
-    result = await service.send_message_sync(conversation_id, payload)
+    result = await service.send_message_sync(conversation_id, payload, owner_id=current_user.id)
     return success_response(result, message=t("ok"))

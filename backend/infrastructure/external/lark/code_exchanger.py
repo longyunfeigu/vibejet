@@ -13,6 +13,7 @@ import httpx
 from application.ports.oauth import OAuthIdentity
 from core.logging_config import get_logger
 from domain.common.exceptions import InvalidTokenException
+from infrastructure.external.http_client import LazyAsyncClient
 
 logger = get_logger(__name__)
 
@@ -50,11 +51,17 @@ class LarkAuthCodeExchanger:
         self._app_id = app_id
         self._app_secret = app_secret
         self._redirect_uri = redirect_uri
+        # 共享 HTTP 客户端（懒创建）：避免每次登录新建连接池 + TLS 握手
+        self._http = LazyAsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS)
+
+    async def aclose(self) -> None:
+        """关闭共享客户端（进程关停时由 composition root 调用）。"""
+        await self._http.aclose()
 
     async def exchange(self, code: str) -> OAuthIdentity:
-        async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT_SECONDS) as client:
-            access_token = await self._exchange_code(client, code)
-            data = await self._fetch_user_info(client, access_token)
+        client = self._http.get()
+        access_token = await self._exchange_code(client, code)
+        data = await self._fetch_user_info(client, access_token)
         return _to_identity(data)
 
     async def _exchange_code(self, client: httpx.AsyncClient, code: str) -> str:

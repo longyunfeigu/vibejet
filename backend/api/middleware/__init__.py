@@ -28,7 +28,7 @@ HTTP 中间件包。
 """
 
 from .locale import LocaleMiddleware
-from .logging import AccessLogMiddleware, LoggingMiddleware
+from .logging import LoggingMiddleware
 from .metrics import PrometheusMiddleware
 from .request_id import RequestIDMiddleware, get_client_ip, get_request_id
 
@@ -36,7 +36,6 @@ __all__ = [
     "RequestIDMiddleware",
     "LocaleMiddleware",
     "LoggingMiddleware",
-    "AccessLogMiddleware",
     "PrometheusMiddleware",
     "get_request_id",
     "get_client_ip",

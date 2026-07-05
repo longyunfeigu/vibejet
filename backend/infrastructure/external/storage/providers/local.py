@@ -6,12 +6,14 @@
 import contextlib
 import hashlib
 import shutil
+from functools import partial
 from pathlib import Path
 from typing import AsyncIterator, Optional
 from datetime import datetime
 import mimetypes
 import aiofiles
 import aiofiles.os
+from anyio import to_thread
 
 from core.logging_config import get_logger
 from ..base import AdvancedStorageProvider
@@ -20,6 +22,21 @@ from ..models import UploadResult, StorageObject, StorageMetadata, PresignedRequ
 from ..exceptions import StorageError, NotFoundError, ValidationError
 
 logger = get_logger(__name__)
+
+
+def _scan_local_files(base_path: Path, clean_prefix: str, limit: int) -> list[tuple[Path, str, object]]:
+    """同步目录遍历（须在线程池中执行）：收集 (路径, 相对 key, stat)。"""
+    found: list[tuple[Path, str, object]] = []
+    for path in base_path.rglob("*"):
+        if not path.is_file() or path.name.endswith(".meta"):
+            continue
+        rel_key = str(path.relative_to(base_path))
+        if clean_prefix and not rel_key.startswith(clean_prefix):
+            continue
+        found.append((path, rel_key, path.stat()))
+        if len(found) >= limit:
+            break
+    return found
 
 
 class LocalProvider(AdvancedStorageProvider):
@@ -49,8 +66,8 @@ class LocalProvider(AdvancedStorageProvider):
             # Validate and build safe path
             file_path = self._safe_path(key)
 
-            # Create parent directories if needed
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            # 阻塞的目录创建离开事件循环（与 S3/OSS provider 同纪律）
+            await to_thread.run_sync(partial(file_path.parent.mkdir, parents=True, exist_ok=True))
 
             # Write file
             async with aiofiles.open(file_path, "wb") as f:
@@ -60,8 +77,8 @@ class LocalProvider(AdvancedStorageProvider):
             if metadata or content_type:
                 await self._save_metadata(file_path, metadata, content_type)
 
-            # Calculate ETag
-            etag = hashlib.md5(file).hexdigest()
+            # Calculate ETag（全缓冲 md5 是 CPU-bound，卸载线程池）
+            etag = await to_thread.run_sync(lambda: hashlib.md5(file).hexdigest())
 
             # Build result
             result = UploadResult(
@@ -86,15 +103,16 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             file_path = self._safe_path(key)
 
-            if not file_path.exists():
-                raise NotFoundError(f"File not found: {key}")
-
+            # 不做 exists 预检：那是多一次线程跳 + TOCTOU，
+            # open 本身就会用 FileNotFoundError 给出答案
             async with aiofiles.open(file_path, "rb") as f:
                 data = await f.read()
 
             logger.info(f"Downloaded from local storage", key=key, size=len(data))
             return data
 
+        except FileNotFoundError as e:
+            raise NotFoundError(f"File not found: {key}") from e
         except NotFoundError:
             raise
         except Exception as e:
@@ -105,9 +123,7 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             file_path = self._safe_path(key)
 
-            if not file_path.exists():
-                raise NotFoundError(f"File not found: {key}")
-
+            # 同 download：省掉 exists 预检，由 open 的 FileNotFoundError 判定
             async with aiofiles.open(file_path, "rb") as f:
                 while True:
                     chunk = await f.read(chunk_size)
@@ -115,6 +131,8 @@ class LocalProvider(AdvancedStorageProvider):
                         break
                     yield chunk
 
+        except FileNotFoundError as e:
+            raise NotFoundError(f"File not found: {key}") from e
         except NotFoundError:
             raise
         except Exception as e:
@@ -125,12 +143,12 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             file_path = self._safe_path(key)
 
-            if file_path.exists():
+            if await aiofiles.os.path.exists(file_path):
                 await aiofiles.os.remove(file_path)
 
                 # Also remove metadata file if exists
                 meta_path = self._metadata_path(file_path)
-                if meta_path.exists():
+                if await aiofiles.os.path.exists(meta_path):
                     await aiofiles.os.remove(meta_path)
 
                 logger.info(f"Deleted from local storage", key=key)
@@ -145,7 +163,7 @@ class LocalProvider(AdvancedStorageProvider):
         """Check if file exists in local storage."""
         try:
             file_path = self._safe_path(key)
-            return file_path.exists() and file_path.is_file()
+            return await aiofiles.os.path.isfile(file_path)
         except (OSError, StorageError) as exc:
             # 非法 key（路径穿越）或文件系统错误都按"不存在"处理，但留痕
             logger.debug("local_exists_check_failed", key=key, error=str(exc))
@@ -155,7 +173,6 @@ class LocalProvider(AdvancedStorageProvider):
         """List objects in local storage."""
         try:
             objects: list[StorageObject] = []
-            count = 0
 
             # Clean prefix for comparison
             clean_prefix = prefix.lstrip("/") if prefix else ""
@@ -163,8 +180,8 @@ class LocalProvider(AdvancedStorageProvider):
             # Fast path: exact file
             if clean_prefix:
                 candidate = self._safe_path(clean_prefix)
-                if candidate.exists() and candidate.is_file():
-                    stat = candidate.stat()
+                if await aiofiles.os.path.isfile(candidate):
+                    stat = await aiofiles.os.stat(candidate)
                     meta = await self._load_metadata(candidate)
                     key = str(candidate.relative_to(self.base_path))
                     return [
@@ -179,15 +196,10 @@ class LocalProvider(AdvancedStorageProvider):
                         )
                     ]
 
-            # General path: enumerate and filter by prefix
-            for path in self.base_path.rglob("*"):
-                if not path.is_file() or path.name.endswith(".meta"):
-                    continue
-                key = str(path.relative_to(self.base_path))
-                if clean_prefix and not key.startswith(clean_prefix):
-                    continue
-
-                stat = path.stat()
+            # General path: rglob 全目录遍历是无界阻塞 IO，整体卸载线程池
+            for path, key, stat in await to_thread.run_sync(
+                _scan_local_files, self.base_path, clean_prefix, limit
+            ):
                 meta = await self._load_metadata(path)
                 objects.append(
                     StorageObject(
@@ -200,9 +212,6 @@ class LocalProvider(AdvancedStorageProvider):
                         ),
                     )
                 )
-                count += 1
-                if count >= limit:
-                    break
 
             return objects
 
@@ -214,10 +223,10 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             file_path = self._safe_path(key)
 
-            if not file_path.exists():
+            if not await aiofiles.os.path.exists(file_path):
                 raise NotFoundError(f"File not found: {key}")
 
-            stat = file_path.stat()
+            stat = await aiofiles.os.stat(file_path)
             meta = await self._load_metadata(file_path)
 
             return StorageMetadata(
@@ -263,20 +272,18 @@ class LocalProvider(AdvancedStorageProvider):
             source_path = self._safe_path(source_key)
             dest_path = self._safe_path(dest_key)
 
-            if not source_path.exists():
+            if not await aiofiles.os.path.exists(source_path):
                 raise NotFoundError(f"Source file not found: {source_key}")
 
-            # Create parent directories if needed
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            # 整对象拷贝（≤100MB）是阻塞 IO，整体卸载线程池
+            def _copy() -> None:
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_path, dest_path)
+                source_meta = self._metadata_path(source_path)
+                if source_meta.exists():
+                    shutil.copy2(source_meta, self._metadata_path(dest_path))
 
-            # Copy file
-            shutil.copy2(source_path, dest_path)
-
-            # Copy metadata if exists
-            source_meta = self._metadata_path(source_path)
-            if source_meta.exists():
-                dest_meta = self._metadata_path(dest_path)
-                shutil.copy2(source_meta, dest_meta)
+            await to_thread.run_sync(_copy)
 
             logger.info(f"Copied in local storage", source=source_key, dest=dest_key)
             return True
@@ -292,20 +299,18 @@ class LocalProvider(AdvancedStorageProvider):
             source_path = self._safe_path(source_key)
             dest_path = self._safe_path(dest_key)
 
-            if not source_path.exists():
+            if not await aiofiles.os.path.exists(source_path):
                 raise NotFoundError(f"Source file not found: {source_key}")
 
-            # Create parent directories if needed
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            # 移动（跨设备退化为拷贝）是阻塞 IO，整体卸载线程池
+            def _move() -> None:
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(source_path), str(dest_path))
+                source_meta = self._metadata_path(source_path)
+                if source_meta.exists():
+                    shutil.move(str(source_meta), str(self._metadata_path(dest_path)))
 
-            # Move file
-            shutil.move(str(source_path), str(dest_path))
-
-            # Move metadata if exists
-            source_meta = self._metadata_path(source_path)
-            if source_meta.exists():
-                dest_meta = self._metadata_path(dest_path)
-                shutil.move(str(source_meta), str(dest_meta))
+            await to_thread.run_sync(_move)
 
             logger.info(f"Moved in local storage", source=source_key, dest=dest_key)
             return True
@@ -326,9 +331,13 @@ class LocalProvider(AdvancedStorageProvider):
         """Check local storage accessibility."""
         try:
             # Check if base path exists and is writable
-            test_file = self.base_path / ".health_check"
-            test_file.touch()
-            test_file.unlink()
+            # （readiness 探针会周期性调用，写探测文件的 IO 也不能占事件循环）
+            def _probe() -> None:
+                test_file = self.base_path / ".health_check"
+                test_file.touch()
+                test_file.unlink()
+
+            await to_thread.run_sync(_probe)
             logger.info("Local storage health check passed")
             return True
         except Exception as e:
@@ -341,8 +350,12 @@ class LocalProvider(AdvancedStorageProvider):
         # For local storage, we use the key as upload ID
         # Create a temp file for accumulating parts
         temp_path = self.base_path / ".uploads" / key
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path.touch()
+
+        def _prepare() -> None:
+            temp_path.parent.mkdir(parents=True, exist_ok=True)
+            temp_path.touch()
+
+        await to_thread.run_sync(_prepare)
         return key
 
     async def multipart_upload_part(
@@ -355,8 +368,8 @@ class LocalProvider(AdvancedStorageProvider):
         async with aiofiles.open(temp_path, "ab") as f:
             await f.write(data)
 
-        # Return ETag of this part
-        return hashlib.md5(data).hexdigest()
+        # Return ETag of this part（全缓冲 md5 是 CPU-bound，卸载线程池）
+        return await to_thread.run_sync(lambda: hashlib.md5(data).hexdigest())
 
     async def multipart_upload_complete(
         self, upload_id: str, key: str, parts: list[dict]
@@ -365,14 +378,13 @@ class LocalProvider(AdvancedStorageProvider):
         temp_path = self.base_path / ".uploads" / upload_id
         final_path = self._safe_path(key)
 
-        # Create parent directories if needed
-        final_path.parent.mkdir(parents=True, exist_ok=True)
+        # 落盘移动 + stat 是阻塞 IO，整体卸载线程池
+        def _finalize():
+            final_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(temp_path), str(final_path))
+            return final_path.stat()
 
-        # Move temp file to final location
-        shutil.move(str(temp_path), str(final_path))
-
-        # Get file info
-        stat = final_path.stat()
+        stat = await to_thread.run_sync(_finalize)
 
         return UploadResult(
             key=key,
@@ -412,7 +424,7 @@ class LocalProvider(AdvancedStorageProvider):
         """Create directory in local storage."""
         try:
             dir_path = self._safe_path(path)
-            dir_path.mkdir(parents=True, exist_ok=True)
+            await to_thread.run_sync(partial(dir_path.mkdir, parents=True, exist_ok=True))
             return True
         except Exception as e:
             raise StorageError(f"Failed to create directory {path}: {e}") from e
@@ -422,15 +434,17 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             dir_path = self._safe_path(path)
 
-            if not dir_path.exists():
-                return False
+            # rmtree 递归删除是阻塞 IO，整体卸载线程池
+            def _remove() -> bool:
+                if not dir_path.exists():
+                    return False
+                if recursive and dir_path.is_dir():
+                    shutil.rmtree(dir_path)
+                elif dir_path.is_dir():
+                    dir_path.rmdir()  # Only works if empty
+                return True
 
-            if recursive and dir_path.is_dir():
-                shutil.rmtree(dir_path)
-            elif dir_path.is_dir():
-                dir_path.rmdir()  # Only works if empty
-
-            return True
+            return await to_thread.run_sync(_remove)
 
         except Exception as e:
             raise StorageError(f"Failed to delete directory {path}: {e}") from e
@@ -488,7 +502,7 @@ class LocalProvider(AdvancedStorageProvider):
 
         meta_path = self._metadata_path(file_path)
 
-        if not meta_path.exists():
+        if not await aiofiles.os.path.exists(meta_path):
             return {}
 
         try:

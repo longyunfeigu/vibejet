@@ -13,7 +13,7 @@ from application.dto import CreateDocumentDTO
 from application.ports.document_parser import DocumentParserError, ParsedDocument
 from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.document_service import DocumentApplicationService
-from domain.common.exceptions import FileAssetNotFoundException
+from domain.common.exceptions import DomainValidationException, FileAssetNotFoundException
 from domain.document import (
     Document,
     DocumentAlreadyProcessingException,
@@ -149,9 +149,12 @@ def _build_service(
     return service, documents, assets
 
 
-def _seed_asset(assets: FakeFileAssetRepository, asset_id: int = 10) -> FileAsset:
+def _seed_asset(
+    assets: FakeFileAssetRepository, asset_id: int = 10, owner_id=None
+) -> FileAsset:
     asset = FileAsset(
         id=asset_id,
+        owner_id=owner_id,
         key=f"uploads/{asset_id}.pdf",
         original_filename="report.pdf",
         content_type="application/pdf",
@@ -166,7 +169,7 @@ def _seed_asset(assets: FakeFileAssetRepository, asset_id: int = 10) -> FileAsse
 
 async def test_create_document_snapshots_file_asset_fields() -> None:
     service, _, assets = _build_service(parser=FakeParser())
-    _seed_asset(assets)
+    _seed_asset(assets, owner_id=7)
 
     dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=7)
 
@@ -181,6 +184,27 @@ async def test_create_document_rejects_missing_file_asset() -> None:
     service, _, _ = _build_service(parser=FakeParser())
     with pytest.raises(FileAssetNotFoundException):
         await service.create_document(CreateDocumentDTO(file_asset_id=99), owner_id=None)
+
+
+async def test_create_document_rejects_other_users_file_asset() -> None:
+    # 安全回归：不能从他人文件建文档（否则可经 /content 读到他人文件内容）
+    service, docs, assets = _build_service(parser=FakeParser())
+    _seed_asset(assets, owner_id=1)
+
+    with pytest.raises(FileAssetNotFoundException):
+        await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=2)
+    assert docs.items == {}
+
+
+async def test_create_document_rejects_non_active_file_asset() -> None:
+    # pending（直传未 confirm）资产的对象可能不存在，入口快速失败优于解析期模糊报错
+    service, docs, assets = _build_service(parser=FakeParser())
+    asset = _seed_asset(assets)
+    asset.status = "pending"
+
+    with pytest.raises(DomainValidationException):
+        await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+    assert docs.items == {}
 
 
 # ── 解析流程 ────────────────────────────────────────────────────────
@@ -289,37 +313,37 @@ async def test_process_document_missing_file_asset_marks_failed() -> None:
 async def test_get_document_content_requires_ready() -> None:
     parser = FakeParser(result=ParsedDocument(markdown="# Done"))
     service, documents, assets = _build_service(parser=parser, blobs={"uploads/10.pdf": b"x"})
-    _seed_asset(assets)
-    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+    _seed_asset(assets, owner_id=7)
+    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=7)
 
     with pytest.raises(DocumentNotReadyException):
-        await service.get_document_content(dto.id)
+        await service.get_document_content(dto.id, owner_id=7)
 
     await service.process_document(dto.id)
-    content = await service.get_document_content(dto.id)
+    content = await service.get_document_content(dto.id, owner_id=7)
     assert content.markdown == "# Done"
     assert content.parser == "fake"
 
 
 async def test_reset_for_reparse_rejected_while_parsing() -> None:
     service, documents, assets = _build_service(parser=FakeParser())
-    _seed_asset(assets)
-    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+    _seed_asset(assets, owner_id=7)
+    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=7)
     documents.items[dto.id].status = "parsing"
 
     with pytest.raises(DocumentAlreadyProcessingException):
-        await service.reset_for_reparse(dto.id)
+        await service.reset_for_reparse(dto.id, owner_id=7)
 
 
 async def test_reset_for_reparse_clears_previous_result() -> None:
     parser = FakeParser(result=ParsedDocument(markdown="# v1"))
     service, documents, assets = _build_service(parser=parser, blobs={"uploads/10.pdf": b"x"})
-    _seed_asset(assets)
-    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=None)
+    _seed_asset(assets, owner_id=7)
+    dto = await service.create_document(CreateDocumentDTO(file_asset_id=10), owner_id=7)
     await service.process_document(dto.id)
     assert documents.items[dto.id].status == "ready"
 
-    reset = await service.reset_for_reparse(dto.id)
+    reset = await service.reset_for_reparse(dto.id, owner_id=7)
     assert reset.status == "pending"
     assert documents.items[dto.id].content_md is None
 
@@ -327,7 +351,7 @@ async def test_reset_for_reparse_clears_previous_result() -> None:
 async def test_get_document_not_found() -> None:
     service, _, _ = _build_service(parser=FakeParser())
     with pytest.raises(DocumentNotFoundException):
-        await service.get_document(123)
+        await service.get_document(123, owner_id=7)
 
 
 async def test_process_document_rejects_oversize_before_download(monkeypatch) -> None:

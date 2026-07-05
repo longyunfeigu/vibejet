@@ -116,9 +116,10 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Latin 走 Geist，CJK 自动回退到 Noto Sans SC（思源黑）；标题用同字族重字重 */
+  /* Latin 走 Geist（自托管 @fontsource/geist-sans 注册族名为 'Geist Sans'，作别名回退），
+     CJK 自动回退到 Noto Sans SC（思源黑）；标题用同字族重字重 */
   --font-sans:
-    'Geist', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system,
+    'Geist', 'Geist Sans', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system,
     'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
   /* 编辑排印用衬线：CJK 思源宋、Latin 展示衬线（登录屏等 front-of-house 屏使用） */

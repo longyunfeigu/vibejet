@@ -6,7 +6,7 @@
 
 | 文件 | 职责 |
 |------|------|
-| `__init__.py` | `create_parser()` / `get_parser()` 工厂：按 `DOCUMENT__PARSER` 实例化，懒导入 provider |
+| `__init__.py` | `create_parser()` / `get_parser()` 工厂（按 `DOCUMENT__PARSER` 实例化，懒导入 provider）+ `init_parser()` / `shutdown_parser()` 生命周期 |
 | `providers/markitdown.py` | 默认 provider：本地解析 Office/HTML/txt/数字原生 PDF（依赖 `documents` extra） |
 | `providers/textin.py` | 可选 provider：TextIn 公有云 API，覆盖扫描件/复杂版式 PDF，按页计费 |
 

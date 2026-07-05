@@ -416,39 +416,15 @@ class RedisCache(CacheService):
 7. **监控指标**：收集调用延迟、成功率等指标
 8. **本地模拟**：提供本地开发环境的模拟实现
 
-## 依赖注入示例
+## 依赖注入（实际接线）
 
-```python
-# application/services.py
-from dependency_injector import containers, providers
-from infrastructure.external.email import SMTPEmailService
-from infrastructure.external.storage import S3StorageService
-from infrastructure.external.cache import RedisCache
+本仓库不使用 DI 容器库。外部服务在两处接线：
 
-class Container(containers.DeclarativeContainer):
-    config = providers.Configuration()
-    
-    # 邮件服务
-    email_service = providers.Singleton(
-        SMTPEmailService,
-        host=config.smtp.host,
-        port=config.smtp.port,
-        username=config.smtp.username,
-        password=config.smtp.password
-    )
-    
-    # 存储服务
-    storage_service = providers.Singleton(
-        S3StorageService,
-        bucket=config.s3.bucket,
-        region=config.s3.region
-    )
-    
-    # 缓存服务
-    cache_service = providers.Singleton(
-        RedisCache,
-        url=config.redis.url
-    )
-```
+- **生命周期**：`backend/main.py` lifespan 中按配置初始化/关闭各客户端
+  （`init_storage_client` / `init_redis_client` / LLM / parser 等，均为进程级单例）。
+- **请求注入**：`backend/api/dependencies.py`（composition root）把具体实现绑定到
+  application 端口，如 `get_storage_port` → `StorageProviderPortAdapter`、
+  `get_idempotency_service` → `RedisIdempotencyStore`（Redis 未配置时降级 Noop）。
 
-这样的设计让外部服务集成更加清晰、可维护，并且便于测试和替换。
+新增外部服务时照此模式：端口定义在 `application/ports/`，实现在
+`infrastructure/external/<service>/`，在上述两处完成装配。

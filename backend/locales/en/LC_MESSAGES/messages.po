@@ -131,6 +131,9 @@ msgstr "File asset not found"
 msgid "file.already_deleted"
 msgstr "File already deleted"
 
+msgid "file.key.conflict"
+msgstr "File key already exists"
+
 # File permission and identifier errors
 msgid "file.permission.denied.view"
 msgstr "Permission denied to view file"

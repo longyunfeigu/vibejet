@@ -26,10 +26,11 @@ from core.i18n import t
 from core.logging_config import configure_logging, get_logger
 from core.observability import tracing as tracing_obs
 from core.response import success_response
+from api.dependencies import shutdown_oauth_exchangers
 from infrastructure.database import upgrade_schema_to_head
 from infrastructure.external.cache import init_redis_client, shutdown_redis_client
 from infrastructure.external.llm import get_llm_client, init_llm_client, shutdown_llm_client
-from infrastructure.external.parsing import init_parser
+from infrastructure.external.parsing import init_parser, shutdown_parser
 from infrastructure.external.storage import (
     get_storage_client,
     get_storage_config,
@@ -132,6 +133,12 @@ async def lifespan(app: FastAPI):
     # 关闭存储服务
     await shutdown_storage_client()
     logger.info("storage_shutdown", message="Storage service shutdown")
+
+    # 关闭解析器与 OAuth 交换器的共享 HTTP 客户端（与 init 对称）
+    await shutdown_parser()
+    logger.info("document_parser_shutdown", message="Document parser shutdown")
+    await shutdown_oauth_exchangers()
+    logger.info("oauth_exchangers_shutdown", message="OAuth exchangers shutdown")
     if settings.tracing.enabled:
         tracing_obs.shutdown_tracing()
     logger.info("application_shutdown", message="Application shutdown")

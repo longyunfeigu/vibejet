@@ -1,7 +1,7 @@
 # 数据模型 · 认证（users / oauth_accounts）
 
 > 由 Google 登录特性引入 `oauth_accounts` 表并放开 `users.hashed_password` 非空约束时补写。
-> 迁移：`0001`(baseline，users) + `0003`(oauth_accounts + hashed_password 可空)。
+> 迁移：init `0001`（`20260704_0001_init.py`，squash 后唯一迁移，users / oauth_accounts 均含其中）。
 
 ## users（认证主体）
 
@@ -17,7 +17,7 @@
 | created_at / updated_at | timestamptz | | |
 | deleted_at | timestamptz | 可空 | 软删除 |
 
-要点：`hashed_password` 自 `0003` 起可空。密码登录路径对空哈希用户视作凭据错误（不报 500）。
+要点：`hashed_password` 可空（联合登录用户无本地密码）。密码登录路径对空哈希用户视作凭据错误（不报 500）。
 
 ## oauth_accounts（联合登录身份）
 
@@ -38,11 +38,11 @@
 ## 链接策略（写入规则）
 
 所有联合登录共用一段编排 `_complete_oauth_login(provider, identity)`：按 `(provider, sub)` 命中 → 该用户；否则当
-`email_verified=true` 且邮箱命中已有用户 → 新建 oauth_accounts 链接；都不命中 → 新建无密码 user + 链接。**未验证邮箱不得自动链接到已有账号。**
+`email_verified=true` 且邮箱命中已有用户 → 新建 oauth_accounts 链接；都不命中 → 新建无密码 user + 链接。**未验证邮箱不得自动链接到已有账号，也不得写入 `users.email`**——create 分支只接受 verified 邮箱，否则合成占位邮箱（同无邮箱路径）。否则攻击者可用未验证邮箱先建号占据 `users.email`，等真正的邮箱主人后续以 verified 身份登录时被自动链接到攻击者账号（预注册接管）；撞 email 唯一约束的 409 还会泄露邮箱注册状态。
 
 各 provider 的 `email` / `email_verified` 来源：
 - **Google**：id_token 的 `email` + `email_verified`（Google 总有邮箱）。
 - **飞书 / Lark**：仅把 `enterprise_email`（管理员分配、组织管控，可信）作为 email 并视作 `email_verified=true`；
   用户自填的 `email` 字段**不参与链接**（不可信）。无 `enterprise_email` 时 `email=None, email_verified=False`，
   create 分支合成占位邮箱 `{union_id}@{provider}.local`（满足 `users.email` 非空+唯一；合成域 `.local` 不与真实邮箱冲突，
-  故不会与已有账号撞唯一索引）。**无 schema 变更**：复用既有 `users` / `oauth_accounts`（迁移仍为 `0001` + `0003`）。
+  故不会与已有账号撞唯一索引）。**无 schema 变更**：复用既有 `users` / `oauth_accounts`（迁移仍为 init `0001`）。

@@ -43,8 +43,8 @@ class _FakeStorage:
         key: str,
         metadata: Optional[dict] = None,
         content_type: Optional[str] = None,
-    ) -> UploadOutcome:
-        return UploadOutcome(key=key, etag="etag-1", size=len(data), content_type=content_type)
+    ) -> UploadOutcome:  # pragma: no cover
+        raise NotImplementedError
 
     async def upload_stream(
         self,
@@ -84,16 +84,6 @@ async def _byte_stream() -> AsyncIterator[bytes]:
     yield b"hello"
 
 
-async def test_relay_upload_cleans_orphan_object_when_db_fails() -> None:
-    storage = _FakeStorage()
-    service = FileAssetApplicationService(uow_factory=_ExplodingUoW, storage=storage)
-
-    with pytest.raises(RuntimeError, match="db down"):
-        await service.relay_upload(user_id=1, file_bytes=b"hello", filename="a.txt", kind="doc")
-
-    assert len(storage.deleted_keys) == 1
-
-
 async def test_relay_upload_stream_cleans_orphan_object_when_db_fails() -> None:
     storage = _FakeStorage()
     service = FileAssetApplicationService(uow_factory=_ExplodingUoW, storage=storage)
@@ -112,4 +102,6 @@ async def test_relay_upload_cleanup_failure_does_not_mask_original_error() -> No
 
     # 原始 DB 异常必须冒出来，而不是清理时的 "storage unavailable"
     with pytest.raises(RuntimeError, match="db down"):
-        await service.relay_upload(user_id=1, file_bytes=b"hello", filename="a.txt", kind="doc")
+        await service.relay_upload_stream(
+            user_id=1, file_stream=_byte_stream(), filename="a.txt", kind="doc"
+        )

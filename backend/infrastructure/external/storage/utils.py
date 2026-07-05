@@ -11,7 +11,7 @@ import time
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from core.logging_config import get_logger
-from .base import StorageProvider
+from .base import AdvancedStorageProvider, StorageProvider
 from .exceptions import TransientError, ValidationError
 from .models import UploadResult
 
@@ -398,6 +398,51 @@ class MiddlewareStorage(StorageProvider):
     async def health_check(self) -> bool:
         """Check health."""
         return await self.provider.health_check()
+
+    # ── Multipart 直通底层（middleware 不介入分片路径） ──────────────
+    # StorageProviderPortAdapter 按 AdvancedStorageProvider 的 runtime_checkable
+    # 结构判定 multipart 能力；包装层必须转发这四个方法，否则大于分片阈值的
+    # 流式上传会被误判为"provider 不支持 multipart"而失败。
+
+    def _advanced(self) -> AdvancedStorageProvider:
+        if not isinstance(self.provider, AdvancedStorageProvider):
+            raise RuntimeError(
+                f"Underlying provider {type(self.provider).__name__} "
+                "does not support multipart upload"
+            )
+        return self.provider
+
+    async def multipart_upload_start(self, key: str, content_type: Optional[str] = None) -> str:
+        return await self._advanced().multipart_upload_start(key, content_type=content_type)
+
+    async def multipart_upload_part(
+        self, key: str, upload_id: str, part_number: int, data: bytes
+    ) -> str:
+        return await self._advanced().multipart_upload_part(key, upload_id, part_number, data)
+
+    async def multipart_upload_complete(
+        self, upload_id: str, key: str, parts: list[dict]
+    ) -> UploadResult:
+        return await self._advanced().multipart_upload_complete(upload_id, key, parts)
+
+    async def multipart_upload_abort(self, upload_id: str, key: str) -> None:
+        return await self._advanced().multipart_upload_abort(upload_id, key)
+
+    # runtime_checkable 的 isinstance 要求协议全部成员存在——批量/目录方法一并转发，
+    # 缺任何一个都会让包装后的 provider 被判定为不具备 Advanced 能力
+    async def batch_upload(
+        self, files: list[tuple[bytes, str]], metadata: Optional[dict] = None
+    ) -> list[UploadResult]:
+        return await self._advanced().batch_upload(files, metadata=metadata)
+
+    async def batch_delete(self, keys: list[str]) -> dict[str, bool]:
+        return await self._advanced().batch_delete(keys)
+
+    async def create_directory(self, path: str) -> bool:
+        return await self._advanced().create_directory(path)
+
+    async def delete_directory(self, path: str, recursive: bool = False) -> bool:
+        return await self._advanced().delete_directory(path, recursive=recursive)
 
 
 def apply_middleware(

@@ -30,5 +30,4 @@ Example:
 
 ## Index
 
-- [0001 LLM 结构化输出能力加在端口层](0001-llm-structured-output-at-port-layer.md) — `LLMPort.generate_structured` + 独立超时预算 + 失败边界两分（epic-3 D3/D4）
-- [0002 文档驱动 grounded 出题](0002-grounded-doc-question-generation.md) — 切块 + map-reduce 提取（BackgroundTasks）+ 锚定原文出题 + 忠实闸（B1，不上向量库）
+- [0001 架构边界 + 编码红线上锁](0001-architecture-rule-locking.md) — import-linter 依赖方向契约 + flake8-print + UoW 形状测试的设计与被拒绝方案

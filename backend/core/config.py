@@ -26,6 +26,9 @@ class GrpcSettings(BaseModel):
     port: int = 50051
     # This maps to GRPC option grpc.max_concurrent_streams
     max_concurrent_streams: int = 100
+    # SIGTERM/SIGINT 后等待在途 RPC 完成的宽限期；须小于编排器的
+    # 强杀等待（docker stop 默认 10s）
+    shutdown_grace_seconds: float = 5.0
     tls: GrpcTlsSettings = Field(default_factory=GrpcTlsSettings)
 
 
@@ -95,6 +98,15 @@ class IdempotencySettings(BaseModel):
 
 class DatabaseSettings(BaseModel):
     url: str = "postgresql+asyncpg://user:password@localhost/userdb"
+    # 连接池（仅网络型数据库生效，SQLite 忽略；见 infrastructure/database.py）。
+    # 容量公式：WORKERS × (pool_size + max_overflow) 必须小于数据库 max_connections。
+    pool_size: int = 5
+    max_overflow: int = 10
+    pool_timeout: float = 30.0
+    # pre_ping 在取出连接时探活（代价极小），配合 recycle 兜住服务端空闲超时/
+    # 故障切换后的死连接；recycle 需低于服务端/代理的空闲断链阈值
+    pool_pre_ping: bool = True
+    pool_recycle: int = 1800
 
 
 class LLMSettings(BaseModel):
@@ -130,6 +142,9 @@ class StorageSettings(BaseModel):
     max_retry_attempts: int = 3
     timeout: int = 30
     enable_ssl: bool = True
+    # 上传校验分两套：presign_*（客户端直传，签名即授权，故始终生效）；
+    # validation_enabled + max_file_size/allowed_types（服务端中转，请求体已在网关/服务器
+    # 层受限，默认关闭按需开启）。两套阈值独立，不共用。
     presign_max_size: int = 100 * 1024 * 1024  # 100MB
     presign_content_types: Optional[list[str]] = None
     validation_enabled: bool = False

@@ -16,6 +16,7 @@ import httpx
 
 from application.ports.document_parser import DocumentParserError, ParsedDocument
 from core.logging_config import get_logger
+from infrastructure.external.http_client import LazyAsyncClient
 
 logger = get_logger(__name__)
 
@@ -44,8 +45,13 @@ class TextInParser:
         self._secret_code = secret_code
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
-        # 测试注入点（httpx.MockTransport）；生产走默认 transport
-        self._transport = transport
+        # 共享 HTTP 客户端（懒创建）：避免每次解析新建连接池 + TLS 握手；
+        # transport 为测试注入点（httpx.MockTransport），生产走默认 transport
+        self._http = LazyAsyncClient(timeout=float(timeout), transport=transport)
+
+    async def aclose(self) -> None:
+        """关闭共享客户端（进程关停时由 shutdown_parser 调用）。"""
+        await self._http.aclose()
 
     async def parse(
         self,
@@ -63,15 +69,12 @@ class TextInParser:
         params = {"markdown_details": 0, "apply_document_tree": 1}
 
         try:
-            async with httpx.AsyncClient(
-                timeout=self._timeout, transport=self._transport
-            ) as client:
-                resp = await client.post(
-                    f"{self._base_url}{_PARSE_PATH}",
-                    params=params,
-                    headers=headers,
-                    content=data,
-                )
+            resp = await self._http.get().post(
+                f"{self._base_url}{_PARSE_PATH}",
+                params=params,
+                headers=headers,
+                content=data,
+            )
         except httpx.TimeoutException as exc:
             raise DocumentParserError(
                 code="document.parse.textin_timeout",

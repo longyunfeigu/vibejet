@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Index,
@@ -23,8 +24,11 @@ class FileAssetModel(Base):
 
     __tablename__ = "file_assets"
     __table_args__ = (
-        Index("ix_file_assets_created_at", "created_at"),
+        # 列表以 owner_id 打头走复合索引；孤立 created_at 索引无查询使用，不建
         Index("ix_file_assets_owner_created", "owner_id", "created_at"),
+        Index("uq_file_assets_key", "key", unique=True),
+        CheckConstraint("storage_type IN ('local', 's3', 'oss')", name="storage_type"),
+        CheckConstraint("status IN ('pending', 'active', 'deleted')", name="status"),
         {
             "comment": "文件资源表，记录对象存储中的文件元数据",
         },
@@ -61,13 +65,7 @@ class FileAssetModel(Base):
     key = Column(
         String(512),
         nullable=False,
-        comment="对象存储中的Key（路径）",
-    )
-    unique_key_hash = Column(
-        String(64),
-        nullable=False,
-        unique=True,
-        comment="唯一键哈希：SHA-256(storage_type|bucket|key)",
+        comment="对象存储中的Key（路径），全局唯一（uq_file_assets_key）",
     )
     size = Column(
         BigInteger,
@@ -104,7 +102,6 @@ class FileAssetModel(Base):
         comment="是否公共可读",
     )
     extra_metadata = Column(
-        "metadata",
         JSON,
         nullable=True,
         default=dict,

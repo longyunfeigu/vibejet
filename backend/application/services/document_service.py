@@ -26,7 +26,11 @@ from domain.document import (
     DocumentNotReadyException,
 )
 from domain.document.repository import DocumentRepository
-from domain.common.exceptions import FileAssetNotFoundException, FileTooLargeException
+from domain.common.exceptions import (
+    DomainValidationException,
+    FileAssetNotFoundException,
+    FileTooLargeException,
+)
 from domain.file_asset.repository import FileAssetRepository
 
 logger = get_logger(__name__)
@@ -67,8 +71,21 @@ class DocumentApplicationService:
     ) -> DocumentDTO:
         async with self._uow_factory() as uow:
             asset = await uow.file_asset_repository.get_by_id(dto.file_asset_id)
-            if asset is None or asset.is_deleted():
+            # 归属断言：不能从他人文件建文档，否则解析后可经 /content 读到他人文件内容
+            # （跨用户内容泄露）。越权与不存在同 404，不泄露资产存在性。
+            if asset is None or asset.is_deleted() or not asset.belongs_to(owner_id):
                 raise FileAssetNotFoundException(dto.file_asset_id)
+            # active 校验在归属断言之后：只对 owner 报此错，不泄露他人资产状态。
+            # pending（直传未 confirm）资产对象可能不存在，建档只会得到模糊的解析失败，
+            # 不如在入口快速失败
+            if asset.status != "active":
+                raise DomainValidationException(
+                    "文件资产尚未激活（直传需先调用 /storage/complete）",
+                    field="file_asset_id",
+                    details={"file_asset_id": dto.file_asset_id, "asset_status": asset.status},
+                    message_key="validation.failed",
+                    format_params={"reason": "file asset not active"},
+                )
 
             now = utcnow()
             doc = Document(
@@ -156,7 +173,9 @@ class DocumentApplicationService:
             )
             doc.mark_failed(
                 error_code="document.parse.internal_error",
-                error_message=str(exc),
+                # error_message 会经 DocumentDTO 暴露给 API，不落 str(exc)
+                # （可能含存储端点/路径等内部细节），细节只进结构化日志
+                error_message="internal error, see server logs",
                 parser=parser_name,
             )
             await self._finalize(doc, claimed_at=claimed_at)
@@ -187,22 +206,30 @@ class DocumentApplicationService:
 
     # ── 查询 ────────────────────────────────────────────────────────
 
-    async def get_document(self, document_id: int) -> DocumentDTO:
+    @staticmethod
+    async def _get_owned(uow, document_id: int, owner_id: int) -> Document:
+        """加载文档并断言归属；不存在与越权同样抛 404（不泄露存在性）。"""
+        doc = await uow.document_repository.get_by_id(document_id)
+        if doc is None or not doc.belongs_to(owner_id):
+            raise DocumentNotFoundException(document_id)
+        return doc
+
+    async def get_document(self, document_id: int, *, owner_id: int) -> DocumentDTO:
         async with self._uow_factory(readonly=True) as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                raise DocumentNotFoundException(document_id)
+            doc = await self._get_owned(uow, document_id, owner_id)
             return DocumentDTO.model_validate(doc)
 
-    async def get_document_content(self, document_id: int) -> DocumentContentDTO:
+    async def get_document_content(
+        self, document_id: int, *, owner_id: int
+    ) -> DocumentContentDTO:
         async with self._uow_factory(readonly=True) as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                raise DocumentNotFoundException(document_id)
+            # 归属断言先于 NotReady：不向非 owner 泄露解析状态
+            doc = await self._get_owned(uow, document_id, owner_id)
             if not doc.is_ready():
                 raise DocumentNotReadyException(document_id, status=doc.status)
+            assert doc.id is not None  # 已持久化实体必有 id
             return DocumentContentDTO(
-                id=doc.id or 0,
+                id=doc.id,
                 status=doc.status,
                 parser=doc.parser,
                 markdown=doc.content_md or "",
@@ -234,24 +261,20 @@ class DocumentApplicationService:
 
     # ── 重解析与删除 ────────────────────────────────────────────────
 
-    async def reset_for_reparse(self, document_id: int) -> DocumentDTO:
+    async def reset_for_reparse(self, document_id: int, *, owner_id: int) -> DocumentDTO:
         """ready/failed → pending；parsing 中抛 AlreadyProcessing，
         但超过 parsing_stale_seconds 的孤儿任务允许强制恢复。调度由 API 层负责。"""
         async with self._uow_factory() as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                raise DocumentNotFoundException(document_id)
+            doc = await self._get_owned(uow, document_id, owner_id)
             doc.reset_for_reparse(
                 parsing_stale_after_seconds=settings.document.parsing_stale_seconds
             )
             updated = await uow.document_repository.update(doc)
             return DocumentDTO.model_validate(updated)
 
-    async def soft_delete(self, document_id: int) -> DocumentDTO:
+    async def soft_delete(self, document_id: int, *, owner_id: int) -> DocumentDTO:
         async with self._uow_factory() as uow:
-            doc = await uow.document_repository.get_by_id(document_id)
-            if doc is None:
-                raise DocumentNotFoundException(document_id)
+            doc = await self._get_owned(uow, document_id, owner_id)
             doc.soft_delete()
             updated = await uow.document_repository.update(doc)
             return DocumentDTO.model_validate(updated)

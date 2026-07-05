@@ -200,6 +200,19 @@ class FileAssetAlreadyDeletedException(BusinessException):
         )
 
 
+class FileAssetKeyConflictException(BusinessException):
+    """并发创建同 key 资产撞 uq_file_assets_key：映射为域冲突而非裸 500。"""
+
+    def __init__(self, key: str):
+        super().__init__(
+            code=BusinessCode.BUSINESS_ERROR,
+            message="File key already exists",
+            error_type="FileAssetKeyConflict",
+            details={"key": key},
+            message_key="file.key.conflict",
+        )
+
+
 class UnsupportedMimeTypeException(BusinessException):
     def __init__(self, mime_type: str):
         super().__init__(

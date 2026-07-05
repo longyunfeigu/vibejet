@@ -329,7 +329,8 @@ class RunDTO(DTOBase):
 class ChatRequestDTO(DTOBase):
     """Input for sending a chat message."""
 
-    message: str = Field(min_length=1)
+    # 上限防误传超大文本直通 LLM（token 成本）与 DB；32k 字符 ≈ 8k-10k token
+    message: str = Field(min_length=1, max_length=32_000)
     model: Optional[str] = None
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)

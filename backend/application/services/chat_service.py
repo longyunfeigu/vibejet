@@ -81,14 +81,22 @@ class ChatApplicationService:
         )
         return [LLMMessage(role=m.role, content=m.content) for m in messages]
 
-    async def _start_run(self, conversation_id: int, dto: ChatRequestDTO) -> _StartedRun:
-        """Phase 1: validate conversation, persist user message, create run, build LLM context."""
+    async def _start_run(
+        self, conversation_id: int, dto: ChatRequestDTO, *, owner_id: int
+    ) -> _StartedRun:
+        """Phase 1: validate conversation + ownership, persist user message, create run."""
         async with self._uow_factory() as uow:
             conv = await uow.conversation_repository.get_by_id(conversation_id)
-            if conv is None:
+            # 归属断言必须先于 archived 判断与任何写库：越权与不存在同 404，
+            # 否则 409-archived 会泄露他人会话的存在性（Epic-1 I3）
+            if conv is None or not conv.belongs_to(owner_id):
                 raise ConversationNotFoundException(conversation_id)
             if not conv.is_active():
                 raise ConversationArchivedException(conversation_id)
+
+            # 发消息即视为会话活跃：bump updated_at，列表按"最近活跃"排序
+            conv.record_activity()
+            await uow.conversation_repository.update(conv)
 
             model = dto.model or conv.model
             now = utcnow()
@@ -169,6 +177,78 @@ class ChatApplicationService:
                 run_entity.mark_failed(error)
                 await uow.run_repository.update(run_entity)
 
+    async def _fail_run_safely(
+        self, run_id: int, error: str, *, log_event: str, shielded: bool = False
+    ) -> None:
+        """Best-effort 收尾：失败仅记日志不再上抛（流已 200，不能因收尾再截断）。"""
+        try:
+            failing = self._fail_run(run_id, error)
+            if shielded:
+                # 断连路径：shield 保证收尾写库不被二次取消打断
+                await asyncio.shield(failing)
+            else:
+                await failing
+        except Exception as cleanup_exc:  # pragma: no cover - best effort
+            logger.error(log_event, run_id=run_id, error=str(cleanup_exc))
+
+    async def _finalize_stream_events(
+        self,
+        started: _StartedRun,
+        conversation_id: int,
+        *,
+        full_content: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        total_tokens: int,
+    ) -> list[str]:
+        """Phase 3 → 终态 SSE 事件序列：成功或失败都必须给客户端一个终态。
+
+        phase-3 失败若不兜底，run 会永远停留在 running，且流已 200、
+        客户端等不到任何终态事件。
+        """
+        try:
+            assistant_msg, _ = await self._finalize_run(
+                started,
+                conversation_id,
+                content=full_content,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+            )
+        except Exception as exc:
+            logger.error("llm_stream_finalize_failed", error=str(exc), run_id=started.run_id)
+            await self._fail_run_safely(
+                started.run_id,
+                f"finalize failed: {exc}",
+                log_event="llm_stream_finalize_cleanup_failed",
+            )
+            return [
+                _sse_event(
+                    "error", {"message": "An error occurred while saving the response."}
+                ),
+                _sse_event("done", {}),
+            ]
+        return [
+            _sse_event(
+                "message_complete",
+                {
+                    "message_id": assistant_msg.id,
+                    "role": "assistant",
+                    "content": full_content,
+                },
+            ),
+            _sse_event(
+                "run_complete",
+                {
+                    "run_id": started.run_id,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                },
+            ),
+            _sse_event("done", {}),
+        ]
+
     # ------------------------------------------------------------------
     # Use cases
     # ------------------------------------------------------------------
@@ -176,14 +256,16 @@ class ChatApplicationService:
         self,
         conversation_id: int,
         dto: ChatRequestDTO,
+        *,
+        owner_id: int,
     ) -> AsyncIterator[str]:
         """Send a user message and stream the assistant response as SSE events.
 
-        Phase 1（会话存在/归档校验、落用户消息）在这里同步 await 完成：
+        Phase 1（会话存在/归属/归档校验、落用户消息）在这里同步 await 完成：
         校验失败的域异常在 StreamingResponse 构造之前抛出，路由能正常映射 4xx，
         而不是 200 之后流被掐断。
         """
-        started = await self._start_run(conversation_id, dto)
+        started = await self._start_run(conversation_id, dto, owner_id=owner_id)
         return self._stream_started_run(started, conversation_id, dto)
 
     async def _stream_started_run(
@@ -205,7 +287,8 @@ class ChatApplicationService:
         )
 
         # Phase 2: stream LLM response
-        full_content = ""
+        # 长回复有成百上千个 delta，用 list+join 累积保证与解释器无关的线性行为
+        content_parts: list[str] = []
         prompt_tokens = 0
         completion_tokens = 0
         total_tokens = 0
@@ -218,7 +301,7 @@ class ChatApplicationService:
                 max_tokens=dto.max_tokens,
             ):
                 if chunk.content:
-                    full_content += chunk.content
+                    content_parts.append(chunk.content)
                     yield _sse_event(
                         "message_delta",
                         {
@@ -233,62 +316,47 @@ class ChatApplicationService:
 
         except (asyncio.CancelledError, GeneratorExit):
             # 客户端断连：CancelledError/GeneratorExit 是 BaseException，
-            # 不收尾的话 Run 会永远停留在 running。shield 保证收尾写库不被二次取消打断。
+            # 不收尾的话 Run 会永远停留在 running。
             logger.warning("llm_stream_cancelled", run_id=started.run_id)
-            try:
-                await asyncio.shield(self._fail_run(started.run_id, "stream cancelled by client"))
-            except Exception as cleanup_exc:  # pragma: no cover - best effort
-                logger.error(
-                    "llm_stream_cancel_cleanup_failed",
-                    run_id=started.run_id,
-                    error=str(cleanup_exc),
-                )
+            await self._fail_run_safely(
+                started.run_id,
+                "stream cancelled by client",
+                log_event="llm_stream_cancel_cleanup_failed",
+                shielded=True,
+            )
             raise
         except Exception as exc:
             logger.error("llm_stream_failed", error=str(exc), run_id=started.run_id)
-            await self._fail_run(started.run_id, str(exc))
+            # 收尾也要 best-effort：流已 200，收尾再抛会让客户端连 error/done 都收不到
+            await self._fail_run_safely(
+                started.run_id, str(exc), log_event="llm_stream_fail_cleanup_failed"
+            )
             yield _sse_event(
                 "error", {"message": "An error occurred while generating the response."}
             )
             yield _sse_event("done", {})
             return
 
-        # Phase 3: persist assistant message and complete run
-        assistant_msg, _ = await self._finalize_run(
+        # Phase 3: persist assistant message and complete run（含失败兜底）
+        for event in await self._finalize_stream_events(
             started,
             conversation_id,
-            content=full_content,
+            full_content="".join(content_parts),
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=total_tokens,
-        )
-
-        yield _sse_event(
-            "message_complete",
-            {
-                "message_id": assistant_msg.id,
-                "role": "assistant",
-                "content": full_content,
-            },
-        )
-        yield _sse_event(
-            "run_complete",
-            {
-                "run_id": started.run_id,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-            },
-        )
-        yield _sse_event("done", {})
+        ):
+            yield event
 
     async def send_message_sync(
         self,
         conversation_id: int,
         dto: ChatRequestDTO,
+        *,
+        owner_id: int,
     ) -> dict:
         """Send a user message and return the full assistant response (non-streaming)."""
-        started = await self._start_run(conversation_id, dto)
+        started = await self._start_run(conversation_id, dto, owner_id=owner_id)
 
         # Phase 2: call LLM
         try:
@@ -300,18 +368,31 @@ class ChatApplicationService:
             )
         except Exception as exc:
             logger.error("llm_generate_failed", error=str(exc), run_id=started.run_id)
-            await self._fail_run(started.run_id, str(exc))
+            # best-effort 收尾：不能让收尾异常顶掉要抛给调用方的 LLMProviderException
+            await self._fail_run_safely(
+                started.run_id, str(exc), log_event="llm_generate_fail_cleanup_failed"
+            )
             raise LLMProviderException(str(exc))
 
         # Phase 3: persist assistant message and complete run
-        assistant_msg, run_entity = await self._finalize_run(
-            started,
-            conversation_id,
-            content=response.content,
-            prompt_tokens=response.prompt_tokens,
-            completion_tokens=response.completion_tokens,
-            total_tokens=response.total_tokens,
-        )
+        # 与流式路径同纪律：phase-3 失败必须把 run 收敛到终态再抛
+        try:
+            assistant_msg, run_entity = await self._finalize_run(
+                started,
+                conversation_id,
+                content=response.content,
+                prompt_tokens=response.prompt_tokens,
+                completion_tokens=response.completion_tokens,
+                total_tokens=response.total_tokens,
+            )
+        except Exception as exc:
+            logger.error("llm_generate_finalize_failed", error=str(exc), run_id=started.run_id)
+            await self._fail_run_safely(
+                started.run_id,
+                f"finalize failed: {exc}",
+                log_event="llm_generate_finalize_cleanup_failed",
+            )
+            raise
 
         return {
             "message": MessageDTO_Agent.model_validate(assistant_msg).model_dump(),

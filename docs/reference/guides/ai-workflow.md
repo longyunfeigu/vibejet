@@ -30,7 +30,7 @@
 
 单个 Story 的小需求走同一条链：`vj-feature` 把它挂进 Epic，`vj-epic-plan` 产出最小
 review pack，`vj-work` 按单 Unit 执行。不再有独立的 Story 单入口编排
-（旧 run-story / do-story 已移除，历史设计见 `docs/archive/run-story-design.md`）。
+（旧 run-story / do-story 已移除）。
 
 ## 2. 按阶段看该用什么
 

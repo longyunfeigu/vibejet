@@ -15,6 +15,7 @@ from domain.conversation.entity import Conversation
 from domain.conversation.exceptions import ConversationNotFoundException
 from domain.conversation.repository import ConversationRepository
 from infrastructure.models.conversation import ConversationModel
+from infrastructure.repositories.base_repository import execute_targeted_update
 from infrastructure.repositories.mixins import SoftDeleteFilterMixin
 
 
@@ -34,13 +35,18 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
             model=model.model,
             status=model.status,
             metadata=dict(model.extra_metadata or {}),
+            owner_id=model.owner_id,
             created_at=model.created_at,
             updated_at=model.updated_at,
             deleted_at=model.deleted_at,
         )
 
-    def _apply_filters(self, query, *, status: Optional[str] = None):
+    def _apply_filters(
+        self, query, *, owner_id: Optional[int] = None, status: Optional[str] = None
+    ):
         query = super()._apply_filters(query)  # mixin: excludes soft-deleted
+        if owner_id is not None:
+            query = query.where(ConversationModel.owner_id == owner_id)
         if status:
             query = query.where(ConversationModel.status == status)
         return query
@@ -52,6 +58,7 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
             model=conversation.model,
             status=conversation.status,
             extra_metadata=conversation.metadata or {},
+            owner_id=conversation.owner_id,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
             deleted_at=conversation.deleted_at,
@@ -62,24 +69,23 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
         return self._to_entity(model)
 
     async def update(self, conversation: Conversation) -> Conversation:
-        result = await self.session.execute(
-            select(ConversationModel).where(ConversationModel.id == conversation.id)
+        # owner_id 不随更新改写
+        await execute_targeted_update(
+            self.session,
+            ConversationModel,
+            conversation.id,
+            {
+                "title": conversation.title,
+                "system_prompt": conversation.system_prompt,
+                "model": conversation.model,
+                "status": conversation.status,
+                "extra_metadata": conversation.metadata or {},
+                "updated_at": conversation.updated_at,
+                "deleted_at": conversation.deleted_at,
+            },
+            not_found=lambda: ConversationNotFoundException(conversation.id),
         )
-        model = result.scalar_one_or_none()
-        if model is None:
-            raise ConversationNotFoundException(conversation.id)
-
-        model.title = conversation.title
-        model.system_prompt = conversation.system_prompt
-        model.model = conversation.model
-        model.status = conversation.status
-        model.extra_metadata = conversation.metadata or {}
-        model.updated_at = conversation.updated_at
-        model.deleted_at = conversation.deleted_at
-
-        await self.session.flush()
-        await self.session.refresh(model)
-        return self._to_entity(model)
+        return conversation
 
     async def get_by_id(
         self, conversation_id: int, *, include_deleted: bool = False
@@ -94,12 +100,13 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
     async def list(
         self,
         *,
+        owner_id: Optional[int] = None,
         status: Optional[str] = None,
         skip: int = 0,
         limit: int = 20,
     ) -> list[Conversation]:
         query = select(ConversationModel)
-        query = self._apply_filters(query, status=status)
+        query = self._apply_filters(query, owner_id=owner_id, status=status)
         query = query.order_by(
             ConversationModel.updated_at.desc(),
             ConversationModel.id.desc(),
@@ -108,8 +115,10 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
         result = await self.session.execute(query)
         return [self._to_entity(m) for m in result.scalars().all()]
 
-    async def count(self, *, status: Optional[str] = None) -> int:
+    async def count(
+        self, *, owner_id: Optional[int] = None, status: Optional[str] = None
+    ) -> int:
         query = select(func.count()).select_from(ConversationModel)
-        query = self._apply_filters(query, status=status)
+        query = self._apply_filters(query, owner_id=owner_id, status=status)
         result = await self.session.execute(query)
         return int(result.scalar() or 0)
