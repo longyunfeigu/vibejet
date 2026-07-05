@@ -8,8 +8,8 @@
 - **Mode:** `{fast | strict}`
 - **Reason:** `{strict triggers or fast rationale}`
 - **Approval gate:** `{auto decision}`
-- **Recording:** `{final-only | per-unit}`
-- **Commit granularity:** `{feature | wave | per-unit}`
+- **Recording:** `{final-only | per-task}`
+- **Commit granularity:** `{feature | wave | per-task}`
 
 ## Layer Coverage
 
@@ -18,16 +18,16 @@
 - Design: `{none/trivial/functional/critical}` — source pointers: `{...}`
 - API contract: `{yes/no}` — source pointers: `{...}`
 - Data model: `{yes/no}` — source pointers: `{...}`
-- UI Surface Delta: `{none | present | fallback}` — source pointers: `{plan §4, Appendix D}`
+- UI Surface Delta: `{none | present | fallback}` — source pointers: `{design.md UI Surface Delta, task-index.md lanes}`
 - UI Catalog: `{none | present | fallback}` — source pointers: `{docs/project/ui/surfaces.md, docs/project/ui/routes.md}`
 
 ## UI Surface / Execution Lanes
 
-> Fill for frontend epics. Source truth is `docs/project/ui/` catalog when present; otherwise current plan §4 `UI Surface Delta` and Appendix D `Execution lanes / Frontend composition waves`.
+> Fill for frontend epics. Source truth is `docs/project/ui/` catalog when present; otherwise `design.md` `UI Surface Delta` and `task-index.md` `Execution lanes / Frontend composition waves`.
 
 | Screen ID | Route | Screen type | Primary Job | Covered Units | Regions | Information Priority | Richness Floor | Forbidden Patterns | API-for-UI / Data Contract | Frontend start condition | Screen done | Source |
 |-----------|-------|-------------|-------------|---------------|---------|----------------------|----------------|--------------------|----------------------------|--------------------------|-------------|--------|
-| `{screen-id}` | `{route}` | `{front-of-house/operational/mixed}` | `{job}` | `{U1,U2}` | `{regions}` | `{P0/P1/P2}` | `{minimum composition}` | `{forbidden}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` | `{docs/project/ui/... or plan §4 delta}` |
+| `{screen-id}` | `{route}` | `{front-of-house/operational/mixed}` | `{job}` | `{U1,U2}` | `{regions}` | `{P0/P1/P2}` | `{minimum composition}` | `{forbidden}` | `{endpoints/fields/states/errors}` | `{contract stable condition}` | `{browser-verifiable done}` | `{docs/project/ui/... or design.md UI Surface Delta}` |
 
 | Lane | Wave | Scope | Done signal |
 |------|------|-------|-------------|

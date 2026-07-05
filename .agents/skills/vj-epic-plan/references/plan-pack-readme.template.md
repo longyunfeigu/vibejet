@@ -33,7 +33,7 @@ execution_policy: "fast | strict"
 ## 3. Reviewer Reading Path
 
 1. 先看 `Known Conflicts`，确认哪些偏离已经批准，哪些还要问。
-2. 看 [design.md](design.md) 的 Problem Model、Module Boundaries、Core Flows、Data/API Design。
+2. 看 [design.md](design.md) 的 Problem Model、Target Architecture（模块小节）、Core Flows、Delta（API/Data/UI）。
 3. 看 [decisions.md](decisions.md) 的 D/ACD，确认范围偏离和 rejected alternatives 是否合理。
 4. 只在需要核对执行编排时看 `docs/tasks/work/epic-{N}-{slug}/task-index.md`。
 

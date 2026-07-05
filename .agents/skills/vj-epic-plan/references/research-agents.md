@@ -72,7 +72,7 @@ Epic ID（设计稿路径用）: {epic-N}
 1. 从 epic_context 的"上游依赖 Epic"与本 Epic 业务域，判断可能消费哪些上游能力。若"上游依赖 Epic"为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
 2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`、`docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` / `ui/surfaces.md` 含跨切面不变量（如 R1.x）。
 3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / UI Surface / Route / 鉴权约定 / 跨切面不变量），作为 Consumes。
-4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 review pack 的 `README.md` / `design.md` 或 legacy plan stub，并标注"catalog 缺失，回退读 review pack 作为诊断线索"；不能把回退结果当长期契约源。
+4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 review pack 的 `README.md` / `design.md`，并标注"catalog 缺失，回退读 review pack 作为诊断线索"；不能把回退结果当长期契约源。
 
 结构化输出：
 

@@ -34,6 +34,9 @@
 - [ ] Epic/Story 编号与状态 → `docs/tasks/kanban_board.md`
 - [ ] 学习飞轮：写端 `vj-compound`（`docs/solutions/`），读端 Agent D 模板
       （`vj-epic-plan/references/research-agents.md`）
+- [ ] 文档 HTML 视图（`.md`=唯一事实源，`.html`=派生、不进 git、永不手编）→
+      `.agents/skills/_shared/scripts/render_doc_html.py` 头注释；文档产出类 skill
+      收尾跑它生成人读视图（PRD / epic / review pack 已接入，新的人读文档产出照此办理）
 - [ ] 新 skill 不复述以上任何一处的规则条目；引用格式："按 {路径} §N 执行，本 skill 不复述"
 
 ## 验证

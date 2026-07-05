@@ -5,28 +5,28 @@
 审查对象是 `vj-epic-plan` 产出的 human review pack：
 
 - `README.md`：reviewer 入口、Known Conflicts、执行策略摘要、catalog touched。
-- `design.md`：给 human reviewer 的主设计说明，必须先用心智地图图建立整体分层和责任流向，再用模块依赖图检查具体模块边界，然后展开问题建模、术语场景、核心流程、数据/API、风险和 checklist。
+- `design.md`：三区制——叙事区（自由结构大白话，须回答 5 个必答问题：解决什么/现状/怎么做/最危险处/要拍板什么；每节开头 `> 一句话：` 导读行）+ 合同区（刚性块：术语表/API/Data/UI Delta/Must Hold/Risks/Checklist）+ 深潜附录（按需）。
 - `decisions.md`：D/ACD 唯一真相源，所有设计判断必须有理由和 rejected alternative。
 - `task-index.md`：给 `vj-work` 的 Unit/Task DAG、波次、gates、回滚入口；这是执行入口，不是 human 设计主文档。
 
-legacy `*-plan.md` 只应是指针 stub，不是审查真相源。
+审查真相源只有 review pack 目录（README / design / decisions / task-index）。
 
 ---
 
 ## human-design — Human Reviewer 可读性
 
-**审查视角**：一个新加入项目、懂后端/DDD/FastAPI、但不熟 vibejet 的 reviewer，读 `README.md` + `design.md` 后能不能清楚知道这个 Epic 真正在解决什么、为什么这样建模、模块边界在哪里、核心流程怎么走、哪些风险必须守住。
+**审查视角**：一个新加入项目、懂编程但未必啃过 DDD/FastAPI 黑话、不熟 vibejet 的 reviewer，读 `README.md` + `design.md` 后能不能**顺着读下去**并清楚知道这个 Epic 真正在解决什么、为什么这样建模、模块边界在哪里、核心流程怎么走、哪些风险必须守住。
 
 重点：
 
-- `design.md` 是否完整覆盖 10 个 human review section：Problem Model、Glossary by Scenario、Current Baseline、Target Architecture、Dependency Graph、Core Flows、Data Design、API Design、Invariants and Risks、Reviewer Checklist。
-- Target Architecture 是否是低密度心智地图图，只画层和责任流向；Dependency Graph 是否是具体模块依赖图，画本 Epic 涉及模块和禁止依赖。不要把两者混成一张塞满文件名、字段、migration、方法意图的大图。
-- 术语是否用场景解释，不是平铺定义。好的写法要让读者知道术语在真实请求里解决什么问题，例如“员工误点管理员接口时，role 决定系统放行还是拒绝”。
-- 模块边界是否用叙事解释理由：在什么真实场景里会碰到它、为什么责任放在这里而不是别处、它和相邻模块怎么协作、哪些判断必须留在外面，以及 reviewer 应该重点看什么。不要只给一张短表堆名词。
-- 核心复杂逻辑是否用 decision table / Mermaid / 伪代码讲清楚；不需要方法逐行实现，但不能让执行者自由发挥安全、状态或数据一致性逻辑。
+- 叙事区 5 个必答问题（模板 `plan-pack-design.template.md` 开头）是否都有**实质**回答——写薄、写成格子话/标签堆砌、或整题漏答都算缺口；命中 delta 的合同区块（API/Data/UI/Must Hold）缺失或空壳是 Blocking。
+- 可读性合同（模板【写作规则】）：每节导读行 `> 一句话：` 是实质主线而不是空话、且与正文一致；关键机制有具体场景走查（先例子后规则，"你拍了一碗牛肉面…"级别）；一句一事，无多层嵌套括号注，D/ACD 引用退句尾不打断主句；术语首现有白话同位语。写成规格书/说明书体（全是规则没有场景、读者要自己解码）算缺口。
+- 叙事是否大白话、因果连成链：先结论后细节、无未解释的黑话；关键术语第一次出现有场景解释（在真实请求里解决什么问题、放错层会怎样——例如“员工误点管理员接口时，role 决定系统放行还是拒绝”），不是平铺定义；合同区术语表与叙事展开是否互链。
+- 区界是否干净：合同表格没有混进叙事区当主载体，长散文论证没有塞进合同区；模块边界、危险点在叙事区讲了"为什么"，对应不变量落进了 Must Hold。
+- 高风险行为（安全/状态/一致性）是否进了合同区的决策表/failure table/Must Hold，不能让执行者自由发挥；解释性大图应在深潜附录，叙事里只留结论。
 - `README.md` 是否让 reviewer 第一屏知道先看什么、有哪些冲突、哪些文件是人读的、哪些文件是执行入口。
 
-**Blocking**（必修）：读者无法建立心智地图；Target Architecture 和 Dependency Graph 混成一张高密度文件图导致读者先看门牌号而不是先看地图；术语只定义没有场景；模块边界只有表格短句或固定问答，缺真实场景与归属理由；高风险流程没有图/决策表/伪代码；设计判断没有 rejected alternative；Known Conflicts 被藏在正文深处或静默修掉。
+**Blocking**（必修）：必答问题整题漏答或写成空话套话，读者无法建立心智模型；导读行缺失、是空话或与正文不符；关键机制只有规则堆砌没有任何场景走查（说明书体）；命中 delta 却缺对应合同块；术语只有定义没有场景；高风险行为没有决策表/failure table/不变量兜底；设计判断没有 rejected alternative；Known Conflicts 被藏在正文深处或静默修掉。
 
 **Non-blocking**：叙事顺序还可更顺、个别术语场景偏薄、checklist 可更尖锐，但主体设计已经能理解。
 

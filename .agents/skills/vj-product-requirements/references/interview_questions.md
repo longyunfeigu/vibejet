@@ -3,7 +3,9 @@
 Use these questions for `create` and `update` modes before drafting or changing a PRD.
 
 Rules:
-- Ask one question per turn.
+- Serial mode: ask one question per turn. Fast-draft mode (routing criteria live in
+  SKILL.md Phase 1, not here): batch the remaining gaps into one round of at most 4
+  single-select questions.
 - Prefer single-select options with a free-text fallback.
 - Use multi-select only for naturally combinable sets such as goals, constraints, or non-goals.
 - Do not ask questions already answered by the user or the existing PRD.

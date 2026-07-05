@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>随手食记 · UI Mock Board（PRD v1.0）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #f2ede6; --paper: #fffdf9; --ink: #4a4038; --muted: #9c8f82;
+    --brand: #b5764a; --brand-soft: #f3e2d3; --sage: #7a9e6b; --sage-soft: #e8efe3;
+    --line: #e7dfd4; --neutral-over: #8b7355;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif; }
+  .phone {
+    width: 390px; min-height: 700px; background: var(--paper);
+    border: 1px solid var(--line); border-radius: 28px; overflow: hidden;
+    box-shadow: 0 6px 24px rgba(90,70,50,.08); display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .phone-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+  .screen-card { width: 390px; flex-shrink: 0; }
+  .note {
+    margin-top: 10px; background: #efe9df; border: 1px dashed #d5c9b8; border-radius: 12px;
+    padding: 10px 14px; font-size: 12px; line-height: 1.7; color: #6e6254;
+  }
+  .note b { color: #52483c; }
+  .tag { display:inline-block; font-size:10px; padding:1px 8px; border-radius:99px; background:var(--brand-soft); color:var(--brand); margin-right:4px; }
+  .navbar { display:flex; border-top:1px solid var(--line); background:#fbf8f3; }
+  .navbar div { flex:1; text-align:center; padding:10px 0 14px; font-size:11px; color:var(--muted); }
+  .navbar .on { color: var(--brand); font-weight:600; }
+  .bar { height: 8px; border-radius: 99px; background: #ece4d8; overflow: hidden; }
+  .bar > i { display:block; height:100%; border-radius:99px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; font-size:13px; }
+  .cal .d { padding:7px 0; border-radius:10px; position:relative; }
+  .cal .dot::after { content:''; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:99px; background:var(--sage); }
+  .cal .today { background: var(--brand-soft); color: var(--brand); font-weight:700; }
+  .cal .sel { outline: 2px solid var(--brand); }
+  .chart { display:flex; align-items:flex-end; gap:6px; height:120px; position:relative; }
+  .chart .col { flex:1; background:#dcCbB8; background:#dfcdb9; border-radius:6px 6px 2px 2px; }
+  .chart .goal { position:absolute; left:0; right:0; border-top:2px dashed var(--brand); }
+  .fab { position:absolute; bottom:74px; left:50%; transform:translateX(-50%);
+    background:var(--brand); color:#fff; border-radius:99px; padding:14px 30px;
+    font-weight:600; box-shadow:0 8px 20px rgba(181,118,74,.35); font-size:15px; }
+  .spin { width:44px;height:44px;border-radius:99px;border:4px solid #eadfce;border-top-color:var(--brand);
+    animation:sp 1s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg);} }
+  h2.epic { font-size: 18px; font-weight: 800; color:#5a4c3e; margin: 44px 0 6px; }
+  .epic-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+  .board { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+</style>
+</head>
+<body class="p-8 md:p-12">
+
+<!-- ============ 板头 ============ -->
+<header class="max-w-5xl mb-2">
+  <h1 class="text-3xl font-extrabold" style="color:#4a3a2c">随手食记 · UI Mock Board</h1>
+  <p class="mt-2 text-sm" style="color:var(--muted)">
+    来源：<code>docs/project/requirements.md</code>（PRD v1.0）· 移动优先 390px · 暖色低饱和护眼浅色系<br>
+    用法：每个屏幕下方的虚线框是<b style="color:#6e6254">这块 UI 逼出来的后端 API / 设计决策</b>——用于反查架构与接口设计的遗漏。
+  </p>
+</header>
+
+<!-- ============ Epic 0 登录与引导 ============ -->
+<h2 class="epic">Ⅰ · 登录与首次引导</h2>
+<div class="epic-sub">NFR 5.3 登录保护 · Epic 3 R1 首次目标设置</div>
+<div class="board">
+
+  <!-- 登录 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body justify-center px-8 text-center">
+        <div class="text-5xl mb-3">🥗</div>
+        <div class="text-2xl font-extrabold" style="color:#4a3a2c">随手食记</div>
+        <div class="mt-2 text-sm" style="color:var(--muted)">拍一张，吃了什么心里就有数</div>
+        <div class="mt-10 text-left space-y-3">
+          <div>
+            <div class="text-xs mb-1" style="color:var(--muted)">账号</div>
+            <div class="rounded-xl border px-4 py-3 text-sm" style="border-color:var(--line)">edy</div>
+          </div>
+          <div>
+            <div class="text-xs mb-1" style="color:var(--muted)">密码</div>
+            <div class="rounded-xl border px-4 py-3 text-sm" style="border-color:var(--line); color:var(--muted)">••••••••</div>
+          </div>
+        </div>
+        <div class="mt-6 rounded-xl py-3.5 text-white font-semibold" style="background:var(--brand)">登 录</div>
+        <div class="mt-8 text-xs leading-relaxed rounded-xl p-3 text-left" style="background:var(--sage-soft); color:#5d7350">
+          首次使用提示：餐食照片将发送给第三方 AI 服务用于识别。继续即代表你知情并同意。
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">登录</span><span class="tag">合规</span><br>
+      <b>API:</b> POST /api/auth/login → session/JWT<br>
+      <b>反查出的缺口:</b> PRD 只写了“登录保护”，没定登录方式（密码 / 免密链接？单用户要不要注册流程？）；
+      第三方识别的知情同意需要落存储（user.consent_at），PRD 未提字段。
+    </div>
+  </div>
+
+  <!-- 引导：目标设置 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-7 pt-12">
+        <div class="text-xs font-semibold" style="color:var(--brand)">STEP 1 / 1</div>
+        <div class="mt-2 text-2xl font-extrabold" style="color:#4a3a2c">先定一个每日热量目标</div>
+        <div class="mt-2 text-sm" style="color:var(--muted)">之后随时可以在设置里修改，从当天起生效</div>
+        <div class="mt-8">
+          <div class="text-xs mb-1" style="color:var(--muted)">每日热量目标（kcal）</div>
+          <div class="rounded-xl border px-4 py-3.5 text-lg font-bold" style="border-color:var(--brand)">2000</div>
+        </div>
+        <div class="mt-5 rounded-xl border px-4 py-3.5 text-sm flex justify-between items-center" style="border-color:var(--line); color:var(--muted)">
+          <span>不确定？按身高体重帮我估算</span><span>▾</span>
+        </div>
+        <div class="mt-auto mb-8 rounded-xl py-3.5 text-white text-center font-semibold" style="background:var(--brand)">开始记录</div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic3 R1</span><br>
+      <b>API:</b> PUT /api/goals（首次创建）· GET/PUT /api/profile（onboarding 完成标记）<br>
+      <b>反查出的缺口:</b> “首次使用”状态必须后端可查（profile.onboarded_at），
+      否则换设备/清缓存会重复引导——纯前端 localStorage 方案在真实产品里不成立。
+    </div>
+  </div>
+
+  <!-- 引导：估算展开 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-7 pt-12">
+        <div class="text-2xl font-extrabold" style="color:#4a3a2c">帮我估算</div>
+        <div class="mt-6 grid grid-cols-2 gap-3 text-sm">
+          <div><div class="text-xs mb-1" style="color:var(--muted)">身高 cm</div><div class="rounded-xl border px-3 py-3" style="border-color:var(--line)">175</div></div>
+          <div><div class="text-xs mb-1" style="color:var(--muted)">体重 kg</div><div class="rounded-xl border px-3 py-3" style="border-color:var(--line)">68</div></div>
+          <div><div class="text-xs mb-1" style="color:var(--muted)">年龄</div><div class="rounded-xl border px-3 py-3" style="border-color:var(--line)">32</div></div>
+          <div><div class="text-xs mb-1" style="color:var(--muted)">性别</div><div class="rounded-xl border px-3 py-3" style="border-color:var(--line)">男</div></div>
+        </div>
+        <div class="mt-3"><div class="text-xs mb-1" style="color:var(--muted)">活动量</div>
+          <div class="flex gap-2 text-xs">
+            <span class="rounded-full px-3 py-1.5" style="background:var(--brand-soft);color:var(--brand);font-weight:600">久坐</span>
+            <span class="rounded-full px-3 py-1.5 border" style="border-color:var(--line);color:var(--muted)">轻度</span>
+            <span class="rounded-full px-3 py-1.5 border" style="border-color:var(--line);color:var(--muted)">中度</span>
+            <span class="rounded-full px-3 py-1.5 border" style="border-color:var(--line);color:var(--muted)">高强度</span>
+          </div>
+        </div>
+        <div class="mt-6 rounded-2xl p-5 text-center" style="background:var(--sage-soft)">
+          <div class="text-xs" style="color:#5d7350">建议每日目标（Mifflin-St Jeor）</div>
+          <div class="text-3xl font-extrabold mt-1" style="color:#4c6340">1980 <span class="text-sm font-normal">kcal</span></div>
+        </div>
+        <div class="mt-auto mb-8 rounded-xl py-3.5 text-white text-center font-semibold" style="background:var(--brand)">就用这个目标</div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic3 R1</span><br>
+      <b>设计决策:</b> 估算公式放前端即可（纯计算，无须 API）；
+      但身高/体重要不要存 profile？存 → 多一组 PUT /api/profile 字段；不存 → 每次估算重填。PRD 未定。
+    </div>
+  </div>
+</div>
+
+<!-- ============ Epic 2 首页 ============ -->
+<h2 class="epic">Ⅱ · 首页：今日摄入总览</h2>
+<div class="epic-sub">Epic 2 R1–R4 · 本地时区“今日” · 空态引导 · 超标中性呈现</div>
+<div class="board">
+
+  <!-- 首页空态 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10 relative">
+        <div class="text-xs" style="color:var(--muted)">7月5日 · 周六</div>
+        <div class="mt-1 text-xl font-extrabold" style="color:#4a3a2c">今日摄入</div>
+        <div class="mt-8 flex flex-col items-center text-center px-4">
+          <div class="w-36 h-36 rounded-full flex flex-col items-center justify-center" style="background:var(--brand-soft)">
+            <div class="text-3xl">📷</div>
+          </div>
+          <div class="mt-6 text-base font-bold" style="color:#4a3a2c">今天还没有记录</div>
+          <div class="mt-2 text-sm leading-relaxed" style="color:var(--muted)">拍一张正在吃的这餐，<br>30 秒内搞定记录</div>
+          <div class="mt-6 rounded-full px-8 py-3.5 text-white font-semibold" style="background:var(--brand)">📷 拍照记录第一餐</div>
+        </div>
+        <div class="mt-auto navbar">
+          <div class="on">🏠<br>首页</div><div>📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic2 R4</span><br>
+      <b>API:</b> GET /api/summary/daily?date=2026-07-05（返回空集也要 200 + 结构化空数据）<br>
+      <b>反查出的缺口:</b> “今日”按<b>本地时区</b>聚合 → date 参数必须由客户端算好本地日期传入，
+      或 API 显式接受 tz；后端按 UTC created_at 直接分组必错（23:50 的加餐会跑到第二天）。
+    </div>
+  </div>
+
+  <!-- 首页有数据 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10 relative">
+        <div class="text-xs" style="color:var(--muted)">7月5日 · 周六</div>
+        <div class="mt-1 flex items-end gap-2">
+          <div class="text-4xl font-extrabold" style="color:#4a3a2c">1,286</div>
+          <div class="pb-1 text-sm" style="color:var(--muted)">/ 2,000 kcal</div>
+        </div>
+        <div class="mt-1 text-sm" style="color:var(--sage)">还可以吃 714 kcal</div>
+        <div class="mt-4 space-y-2.5 text-xs" style="color:var(--muted)">
+          <div><div class="flex justify-between mb-1"><span>蛋白质</span><span>62 / 150g</span></div><div class="bar"><i style="width:41%;background:var(--sage)"></i></div></div>
+          <div><div class="flex justify-between mb-1"><span>脂肪</span><span>48 / 67g</span></div><div class="bar"><i style="width:72%;background:#c9a35c"></i></div></div>
+          <div><div class="flex justify-between mb-1"><span>碳水</span><span>139 / 200g</span></div><div class="bar"><i style="width:70%;background:var(--brand)"></i></div></div>
+        </div>
+        <div class="mt-6 space-y-3">
+          <div class="text-xs font-bold" style="color:var(--muted)">早餐 · 08:12</div>
+          <div class="flex gap-3 rounded-2xl border p-3" style="border-color:var(--line)">
+            <div class="w-14 h-14 rounded-xl" style="background:linear-gradient(135deg,#e8c9a5,#d9a06b)"></div>
+            <div class="flex-1"><div class="text-sm font-semibold">豆浆 + 鸡蛋灌饼</div><div class="text-xs mt-0.5" style="color:var(--muted)">2 项菜品</div></div>
+            <div class="text-sm font-bold self-center" style="color:var(--brand)">438<span class="text-xs font-normal"> kcal</span></div>
+          </div>
+          <div class="text-xs font-bold" style="color:var(--muted)">午餐 · 12:31</div>
+          <div class="flex gap-3 rounded-2xl border p-3" style="border-color:var(--line)">
+            <div class="w-14 h-14 rounded-xl" style="background:linear-gradient(135deg,#d8e3c8,#a8bd8a)"></div>
+            <div class="flex-1"><div class="text-sm font-semibold">番茄牛腩饭 + 凉拌木耳</div><div class="text-xs mt-0.5" style="color:var(--muted)">3 项菜品 · 已修正份量</div></div>
+            <div class="text-sm font-bold self-center" style="color:var(--brand)">848<span class="text-xs font-normal"> kcal</span></div>
+          </div>
+        </div>
+        <div class="fab">📷 拍照记录</div>
+        <div class="mt-auto navbar">
+          <div class="on">🏠<br>首页</div><div>📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic2 R2</span><br>
+      <b>API:</b> GET /api/summary/daily → { consumed, goal, remaining, macros{}, meals[]（按餐次分组，含<b>缩略图 URL</b>）}<br>
+      <b>反查出的缺口:</b> 列表要缩略图 → 图片存储必须有 thumbnail 策略（尺寸/生成时机/CDN），PRD 的“照片保留策略”开放问题在这里变成硬需求；
+      “已修正份量”标记 → 记录需保留 <b>识别原始值 vs 用户修正值</b> 两份（PRD §8 误差假设的验证靠它）。
+    </div>
+  </div>
+
+  <!-- 首页超标 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10 relative">
+        <div class="text-xs" style="color:var(--muted)">7月5日 · 周六</div>
+        <div class="mt-1 flex items-end gap-2">
+          <div class="text-4xl font-extrabold" style="color:#4a3a2c">2,384</div>
+          <div class="pb-1 text-sm" style="color:var(--muted)">/ 2,000 kcal</div>
+        </div>
+        <div class="mt-1 text-sm" style="color:var(--neutral-over)">比目标多了 384 kcal，明天正常吃就好</div>
+        <div class="mt-4 space-y-2.5 text-xs" style="color:var(--muted)">
+          <div><div class="flex justify-between mb-1"><span>蛋白质</span><span>118 / 150g</span></div><div class="bar"><i style="width:79%;background:var(--sage)"></i></div></div>
+          <div><div class="flex justify-between mb-1"><span>脂肪</span><span>81 / 67g</span></div><div class="bar"><i style="width:100%;background:#b9a284"></i></div></div>
+          <div><div class="flex justify-between mb-1"><span>碳水</span><span>231 / 200g</span></div><div class="bar"><i style="width:100%;background:#b9a284"></i></div></div>
+        </div>
+        <div class="mt-6 rounded-2xl p-4 text-xs leading-relaxed" style="background:#f0ebe2; color:var(--muted)">
+          今日 4 餐已记录 · 连续记录 12 天 🌱
+        </div>
+        <div class="fab">📷 拍照记录</div>
+        <div class="mt-auto navbar">
+          <div class="on">🏠<br>首页</div><div>📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic2 R3</span><br>
+      <b>UI 合同:</b> 超标 = 中性色 + 中性文案（暖棕，非红色/警告）· 进度条封顶 100% 不溢出<br>
+      <b>反查出的缺口:</b> “连续记录 12 天”（PRD 成功指标 §1.4）→ 需要
+      GET /api/stats/streak 或在 daily summary 里带 streak 字段——PRD 把它当指标却没人负责计算它。
+    </div>
+  </div>
+</div>
+
+<!-- ============ Epic 1 拍照记录 ============ -->
+<h2 class="epic">Ⅲ · 拍照记录一餐</h2>
+<div class="epic-sub">Epic 1 R1–R6 · 核心闭环：拍照 → 识别 → 修正 → 保存，含两条失败降级</div>
+<div class="board">
+
+  <!-- 步骤1 选择照片 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹ 返回</span><span class="font-bold" style="color:#4a3a2c">记录一餐</span></div>
+        <div class="mt-8 rounded-3xl border-2 border-dashed flex flex-col items-center justify-center py-20" style="border-color:#d9cbb6">
+          <div class="text-5xl">📷</div>
+          <div class="mt-4 font-semibold" style="color:#4a3a2c">拍摄这一餐</div>
+          <div class="mt-1 text-xs" style="color:var(--muted)">光线充足、俯拍全貌识别更准</div>
+        </div>
+        <div class="mt-4 rounded-xl border py-3.5 text-center text-sm font-medium" style="border-color:var(--line); color:var(--muted)">🖼 从相册选择</div>
+        <div class="mt-6 text-xs text-center leading-relaxed" style="color:#bdb0a0">当前浏览器不支持相机时，只显示相册上传（Epic1 R6）</div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R6</span><br>
+      <b>API:</b> 上传前置：POST /api/photos（multipart）或 presigned URL 二选一<br>
+      <b>反查出的缺口:</b> 照片<b>先落存储、再触发识别</b>是降级路径（R4“保留已拍照片”）的前提——
+      所以上传和识别必须是两个独立 API，不能合成一个。这个拆分 PRD 没写，UI 流程逼出来了。
+    </div>
+  </div>
+
+  <!-- 步骤2 识别中 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">识别中</span></div>
+        <div class="mt-6 rounded-3xl overflow-hidden h-64" style="background:linear-gradient(135deg,#ecd9bd,#d9a06b 60%,#b97a45)"></div>
+        <div class="mt-10 flex flex-col items-center">
+          <div class="spin"></div>
+          <div class="mt-5 text-sm font-semibold" style="color:#4a3a2c">正在识别菜品与营养…</div>
+          <div class="mt-1 text-xs" style="color:var(--muted)">一般 10 秒内完成</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R1</span><span class="tag">NFR 5.1</span><br>
+      <b>API 决策点:</b> 同步（POST /api/recognitions，10s 超时）还是异步（202 + 轮询/SSE）？
+      10 秒上限 + 弱网重试 + 未来加队列 → <b>建议异步任务式</b>：POST 返回 recognition_id，GET /api/recognitions/{id} 查状态。
+      这是 PRD §10.3 识别服务选型之外<b>被漏掉的架构决策</b>。
+    </div>
+  </div>
+
+  <!-- 步骤3 确认修正 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">确认这一餐</span></div>
+        <div class="mt-4 rounded-2xl overflow-hidden h-32" style="background:linear-gradient(135deg,#ecd9bd,#d9a06b)"></div>
+        <div class="mt-4 space-y-3">
+          <div class="rounded-2xl border p-3.5" style="border-color:var(--line)">
+            <div class="flex justify-between items-center">
+              <div class="text-sm font-semibold">番茄牛腩饭 ✎</div>
+              <div class="text-xs" style="color:#bdb0a0">✕</div>
+            </div>
+            <div class="mt-2 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-sm"><span class="w-7 h-7 rounded-lg border text-center leading-7" style="border-color:var(--line)">−</span><span class="font-bold">350g</span><span class="w-7 h-7 rounded-lg border text-center leading-7" style="border-color:var(--line)">＋</span></div>
+              <div class="text-sm font-bold" style="color:var(--brand)">612 kcal</div>
+            </div>
+            <div class="mt-1.5 text-xs" style="color:var(--muted)">蛋白 32g · 脂肪 21g · 碳水 68g</div>
+          </div>
+          <div class="rounded-2xl border p-3.5" style="border-color:var(--line)">
+            <div class="flex justify-between items-center"><div class="text-sm font-semibold">凉拌木耳 ✎</div><div class="text-xs" style="color:#bdb0a0">✕</div></div>
+            <div class="mt-2 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-sm"><span class="w-7 h-7 rounded-lg border text-center leading-7" style="border-color:var(--line)">−</span><span class="font-bold">120g</span><span class="w-7 h-7 rounded-lg border text-center leading-7" style="border-color:var(--line)">＋</span></div>
+              <div class="text-sm font-bold" style="color:var(--brand)">86 kcal</div>
+            </div>
+          </div>
+          <div class="rounded-xl border border-dashed py-2.5 text-center text-xs" style="border-color:#d9cbb6; color:var(--muted)">＋ 手动加一项</div>
+        </div>
+        <div class="mt-4 flex justify-between items-center rounded-2xl p-4" style="background:var(--brand-soft)">
+          <div class="text-xs" style="color:var(--brand)">本餐合计</div>
+          <div class="text-lg font-extrabold" style="color:var(--brand)">698 kcal</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R2</span><br>
+      <b>API 决策点:</b> 份量改变 → 营养按比例重算。重算在<b>客户端</b>做 ⇒ 识别接口必须返回
+      <b>每 100g 营养密度</b>而不是绝对值；在服务端做 ⇒ 每次步进都打接口（弱网体验差）。
+      推荐前者——这直接决定 FoodItem 的 schema 形状，PRD 未覆盖。
+    </div>
+  </div>
+
+  <!-- 步骤4 保存 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">保存记录</span></div>
+        <div class="mt-6"><div class="text-xs mb-2" style="color:var(--muted)">这是哪一餐？（按当前时间预选）</div>
+          <div class="grid grid-cols-4 gap-2 text-sm text-center">
+            <div class="rounded-xl border py-3" style="border-color:var(--line); color:var(--muted)">早餐</div>
+            <div class="rounded-xl py-3 font-bold text-white" style="background:var(--brand)">午餐</div>
+            <div class="rounded-xl border py-3" style="border-color:var(--line); color:var(--muted)">晚餐</div>
+            <div class="rounded-xl border py-3" style="border-color:var(--line); color:var(--muted)">加餐</div>
+          </div>
+        </div>
+        <div class="mt-5"><div class="text-xs mb-1" style="color:var(--muted)">记录时间</div>
+          <div class="rounded-xl border px-4 py-3 text-sm flex justify-between" style="border-color:var(--line)"><span>今天 12:31</span><span style="color:var(--muted)">修改 ›</span></div>
+        </div>
+        <div class="mt-5 rounded-2xl p-4 text-sm" style="background:#f0ebe2">
+          <div class="flex justify-between"><span style="color:var(--muted)">2 项菜品</span><span class="font-bold" style="color:var(--brand)">698 kcal</span></div>
+          <div class="mt-1 text-xs" style="color:var(--muted)">蛋白 36g · 脂肪 23g · 碳水 74g</div>
+        </div>
+        <div class="mt-auto mb-8 rounded-xl py-3.5 text-white text-center font-semibold" style="background:var(--brand)">保存这一餐</div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R5</span><br>
+      <b>API:</b> POST /api/meals { photo_id, recognition_id?, meal_type, eaten_at(本地), foods[] }<br>
+      <b>反查出的缺口:</b> ① eaten_at 可回改 → 后端要接受任意历史时间并影响对应日期聚合；
+      ② 保存要带 recognition_id 关联原始识别（误差评估）；③ <b>幂等</b>：弱网重复点保存 → 需要客户端幂等键，PRD 未提。
+    </div>
+  </div>
+
+  <!-- 失败A 识别不出 → 文本补录 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">没认出来</span></div>
+        <div class="mt-6 rounded-2xl overflow-hidden h-32 opacity-70" style="background:linear-gradient(135deg,#d8d2c8,#b8b0a2)"></div>
+        <div class="mt-6 text-center">
+          <div class="text-3xl">🤔</div>
+          <div class="mt-2 font-semibold" style="color:#4a3a2c">没认出这是什么食物</div>
+          <div class="mt-1 text-xs leading-relaxed" style="color:var(--muted)">照片可能太暗、太远，或者不是食物<br>可以重拍一张，或者用文字描述这一餐</div>
+        </div>
+        <div class="mt-6"><div class="text-xs mb-1" style="color:var(--muted)">文字补录（兜底）</div>
+          <div class="rounded-xl border px-4 py-3 text-sm h-20" style="border-color:var(--line); color:var(--muted)">例：一碗牛肉面加一个卤蛋</div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3 text-center text-sm font-medium">
+          <div class="rounded-xl border py-3" style="border-color:var(--line); color:var(--muted)">重新拍照</div>
+          <div class="rounded-xl py-3 text-white" style="background:var(--brand)">按描述估算</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R3</span><br>
+      <b>API:</b> POST /api/recognitions/estimate-text { description } → FoodItem[]（同为 LLM 调用）<br>
+      <b>反查出的缺口:</b> “无法识别”是识别接口的<b>业务结果</b>（结构化返回 reason: low_confidence / not_food），
+      不是 HTTP 错误——错误语义分层 PRD 没写，接口契约必须定义。
+    </div>
+  </div>
+
+  <!-- 失败B 服务不可用 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="flex items-center gap-3 text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">稍等一下</span></div>
+        <div class="mt-6 rounded-2xl overflow-hidden h-40" style="background:linear-gradient(135deg,#ecd9bd,#d9a06b)"></div>
+        <div class="mt-8 text-center px-4">
+          <div class="text-3xl">📡</div>
+          <div class="mt-2 font-semibold" style="color:#4a3a2c">识别服务暂时不可用</div>
+          <div class="mt-1 text-xs leading-relaxed" style="color:var(--muted)">你的照片已经保留，不用重拍<br>可以稍后重试，或先用文字补录</div>
+        </div>
+        <div class="mt-8 grid grid-cols-2 gap-3 text-center text-sm font-medium">
+          <div class="rounded-xl border py-3" style="border-color:var(--line); color:var(--muted)">改用文字补录</div>
+          <div class="rounded-xl py-3 text-white" style="background:var(--brand)">重试识别</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic1 R4</span><br>
+      <b>反查出的缺口:</b> ① “照片已保留” ⇒ 需要<b>识别草稿</b>概念（photo 已上传、meal 未创建的中间态）——
+      要不要 draft 表 / photo 的 orphan 清理策略？② “重试” ⇒ 同一张照片重复调用第三方 = 重复计费，
+      PRD §10.3 的成本护栏在这里落地为：<b>按 photo hash 缓存识别结果 + 重试限流</b>。
+    </div>
+  </div>
+</div>
+
+<!-- ============ Epic 4 历史与趋势 ============ -->
+<h2 class="epic">Ⅳ · 历史与趋势</h2>
+<div class="epic-sub">Epic 4 R1–R3 · 日历打点 · 日明细 · 趋势与数据不足降级</div>
+<div class="board">
+
+  <!-- 日历 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="text-xl font-extrabold" style="color:#4a3a2c">历史</div>
+        <div class="mt-4 flex gap-2 text-sm">
+          <div class="rounded-full px-4 py-1.5 text-white font-medium" style="background:var(--brand)">日历</div>
+          <div class="rounded-full px-4 py-1.5 border" style="border-color:var(--line); color:var(--muted)">趋势</div>
+        </div>
+        <div class="mt-5 flex justify-between items-center text-sm" style="color:var(--muted)"><span>‹</span><span class="font-bold" style="color:#4a3a2c">2026 年 7 月</span><span>›</span></div>
+        <div class="mt-3 cal" style="color:#bdb0a0">
+          <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
+        </div>
+        <div class="mt-1 cal">
+          <div class="d" style="color:#ddd">29</div><div class="d" style="color:#ddd">30</div>
+          <div class="d dot">1</div><div class="d dot">2</div><div class="d">3</div><div class="d dot sel">4</div><div class="d today">5</div>
+          <div class="d" style="color:#d8cfc2">6</div><div class="d" style="color:#d8cfc2">7</div><div class="d" style="color:#d8cfc2">8</div><div class="d" style="color:#d8cfc2">9</div><div class="d" style="color:#d8cfc2">10</div><div class="d" style="color:#d8cfc2">11</div><div class="d" style="color:#d8cfc2">12</div>
+        </div>
+        <div class="mt-5 rounded-2xl border p-4" style="border-color:var(--line)">
+          <div class="flex justify-between text-sm"><span class="font-bold">7月4日 · 周五</span><span style="color:var(--sage)">1,842 / 2,000 kcal ✓</span></div>
+          <div class="mt-3 space-y-2 text-xs" style="color:var(--muted)">
+            <div class="flex justify-between"><span>早餐 · 燕麦酸奶碗</span><span>386 kcal</span></div>
+            <div class="flex justify-between"><span>午餐 · 鸡胸肉沙拉卷</span><span>512 kcal</span></div>
+            <div class="flex justify-between"><span>晚餐 · 清蒸鲈鱼两菜一汤</span><span>944 kcal</span></div>
+          </div>
+        </div>
+        <div class="mt-auto navbar">
+          <div>🏠<br>首页</div><div class="on">📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic4 R1</span><br>
+      <b>API:</b> GET /api/stats/calendar?month=2026-07 →（打点用）每日 has_records + 达成状态；
+      GET /api/meals?date= →（选中日明细）<br>
+      <b>反查出的缺口:</b> “✓ 达成”按<b>当日目标快照</b>判定（Epic3 R2 不追溯）⇒
+      要么 meal 存 goal_snapshot，要么 goals 表带 effective_date 区间——二选一的 schema 决策，PRD 没拍板。
+    </div>
+  </div>
+
+  <!-- 趋势 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="text-xl font-extrabold" style="color:#4a3a2c">历史</div>
+        <div class="mt-4 flex gap-2 text-sm">
+          <div class="rounded-full px-4 py-1.5 border" style="border-color:var(--line); color:var(--muted)">日历</div>
+          <div class="rounded-full px-4 py-1.5 text-white font-medium" style="background:var(--brand)">趋势</div>
+        </div>
+        <div class="mt-4 flex gap-2 text-xs">
+          <div class="rounded-full px-3 py-1 font-semibold" style="background:var(--brand-soft); color:var(--brand)">近 7 天</div>
+          <div class="rounded-full px-3 py-1 border" style="border-color:var(--line); color:var(--muted)">近 30 天</div>
+        </div>
+        <div class="mt-6 rounded-2xl border p-4" style="border-color:var(--line)">
+          <div class="text-xs mb-4" style="color:var(--muted)">每日热量摄入（kcal） · 虚线为目标</div>
+          <div class="chart">
+            <div class="goal" style="bottom:62%"></div>
+            <div class="col" style="height:58%"></div>
+            <div class="col" style="height:72%"></div>
+            <div class="col" style="height:40%;background:#efe8dc"></div>
+            <div class="col" style="height:66%"></div>
+            <div class="col" style="height:80%;background:var(--brand)"></div>
+            <div class="col" style="height:61%"></div>
+            <div class="col" style="height:43%"></div>
+          </div>
+          <div class="mt-2 flex justify-between text-[10px]" style="color:#bdb0a0"><span>6/29</span><span>7/5</span></div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3 text-center">
+          <div class="rounded-2xl p-3" style="background:var(--sage-soft)"><div class="text-xs" style="color:#5d7350">日均摄入</div><div class="text-lg font-extrabold" style="color:#4c6340">1,872</div></div>
+          <div class="rounded-2xl p-3" style="background:var(--brand-soft)"><div class="text-xs" style="color:var(--brand)">目标达成</div><div class="text-lg font-extrabold" style="color:var(--brand)">5 / 7 天</div></div>
+        </div>
+        <div class="mt-auto navbar">
+          <div>🏠<br>首页</div><div class="on">📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic4 R2</span><br>
+      <b>API:</b> GET /api/stats/trends?days=7|30 → [{date, calories, goal, achieved}] + recorded_days<br>
+      <b>设计决策:</b> 聚合放后端（一天多餐求和 + 对当日目标）；无记录日返回 0 还是缺项？——图表画法依赖它，接口契约要写死。
+    </div>
+  </div>
+
+  <!-- 趋势数据不足 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="text-xl font-extrabold" style="color:#4a3a2c">历史</div>
+        <div class="mt-4 flex gap-2 text-sm">
+          <div class="rounded-full px-4 py-1.5 border" style="border-color:var(--line); color:var(--muted)">日历</div>
+          <div class="rounded-full px-4 py-1.5 text-white font-medium" style="background:var(--brand)">趋势</div>
+        </div>
+        <div class="mt-16 flex flex-col items-center text-center px-8">
+          <div class="text-4xl">🌱</div>
+          <div class="mt-4 font-semibold" style="color:#4a3a2c">数据还不够画出趋势</div>
+          <div class="mt-2 text-xs leading-relaxed" style="color:var(--muted)">最近 7 天里只有 2 天有记录<br>再坚持记录几天，就能看到你的摄入曲线了</div>
+          <div class="mt-6 rounded-full px-6 py-3 text-white text-sm font-semibold" style="background:var(--brand)">📷 去记录今天</div>
+        </div>
+        <div class="mt-auto navbar">
+          <div>🏠<br>首页</div><div class="on">📅<br>历史</div><div>⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic4 R3</span><br>
+      <b>UI 合同:</b> 有记录天数 &lt; 3 → 不画曲线，给引导性空态（不是报错）<br>
+      判定阈值放后端（trends 接口返回 recorded_days，前端按值切换视图），避免两端各算一套口径。
+    </div>
+  </div>
+</div>
+
+<!-- ============ Epic 3 设置 ============ -->
+<h2 class="epic">Ⅴ · 目标与设置</h2>
+<div class="epic-sub">Epic 3 R1–R2 · 目标修改不追溯 · 合规与数据管理</div>
+<div class="board">
+
+  <!-- 设置 -->
+  <div class="screen-card">
+    <div class="phone">
+      <div class="phone-body px-6 pt-10">
+        <div class="text-xl font-extrabold" style="color:#4a3a2c">设置</div>
+        <div class="mt-6 rounded-2xl border p-4" style="border-color:var(--line)">
+          <div class="flex justify-between items-center">
+            <div><div class="text-sm font-semibold">每日热量目标</div><div class="text-xs mt-0.5" style="color:var(--muted)">修改后从今天起生效，不影响历史</div></div>
+            <div class="text-lg font-extrabold" style="color:var(--brand)">2,000</div>
+          </div>
+          <div class="mt-3 pt-3 border-t text-xs" style="border-color:var(--line); color:var(--muted)">
+            营养比例 · 蛋白 30% / 脂肪 30% / 碳水 40% <span class="float-right">调整 ›</span>
+          </div>
+        </div>
+        <div class="mt-4 rounded-2xl border p-4 text-sm space-y-3" style="border-color:var(--line)">
+          <div class="flex justify-between"><span>身体档案（身高/体重/活动量）</span><span style="color:var(--muted)">›</span></div>
+          <div class="flex justify-between pt-3 border-t" style="border-color:var(--line)"><span>照片与隐私</span><span style="color:var(--muted)">›</span></div>
+          <div class="flex justify-between pt-3 border-t" style="border-color:var(--line)"><span>导出我的数据</span><span style="color:var(--muted)">›</span></div>
+        </div>
+        <div class="mt-4 rounded-2xl p-4 text-xs leading-relaxed" style="background:#f0ebe2; color:var(--muted)">
+          🔒 照片会发送给第三方 AI 服务用于识别（已于 2026-07-01 同意）。<span style="color:var(--brand)">查看详情</span>
+        </div>
+        <div class="mt-auto navbar">
+          <div>🏠<br>首页</div><div>📅<br>历史</div><div class="on">⚙️<br>设置</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tag">Epic3 R2</span><span class="tag">NFR 5.3</span><br>
+      <b>API:</b> PUT /api/goals（生效日=今天）· GET/PUT /api/profile · GET /api/export（数据导出）<br>
+      <b>反查出的缺口:</b> “照片与隐私”入口 ⇒ 照片删除/保留策略要有用户可见的落点（删除记录时照片是否物理删除？）；
+      “导出数据”是单用户个人工具的合理诉求，PRD 完全没提——建议列入 V1.x backlog 而不是现在做。
+    </div>
+  </div>
+</div>
+
+<footer class="mt-16 max-w-4xl text-xs leading-relaxed" style="color:#a89a89">
+  生成方式：Claude Code 直接从 PRD 产出（单文件 HTML + Tailwind CDN，浏览器打开即看，无需构建）。<br>
+  同源参考物：Dyad 生成的可交互 React 原型在 <code>~/dyad-apps/suishou-shiji</code>（pnpm dev 可跑），其 <code>src/services/mockApi.ts</code> 是 API-for-UI 的第一版草稿。
+</footer>
+
+</body>
+</html>

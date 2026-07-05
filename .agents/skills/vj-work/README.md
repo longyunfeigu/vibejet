@@ -31,13 +31,13 @@ vj-compound   (可选沉淀)
 
 ## Subagent 原则
 
-默认 inline worktree execution。只有运行时支持独立写入空间、同 wave Unit 无依赖且无文件冲突、并且并行收益明确时才派 subagent。
+**默认每个 task 派一个自包含 subagent 执行**（orchestrator 上下文卫生：主 session 只编排与审计，重活下沉子代理）。依赖型/共享文件 task 共享同一执行 worktree 串行派发（serial-isolation）；只有写集无交集且合同稳定的同波次 task 才用独立 worktree 并行（parallel-isolation）。inline 执行仅限运行时不支持 subagent、task trivial、或上下文已加载过半三种情况，须记录原因。
 
-subagent 任务必须自包含：即使运行时支持继承上下文，也必须显式传 plan path、task doc path、`_execution_context.md` path、Unit ID、Unit Context Packet、write scope、Verification 和 return contract。若是 UI task，还必须传 Screen ID、Route、Primary Job、Covered Units、API-for-UI 和 Screen done。
+subagent 任务必须自包含：即使运行时支持继承上下文，也必须显式传 review pack 目录、task doc + task-index path、`_execution_context.md` path、Unit ID、Unit/Task Context Packet、write scope、Verification 和 return contract。若是 UI task，还必须传 Screen ID、Route、Primary Job、Covered Units、API-for-UI 和 Screen done。
 
 ## 文件
 
 - `SKILL.md` — v2 执行工作流。
-- `references/task-doc.template.md` — task 文档模板，与 `vj-epic-plan` 同步副本。
 - `references/execution-context.template.md` — `_execution_context.md` 模板。
+- task 文档模板不在本目录：唯一副本是 `.agents/skills/vj-epic-plan/references/task-doc.template.md`（回退生成时读它）。
 - `README.md` — 本文件。

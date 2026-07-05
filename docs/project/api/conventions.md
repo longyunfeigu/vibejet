@@ -71,3 +71,4 @@ this base library.
 - [conversations.md](conversations.md) — 会话 CRUD、消息/Run 查询、chat（SSE）
 - [documents.md](documents.md) — 文档创建 / 解析 / 内容获取
 - [files.md](files.md) — 文件列表 / 详情 / 签名 URL / 删除、storage 上传与确认
+- [meal-log.md](meal-log.md) — 餐食照片上传 / AI 识别 / 饮食记录保存（Epic 1，planned）

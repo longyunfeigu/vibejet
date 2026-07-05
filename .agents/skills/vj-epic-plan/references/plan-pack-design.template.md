@@ -8,124 +8,80 @@ epic_id: "{N}"
 
 # Epic {N} {name} Technical Design
 
-这份文档给 human reviewer 看。读者懂后端 / DDD / FastAPI，但不熟悉本项目。写作目标是减少理解负担：先讲问题和场景，再讲模块边界，再讲流程、DB/API 和风险。不要复制 task 文件清单，不写逐行实现。
+<!-- 本模板是三区制：叙事区（自由）→ 合同区（刚性）→ 深潜附录（按需）。
+     写法参照金样例 references/design-golden-sample.md。生成正式文档时删除所有模板注释。 -->
 
-## 1. Problem Model
+<!-- ═══════════════ 叙事区（自由结构，大白话） ═══════════════
+写给懂编程、但未必啃过 DDD/FastAPI 黑话、也没看过本项目代码的同事。
+标题自拟、结构自定、像文章不像表格；能顺着读下去是硬指标，写成规格书/说明书体 = 不合格。
 
-用场景说明本 Epic 真正在解决什么问题、为什么现在必须做、哪些问题明确不做。避免一句话抽象定义，先让 reviewer 知道用户或系统在什么场景下会踩坑。
+【必答问题】叙事区写完后自查，5 个问题都必须有实质回答（这是内容义务，不是章节名）：
+  Q1 这个 Epic 解决什么问题、为什么现在做、明确不做什么？（自然是开篇）
+  Q2 现状手里已经有什么可复用、缺什么？
+  Q3 打算怎么做？为什么不是别的方案？（引用 decisions.md 的 D-ID，不复制论证）
+  Q4 关键概念与最危险的地方——**每个关键概念必须讲透**：它出现在什么真实场景、为什么需要它、
+     放错层/用错会发生什么、reviewer 该盯哪里。用连贯叙事讲，不许只给定义，也不许切成固定槽位。
+  Q5 需要 reviewer 拍板什么？（指向 D/ACD，一句话说清各自的赌注）
 
-## 2. Glossary by Scenario
+【写作规则】
+- 每个叙事小节开头一行导读：`> 一句话：…`——本节只说一件最重要的事，赶时间的人只读
+  导读行也能拿到主线（plan_lint R11 机检兜底；HTML 会渲染成醒目导读卡）。
+- 场景先行：关键机制/概念先给一次具体走查（"你拍了一碗牛肉面…这时数据库里有什么？"），
+  再讲规则与不变量。全是规则没有场景 = 说明书。
+- 一句一事：长句拆短；括号注不嵌套；D/ACD 引用退到句尾"（→ D3）"，不打断主句。
+- 你-视角：从读者/用户的动作写（"你提交照片，页面转圈最多 10 秒"），
+  不写系统说明书体（"用户提交照片后，系统将…"）。
+- 术语首次出现给一句白话同位语（"幂等键（防重复提交的一次性票据）"）；
+  查询入口在合同区术语表（索引，不是定义），两边锚点互链。
+- 因果要连成链（"因为识别是候选→所以零落库→所以失败才敢随便重试"），不要切成格子话。
+- **方案叙事至少配一张架构心智图（Mermaid）**；状态机/依赖图等解释性大图放深潜附录，叙事里留结论。
+- 展示级交互图用全局 `archify` skill 生成（自包含 HTML：主题切换/导出 PNG/SVG；支持
+  architecture/workflow/sequence/dataflow/lifecycle 五型，可直接投喂 Mermaid 当输入），
+  产物落 review pack 的 `diagrams/` 子目录，design.md/README 链接引用。
+  **Mermaid 源是 .md 内的真相，archify 图是派生视图**（同 .html 约定：不进 git、可重生成）。
+- 不预规划 work-time 能现读的事实；执行细节归 task docs。
+═══════════════════════════════════════════════════ -->
 
-每个术语都按下面结构写。不要写“X 是 Y”这种平淡定义。
+{叙事区正文，标题自拟}
 
-### {Term}
+---
 
-场景：{用具体用户/请求/数据流解释这个词出现在哪里}
+## 合同区（Contracts）
 
-它解决的问题：{为什么需要这个概念}
+> 以下为刚性合同块。task 文档的 design anchors **只允许指向本区块与 decisions.md 的 D/ACD**；
+> 叙事区标题可自由变化，不承载锚点。命中才写对应块，未命中整块省略（不留空壳）。
 
-代码归属：{模块 / 类 / catalog}
+### 术语表
 
-如果放错层会怎样：{会破坏什么边界、造成什么风险}
+<!-- 这是索引不是定义：术语的完整解释（场景/为什么存在/放错层会怎样/reviewer 盯哪）
+     必须在叙事区讲透（必答问题 Q4）；这里只承担"查代码归属 + 跳到讲解"两个查询用途。 -->
 
-Reviewer 重点看：{2-4 条}
+| 术语 | 代码归属 | 讲透它的位置 |
+|------|----------|--------------|
+| | | [§{叙事小节}](#{锚}) |
 
-## 3. Current Baseline
+### API Delta
 
-用短段落说明当前系统怎么工作、已有可复用点、缺口在哪里。只列与本 Epic 直接相关的基线；不要搬运整份架构文档。
+<!-- 命中 API delta 时写。端点表 + 关键行为决策表（条件→HTTP→业务态→前端出路）+ 错误语义 +
+     幂等/兼容约定 + "为什么不是别的方案"一句话（引 D-ID）。定稿后同步 docs/project/api/。
+     失败/错误语义也用表格（条件→结果），不写成分号串联的长句。 -->
 
-## 4. Target Architecture
+### Data Delta
 
-先用一张 **心智地图图** 给整体分层和责任流向，不放具体文件名。它只回答：请求从哪进来、业务事实在哪层、授权策略在哪层、持久化在哪层、长期契约在哪。不要把文件名、migration、具体方法都塞进这张图。
+<!-- 命中 schema/persistence delta 时写。表/字段/约束/索引 + 迁移与回滚 + "为什么不是别的方案"。
+     定稿后同步 docs/project/data/。
+     每张表的字段必须用表格（字段|类型|约束|说明），禁止用 · 或分号把字段串成一行；
+     表间关系（1:N、级联）在表格前用一句话说清。合同区的载体规则：可枚举的事实用表格，
+     论证和因果留给叙事区。 -->
 
-```mermaid
-graph TD
-    API["API 层：HTTP 入口 / dependency 适配"]
-    APP["Application 层：授权策略 / 用例编排"]
-    DOMAIN["Domain 层：业务事实 / 不变量"]
-    INFRA["Infrastructure 层：ORM / repository / migration"]
-    CATALOG["docs/project：长期 API/Data/UI 契约"]
+### UI Surface Delta
 
-    API --> APP
-    APP --> DOMAIN
-    INFRA --> DOMAIN
-    API --> CATALOG
-```
-
-心智地图之后，再按模块写叙事小节。不要用大表格承载首次解释；表格只适合 quick check。
-
-### {module/path}: {一句话说明这个模块为什么存在}
-
-先用一个真实请求、用户动作或数据流讲清楚 reviewer 为什么会碰到这个模块。不要先下定义，先让人看到场景。
-
-接着解释这段责任为什么应该放在这里，而不是 API / application / domain / infrastructure / 另一个业务模块。重点讲边界背后的理由，不要只说“因为分层”。
-
-然后说明它和相邻模块怎么协作：它从谁那里拿事实，把什么结果交给谁，哪些判断必须留在外面。这里要让 reviewer 能看出模块边界，而不是读到一组抽象名词。
-
-Reviewer 重点看：
-- {边界 / 依赖方向}
-- {不变量 / 安全约束}
-- {最容易放错层或重复实现的点}
-
-## 5. Dependency Graph
-
-画 **模块依赖图**，这张图可以放具体模块 / 文件组，但只画 reviewer 需要检查的依赖边。它回答：这次具体改哪些模块，它们怎么依赖，哪些依赖禁止出现。不要把迁移细节、DTO 字段、方法名全部塞进去；这些放到 Data/API Design 或 task docs。
-
-```mermaid
-graph TD
-    DEP["api/dependencies.py<br/>identity / route guard"]
-    ROUTES["api/routes/*<br/>HTTP endpoints"]
-    DTO["application/dto.py<br/>response boundary"]
-    AUTHZ["application/authz/*<br/>policy"]
-    DOMAIN["domain/*<br/>business facts / invariants"]
-    REPO["infrastructure/repositories/*<br/>mapping / query capability"]
-    ORM["infrastructure/models/*<br/>tables / columns"]
-
-    ROUTES --> DEP
-    ROUTES --> DTO
-    DEP --> DOMAIN
-    AUTHZ --> DOMAIN
-    REPO --> DOMAIN
-    REPO --> ORM
-```
-
-禁止出现的依赖：
-
-- 
-
-图后用文字点明容易误解的边。例如：DTO 不依赖 repository；DTO 只负责响应边界映射。Repository 负责 ORM 和 domain 之间的映射，不负责授权决策。
-
-## 6. Core Flows
-
-对每个核心流程，用最能降低认知负担的表达：
-
-- 跨模块调用：Mermaid `sequenceDiagram`
-- 状态流转：Mermaid `stateDiagram`
-- 分支判断：decision table
-- 事务 / 失败策略：sequence + failure table
-- 核心算法：业务伪代码，不写语言级逐行实现
-
-### {Flow Name}
-
-这个流程解决什么：
-
-```mermaid
-sequenceDiagram
-```
-
-关键决策 / 不变量：
-
-## 7. Data Design
-
-说明新增或变更的表、字段、迁移、回填、索引、约束、一致性。必须写“为什么不是别的方案”，例如为什么不加索引、为什么用应用层枚举校验、为什么不建新表。
-
-## 8. API Design
-
-说明 endpoint delta、请求/响应形状、错误语义、鉴权变化、兼容影响。统一信封下的字段路径必须写准确。
-
-## 9. Invariants and Risks
+<!-- 前端 Epic 必写。每个新增/更新 Screen 一份 Screen Contract，字段清单按
+     .agents/skills/_shared/ui-planning-contract.md §6。定稿后同步 docs/project/ui/。 -->
 
 ### Must Hold
+
+<!-- 总是写。本 Epic 的不变量清单——违反即事故的那种，每条可被测试/review 盯住。 -->
 
 - 
 
@@ -135,8 +91,13 @@ sequenceDiagram
 |------|-------------|-------------------------|
 | | | |
 
-## 10. Reviewer Checklist
+### Reviewer Checklist
 
-写 reviewer 真正该看的点，不写执行步骤。
+<!-- 人真正该审的风险点，不写执行步骤。 -->
 
 1. 
+
+---
+
+<!-- ═══ 深潜附录（按需）：状态机全图、模块依赖图、心智地图等解释性图表。
+     AI 自行判断需不需要；叙事区引用结论，图放这里。 ═══ -->

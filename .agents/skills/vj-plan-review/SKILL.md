@@ -1,6 +1,6 @@
 ---
 name: vj-plan-review
-description: 为 vj-epic-plan 产出的 human review pack 做多视角独立审查——按 persona（human-design/一致性/可行性/范围/对抗/依赖并行/UI surface）审 README.md、design.md、decisions.md 与 task-index.md，汇总去重后自主判断采纳，并据采纳意见修正 review pack。在 vj-epic-plan 写盘后自动执行，用户可说"跳过审查"。也可手动 /vj-plan-review [review pack 路径 | legacy plan stub | epic 编号]。在 vj-epic-plan 之后、vj-work 之前。
+description: 为 vj-epic-plan 产出的 human review pack 做多视角独立审查——按 persona（human-design/一致性/可行性/范围/对抗/依赖并行/UI surface）审 README.md、design.md、decisions.md 与 task-index.md，汇总去重后自主判断采纳，并据采纳意见修正 review pack。在 vj-epic-plan 写盘后自动执行，用户可说"跳过审查"。也可手动 /vj-plan-review [review pack 路径 | epic 编号]。在 vj-epic-plan 之后、vj-work 之前。
 ---
 
 # vj-plan-review — Epic Review Pack 多视角审查
@@ -16,7 +16,7 @@ vj-epic-story (WHAT) → vj-epic-plan (HOW) → 【vj-plan-review：本 skill】
 
 ## 铁律
 
-- **本 skill 被授权修正 review pack**——这正是它的职责，与 vj-epic-plan「执行期不改 review pack」不冲突（那是给 vj-work 的约束）。但**只改 `README.md` / `design.md` / `decisions.md` / `task-index.md` 与必要的 legacy stub 指针**，不碰 `epic.md`（WHAT 真相源）与 Story AC。
+- **本 skill 被授权修正 review pack**——这正是它的职责，与 vj-epic-plan「执行期不改 review pack」不冲突（那是给 vj-work 的约束）。但**只改 `README.md` / `design.md` / `decisions.md` / `task-index.md`**，不碰 `epic.md`（WHAT 真相源）与 Story AC。
 - **persona 只读**：审查、确认事实（可 Glob/Grep/Explore），**不改任何文件**；改 review pack 由编排器在主上下文统一执行。
 - **自主采纳，但重大项设闸**：Blocking 默认采纳；命中 **AC 偏离 / 范围变化 / 需回改 epic.md** 的改动不静默落，列给用户确认（`adopt_mode: auto-with-gate`）。
 - **不重审上游已审的**：PRD/架构/API/数据模型由 codex-review 审过；本 skill 只审 vj-epic-plan 特有的 HOW（问题建模、设计可读性、决策、Unit、DAG/波次、契约投影）。
@@ -27,7 +27,6 @@ vj-epic-story (WHAT) → vj-epic-plan (HOW) → 【vj-plan-review：本 skill】
 ```
 vj-plan-review                                           # 自动触发(vj-epic-plan写盘后) / 空参取最新 review pack
 vj-plan-review docs/tasks/plans/2026-06-01-epic-1-.../   # 指定 review pack 目录
-vj-plan-review docs/tasks/plans/2026-06-01-epic-1-...-plan.md   # legacy stub，解析到 review pack
 vj-plan-review epic-1                                    # 按 epic 编号定位
 ```
 
@@ -52,10 +51,9 @@ epic_plan_reviewer:
 1. **自动触发**（vj-epic-plan 写盘后调用）：用刚写的 review pack 目录。
 2. **手动**：按参数定位：
    - 目录路径：必须含 `README.md`、`design.md`、`decisions.md`。
-   - legacy stub：读取 stub 中指向的 review pack 路径。
    - `epic-{N}`：在 `plans_dir` 下按最新匹配目录定位。
    - 空参：取 `plans_dir` 下最新 review pack 目录。
-3. 读取 `README.md`、`design.md`、`decisions.md`；若 `task-index.md` 已生成，一并读取；若有 legacy stub，只读其指针，不把 stub 当设计真相源。
+3. 读取 `README.md`、`design.md`、`decisions.md`；若 `task-index.md` 已生成，一并读取。
 4. 读 `references/personas.md` 与 `references/subagent-template.md`。
 5. 用户说"跳过审查"→ 直接结束，不派 persona。
 

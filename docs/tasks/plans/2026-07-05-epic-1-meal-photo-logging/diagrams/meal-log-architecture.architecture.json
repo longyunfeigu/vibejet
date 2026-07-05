@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "随手食记 · 拍照记录一餐",
+    "subtitle": "Epic 1 系统架构 — meal 模块与复用地基",
+    "output": "meal-log-architecture.html"
+  },
+  "components": [
+    { "id": "ui", "type": "frontend", "label": "记录页 /record", "sublabel": "React 单屏状态机", "pos": [40, 300], "size": [140, 60] },
+    { "id": "routes", "type": "backend", "label": "meal 路由 ×3", "sublabel": "photos / recognitions / records", "pos": [270, 300], "size": [150, 60] },
+    { "id": "reco", "type": "backend", "label": "识别编排", "sublabel": "meal_recognition_service", "pos": [510, 160], "size": [150, 60] },
+    { "id": "filesvc", "type": "backend", "label": "file_asset 服务", "sublabel": "复用 · kind=meal-photo", "pos": [510, 300], "size": [150, 60] },
+    { "id": "rec", "type": "backend", "label": "保存用例", "sublabel": "meal_record_service", "pos": [510, 440], "size": [150, 60] },
+    { "id": "llm", "type": "backend", "label": "LLMPort", "sublabel": "+ImageBlock · json_schema", "pos": [740, 160], "size": [140, 60] },
+    { "id": "storage", "type": "cloud", "label": "StoragePort", "sublabel": "local / S3 / OSS", "pos": [740, 300], "size": [140, 60] },
+    { "id": "idem", "type": "security", "label": "幂等服务", "sublabel": "Redis · (owner, key)", "pos": [740, 560], "size": [140, 60] },
+    { "id": "prov", "type": "external", "label": "多模态模型", "sublabel": "anthropic / openai", "pos": [960, 160], "size": [140, 60] },
+    { "id": "db", "type": "database", "label": "PostgreSQL", "sublabel": "meal_records / items", "pos": [960, 440], "size": [140, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "backend 进程 /api/v1 · JWT + owner-scoped", "wraps": ["routes", "reco", "filesvc", "rec", "llm", "storage", "idem"] }
+  ],
+  "connections": [
+    { "from": "ui", "to": "routes", "label": "HTTPS", "variant": "emphasis" },
+    { "from": "routes", "to": "reco", "label": "识别", "fromSide": "top", "toSide": "left", "route": "orthogonal-v" },
+    { "from": "routes", "to": "filesvc", "label": "照片委托 D2" },
+    { "from": "routes", "to": "rec", "label": "保存", "fromSide": "bottom", "toSide": "left", "route": "orthogonal-v" },
+    { "from": "reco", "to": "llm", "label": "ImageBlock", "variant": "emphasis" },
+    { "from": "llm", "to": "prov", "label": "vision API", "variant": "emphasis" },
+    { "from": "reco", "to": "storage", "label": "取图", "fromSide": "bottom", "toSide": "top" },
+    { "from": "filesvc", "to": "storage", "label": "上传" },
+    { "from": "rec", "to": "idem", "label": "Idempotency-Key", "variant": "security", "fromSide": "bottom", "toSide": "left", "route": "orthogonal-v" },
+    { "from": "rec", "to": "db", "label": "UoW 落库" }
+  ],
+  "cards": []
+}

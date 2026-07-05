@@ -120,12 +120,23 @@ Gate: Ready / Conditionally Ready / Not Ready
 - ...
 ```
 
-## Phase 4 Mechanical Checks
+## Phase 4 Checks
 
-Run these before scoring:
-- Search for placeholders: `TBD`, `TODO`, `[填写]`, `<待定>`, `未定`.
-- Check that source labels are used consistently: `[用户]`, `[调研]`, `[推断]`.
-- Check that stated non-goals are not contradicted by requirements.
-- Check that EARS requirements do not use vague words such as "friendly", "fast", "smart", or "easy" without a measurable definition.
-- Check that Architecture Handoff avoids implementation decisions such as database tables, API paths, framework choices, or deployment topology.
-- Check that Epic Decomposition Notes do not split work by frontend/backend/database layers.
+**Mechanical checks are owned by `scripts/validate_prd.py`** — the single source of truth
+for the machine-checkable rule list (placeholders, section integrity, EARS block legality,
+source-label presence, R-number uniqueness, §1.5 mermaid template placeholders, §8
+presence; plus WARNINGs for If/While misuse heuristics and common vague words). Run it
+first; any ERROR blocks scoring and downstream handoff. Do not restate its rules here.
+
+Semantic checks (human/model judgment, after the script passes):
+- Stated non-goals are not contradicted by requirements.
+- Quality claims beyond the script's vague-word list are measurable (e.g. "fast",
+  "seamless" must carry a testable definition).
+- `If` is reserved for genuinely unwanted events/failures; ongoing states use `While`;
+  environment/config differences are explicit `Where` requirements — downstream derives
+  Error ACs from `If` and state/environment Edge ACs from `While`/`Where`.
+- Requirement subjects: default "系统"; user-observable surfaces only when placement is
+  itself a product decision; never internal component names (architecture vocabulary).
+- Architecture Handoff avoids implementation decisions (database tables, API paths,
+  framework choices, deployment topology).
+- Epic Decomposition Notes do not split work by frontend/backend/database layers.

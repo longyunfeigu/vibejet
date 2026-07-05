@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "识别流程状态机",
+    "subtitle": "一次识别请求的出路 — 失败是常态路径，不是边缘情况",
+    "output": "meal-recognition-lifecycle.html"
+  },
+  "lanes": [
+    { "id": "main", "label": "识别请求" },
+    { "id": "waiting", "label": "降级出路（照片保留，零副作用）" },
+    { "id": "terminal", "label": "本次请求的结局" }
+  ],
+  "states": [
+    { "id": "submit", "type": "start", "label": "提交", "sublabel": "photo_id 或 text", "lane": "main", "col": 0, "step": "01" },
+    { "id": "recognizing", "type": "active", "label": "识别中", "sublabel": "同步等待 ≤10s", "lane": "main", "col": 2, "step": "02", "tag": "零落库" },
+    { "id": "unavailable", "type": "waiting", "label": "服务不可用", "sublabel": "AI_UNAVAILABLE · 503", "lane": "waiting", "col": 0 },
+    { "id": "unrecognized", "type": "waiting", "label": "无法识别", "sublabel": "200 · reason", "lane": "waiting", "col": 2 },
+    { "id": "ready", "type": "success", "label": "结果就绪", "sublabel": "进入确认区", "lane": "terminal", "col": 1 }
+  ],
+  "transitions": [
+    { "from": "submit", "to": "recognizing", "variant": "emphasis" },
+    { "from": "recognizing", "to": "ready", "label": "结构化明细", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDx": 90, "labelDy": -14 },
+    { "from": "recognizing", "to": "unavailable", "label": "超时/5xx", "variant": "security", "fromSide": "bottom", "toSide": "right" },
+    { "from": "recognizing", "to": "unrecognized", "label": "低置信度", "fromSide": "bottom", "toSide": "top" },
+    { "from": "unavailable", "to": "submit", "label": "重试", "fromSide": "left", "toSide": "bottom" },
+    { "from": "unrecognized", "to": "submit", "label": "文本补录", "fromSide": "left", "toSide": "bottom" }
+  ],
+  "cards": []
+}

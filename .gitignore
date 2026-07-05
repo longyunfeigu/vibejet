@@ -167,3 +167,8 @@ logs/*
 # Local DB backups (e.g. backend/dev.db.bak-20260624)
 *.db.bak-*
 *.bak
+
+# 人读 HTML 视图（render_doc_html.py 派生产物，Markdown 为唯一事实源）
+# 注意：docs/ 根与 docs/reference/ 下有手工 HTML（architecture、design refs），不在忽略范围
+docs/project/**/*.html
+docs/tasks/**/*.html
