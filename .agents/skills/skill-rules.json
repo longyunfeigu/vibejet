@@ -198,6 +198,34 @@
                 ]
             }
         },
+        "vj-mock-board": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "PRD → 单文件 UI mock board：解析 PRD 出 Screen Inventory，按 docs/project/DESIGN.md 双轨 token 生成按 Epic 分区平铺的 mock HTML 板（含每屏 API/设计决策注记），写代码前看到产品长什么样；缺 DESIGN.md 先走 vj-design-md-matcher，不用于实现期选风格",
+            "promptTriggers": {
+                "keywords": [
+                    "mock board",
+                    "mock html",
+                    "ui mock",
+                    "mockup",
+                    "wireframe",
+                    "原型板",
+                    "界面草图",
+                    "线框图",
+                    "出 mock",
+                    "画个原型",
+                    "产品长什么样",
+                    "PRD 转界面"
+                ],
+                "intentPatterns": [
+                    "(根据|基于|按).*?(PRD|需求文档|requirements).*?(mock|原型|界面|长什么样|画)",
+                    "(出|画|生成|做).*?(mock|原型板|线框|界面草图|mockup|wireframe)",
+                    "(看看|想看|预览).*?(产品|界面|页面).*?(长什么样|样子|效果)",
+                    "mock.*?(board|html|页面|界面)"
+                ]
+            }
+        },
         "vj-epic-plan": {
             "type": "domain",
             "enforcement": "suggest",
@@ -247,11 +275,11 @@
                 ]
             }
         },
-        "reference-impl": {
+        "story-reference-impl": {
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",
-            "description": "参考开源项目实现功能。结构化研究源码，提取核心设计，适配 DDD 架构后实现。",
+            "description": "参考开源项目实现复杂 Story。结构化研究源码，提取核心设计，适配 DDD 架构后实现。",
             "promptTriggers": {
                 "keywords": [
                     "参考",

@@ -7,10 +7,7 @@ description: 在 vj-work 实现完成后，为一个 epic 做全自动跨层 E2E
 
 在 `vj-work` 把一个 epic 的实现都落地后，为它做**跨层端到端测试**。
 
-**工作流位置**：
-```
-vj-epic-plan (HOW) → vj-work (实现, per-task test-first) → vj-test (跨层 E2E, 本 skill) → vj-compound (沉淀)
-```
+**工作流位置**：在 vj-work 实现完成后执行，沉淀走 vj-compound；完整链条见 `docs/reference/guides/ai-workflow.md` §1。
 
 **设计取舍**：借 ln 的测试规划/执行思想（ln-520 编排、ln-523 风险驱动规划、ln-404 风险约束执行）的**理念**，按 vj 轻量风格自包含实现，**零插件耦合**；前端 E2E 用项目已有的 `web-access` skill 驱动真实浏览器，不引入 Playwright/Puppeteer 依赖。
 

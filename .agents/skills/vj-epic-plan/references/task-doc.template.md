@@ -1,8 +1,10 @@
-<!-- task 文档模板（AI execution packet，纯机读投影）。
+<!-- task 文档模板（AI execution packet，机读投影）。
      内容投影自 review pack（design.md + decisions.md）+ catalog + Story AC，不重新发明 HOW；保留 test-first。
      本文件是唯一副本：vj-epic-plan Phase 5 主生成，vj-work 回退生成也读这份。
-     人读入口是 task-index.md；执行记录（状态、变更叙事、verification 结果）由 vj-work 写入
-     _ledger.md（append-only）——本文档不承载执行记录，重跑时整目录覆盖重写是安全的。 -->
+     人读浏览走 render_doc_html.py 生成的 HTML 视图（task-index 是索引入口，T 文档同样出视图，
+     渲染器按文件名 T{NNN}-*.md 判族做人读分层——改动本模板的头部元数据行 / Execution note
+     字段名时同步渲染器的 task 族解析）。执行记录（状态、变更叙事、verification 结果）由
+     vj-work 写入 _ledger.md（append-only）——本文档不承载执行记录，重跑时整目录覆盖重写是安全的。 -->
 
 # T{NNN} {Task 标题}
 
@@ -24,7 +26,10 @@
 ### 继承假设
 - A1 (FEASIBILITY): {引自 `decisions.md` D-ID，如 D1 服务端会话+HttpOnly Cookie}
 ### Read first
-- `path` - 目标文件 / pattern file / catalog anchor
+<!-- 这是执行者的默认读集全部：本列表 + Write scope 目标文件。guideline / DESIGN.md 全文不进默认读集。
+     pattern file 标 (pattern)，最多 3 个；命中风险面时列 guideline 的具体 resource 精准指针
+     （如 `backend-dev-guidelines/resources/transaction-side-effects.md`），不列整份 SKILL.md。 -->
+- `path` - 目标文件 / pattern file (pattern) / catalog anchor / 风险面 guideline resource
 ### Write scope
 <!-- May modify 一行一路径（plan_lint R7 逐行查路径；一行塞多路径 = 首个之后全是盲区） -->
 - May modify:
@@ -58,7 +63,12 @@
 ### 备选（Rejected，引自 `decisions.md`）
 - {方案} — 拒因
 ### Execution note
+<!-- task doc 即执行包：以下机读字段必填（plan_lint R13 机检兜底），vj-work 不再二次蒸馏。 -->
 - Test policy: {test-first | test-with-implementation | verification-only}（依据：风险类型 / Story AC）
+- Risk class: {low | medium | strict-trigger:{触发器名}}（依据：AGENTS.md strict 触发条件 / task-index Required Gates）
+- UI class: {none | trivial | functional | critical}（判定规则见 vj-work SKILL.md UI QA policy；非 UI task 填 none）
+- System-wide check: {none | direct-neighbors | risk-triggered-two-hop}
+- Verification: `{本 task 定向验证命令——只跑本 task 触碰面，不跑全量套件}`（Unit 收口 task 另跑 `bash verify.sh {U-ID}`）
 - 复用声明: {必须复用的权威实现 / 官方 API / 标准协议，或"无"}
 - Fallback 约束: {仅当 fallback/mock/简化实现会伪造业务真相或绕过信任边界时写"禁止"，并注明范围；否则"允许降级（不得伪装成功）"或"无"}
 ### Stop conditions
@@ -88,7 +98,7 @@
 
 ## 7. Definition of Done
 - [ ] 本 task 覆盖的 AC / 局部验证满足
-- [ ] 按 `_execution_context.md` 的 Test policy 执行：test-first / test-with-implementation / verification-only
+- [ ] 按本文档 Execution note 的 Test policy 执行：test-first / test-with-implementation / verification-only
 - [ ] 本 task Verification 命令全绿（Unit 收口 task 同时跑 `verify.sh {U-ID}`）；失败修复尝试和结果已由 vj-work 记入 `_ledger.md`
 - [ ] 若 Unit 被拆分，已标明 sibling task 和 Unit 收口验证；未把 task done 当作 Story done
 - [ ] 若本 task 覆盖整个 Unit，Story AC / Unit Verification 已通过
@@ -159,7 +169,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
 【6】设计稿：如有 `docs/reference/research/designs/{epic-id}/` 设计稿或提示词，作结构/状态参考；
     不得在 vj-work 执行期临时从 vibeui/awesome-design-md 自动挑新风格。
 
-【7】兜底：仅当 `_execution_context.md` 判定 UI-critical 或缺少足够项目 pattern 时，加载 design-taste-frontend 防默认风格规范；`DESIGN.md` 优先级更高。
+【7】兜底：仅当本 task Execution note 判定 UI class = critical（front-of-house 屏）或缺少足够项目 pattern 时，加载 design-taste-frontend 防默认风格规范（operational/后台屏不调它，craft 真相源 = `frontend-dev-guidelines/resources/dense-ui-craft.md`）；`DESIGN.md` 优先级更高。
     禁止 AI 默认风格：紫/蓝渐变背景、三等份 feature 卡片、Inter 字体、通用 glassmorphism。
 
 ──────────── 出口：DESIGN.md 一致性核对清单（按 UI class 触发）────────────

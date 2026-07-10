@@ -12,6 +12,8 @@
 - Story AC: `stories/us002-ai-recognition.md` + `stories/us005-text-fallback-entry.md`
 ### 现状
 - `LLMPort` 无图像 block（ContentBlock 仅 Text/ToolUse/ToolResult）；有 `json_schema` 结构化输出；anthropic/openai 两 provider
+- 实际模型由部署配置 `LLM__DEFAULT_MODEL` 决定（anthropic 默认 claude-sonnet-4-6 为 vision-capable）——识别要求 vision 模型，Phase 0 spike 需同时确认部署配置指向 vision-capable 模型，否则 STOP
+- 外部调用不得跨 DB 事务：document_service 三段式先例（tx 只读校验 → 无事务外部调用 → tx 落库）；识别路径本就零 DB 写，照此保持
 - T001 已建 `api/routes/meal_recognitions.py` 骨架
 ### 目标态
 - `ImageBlock` 进入 LLMPort content 模型，两 provider 支持；`meal_recognition_service` 编排 photo/text → 结构化明细，超时/失败按 §4 decision table 翻译业务态；新增业务码 `AI_UNAVAILABLE`
@@ -75,6 +77,10 @@ return {status: ready, items}
 - 专用食物识别 SaaS — D1；documents 式异步轮询 — D3；独立识别端口 — D7
 ### Execution note
 - Test policy: test-first（外部调用降级 + 公共端口面）
+- Risk class: strict-trigger:public-port-contract（扩公共 `LLMPort` D7 + 外部 AI 服务面）
+- UI class: none
+- System-wide check: direct-neighbors（既有 chat/LLM 消费者——`tests/test_llm_*.py` 全量回归）
+- Verification: `cd backend && uv run pytest tests/test_meal_recognition.py tests/test_llm_anthropic_provider_tools.py tests/test_llm_openai_provider_tools.py -q`
 - 复用声明: 必须扩展既有 LLMPort/providers，禁止另建 LLM 调用通道（D7）
 - Fallback 约束: **禁止 fallback/mock/简化实现伪装识别成功**——AI 不可用时必须 fail closed（AI_UNAVAILABLE），不得返回默认/缓存明细；**图像必须真正传出**，provider 静默丢 block = 伪造明细，同属违禁（design.md 合同区 Must Hold）<!-- vj-plan-review: applied [adversarial/1] -->
 ### Stop conditions

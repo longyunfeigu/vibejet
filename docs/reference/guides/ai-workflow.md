@@ -48,6 +48,11 @@ vj-product-requirements
 
 产出物通常是当前项目的需求、架构增量和 Story/Epic 文档；若在下游产品仓库使用，则落在下游仓库自己的 `docs/` 下。
 
+PRD 定稿后想先看产品长什么样，再决定拆解方向：在进入 `vj-architecture` / `vj-epic-story`
+之前按需插入 `vj-mock-board`（PRD → 单文件 mock board，缺 `DESIGN.md` 时它会先路由
+§5.1 的方向轨）。板是研究产物，`vj-epic-story` 拆解与 `vj-epic-plan` 的 Screen Contract
+可引用它作结构参考。
+
 适用场景：
 - 新需求还没拆解
 - 需要先把产品目标和技术边界定下来
@@ -205,6 +210,7 @@ Design source pointers
 | 缺口 | 强制补齐方式 |
 |------|--------------|
 | 产品/品牌方向、登录/落地页 golden 缺失 | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
+| PRD 已定稿但整体产品长相没对齐过 | `vj-mock-board`（PRD → 单文件 mock board） |
 | 单屏目标、模块顺序、信息层级不清 | `ui-page-goal-structure` |
 | loading / empty / error / disabled / permission 等状态不清 | `ui-state-coverage` |
 | 复杂操作流不清 | `ui-user-journey-audit` |
@@ -335,6 +341,7 @@ vj-feature（澄清 + 生成 Epic/Story）
 |------------------|--------|
 | 已有项目加一个功能 | `vj-feature` |
 | 只有产品想法，还没拆 Story | `vj-product-requirements -> vj-architecture -> vj-epic-story` |
+| PRD 定稿了，想先看产品长什么样 | `vj-mock-board`（缺 `DESIGN.md` 先走 `vj-design-md-matcher`） |
 | 项目整体缺品牌/视觉方向，或登录/落地页缺 golden | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
 | 已有 Epic/Story，要出实现计划 | `vj-epic-plan`（自动触发 `vj-plan-review`） |
 | 已有 plan，要落地实现 | `vj-work` |

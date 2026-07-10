@@ -31,12 +31,12 @@
   - `backend/infrastructure/repositories/meal_log_repository.py`
   - `backend/infrastructure/unit_of_work.py`
   - `backend/alembic/versions/`（新 revision）
-  - `backend/application/dto/meal_log.py`
+  - `backend/application/dto.py`（追加 meal DTO 区段——dto 是扁平单文件模块，不建包、不动既有 DTO）
   - `backend/api/routes/meal_photos.py`
   - `backend/api/routes/meal_recognitions.py`
   - `backend/api/routes/meal_records.py`
   - `backend/main.py`
-- Do not modify: `backend/application/ports/llm.py`（T003 owner）、`frontend/`（T005 owner）、既有模块任何文件
+- Do not modify: `backend/application/ports/llm.py`（T003 owner）、`frontend/`（T005 owner）、既有模块任何文件（唯一例外：`application/dto.py` 允许追加 meal 区段）
 
 ## 2. Implementation Plan
 ### Phase 1: domain + 持久化（barrier 核心）
@@ -64,6 +64,10 @@
 - items 存 JSON 列 — Epic 4 按菜品维度查询可能性 > 写入便利（design.md §6）
 ### Execution note
 - Test policy: test-first（domain 不变量 + migration）
+- Risk class: strict-trigger:db-migration（新表 + 增量 revision；task-index Required Gates 的 migration 双向验证）
+- UI class: none
+- System-wide check: direct-neighbors（独占共享注册点 main.py / models/__init__.py / unit_of_work.py，lint-imports + 既有 pytest 全量兜底）
+- Verification: `cd backend && uv run pytest tests/test_meal_domain.py -q && uv run alembic upgrade head && uv run alembic downgrade -1 && uv run alembic upgrade head`（barrier 另跑 `uv run lint-imports`；既有 pytest 全量不回归见 DoD）
 - 复用声明: 归属/索引/CHECK 模式必须照抄 conversation 模块，不发明新模式
 - Fallback 约束: 无
 ### Stop conditions
@@ -93,7 +97,7 @@
 
 ## 7. Definition of Done
 - [ ] 本 task 覆盖的 AC / 局部验证满足；migration up/down 通过
-- [ ] 按 `_execution_context.md` Test policy 执行：test-first
+- [ ] 按本文档 Execution note 的 Test policy 执行：test-first
 - [ ] Verification 全绿；失败修复尝试和结果已由 vj-work 记入 `_ledger.md`
 - [ ] 共享注册点（main.py / models/__init__.py / unit_of_work.py）一次占位完成，W2 task 无需再碰
 - [ ] 未引入新决策；投影错误已 STOP 回 review pack

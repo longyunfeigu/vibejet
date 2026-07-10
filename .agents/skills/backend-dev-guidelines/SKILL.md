@@ -1,5 +1,5 @@
 ---
-name: vibejet-backend-dev-guidelines
+name: backend-dev-guidelines
 description: Repo-specific backend development guardrails for vibejet. Use before modifying backend FastAPI routes, application services, domain entities, repositories, config, errors, auth, migrations, tests, observability, caching, Celery, messaging, LLM, storage, or external integrations.
 ---
 

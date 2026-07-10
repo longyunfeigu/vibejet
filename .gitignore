@@ -172,3 +172,6 @@ logs/*
 # 注意：docs/ 根与 docs/reference/ 下有手工 HTML（architecture、design refs），不在忽略范围
 docs/project/**/*.html
 docs/tasks/**/*.html
+# 例外：archify 旅程图成品随仓库走（源 journey.workflow.json 在仓库内，
+# 但渲染器在仓库外的 archify skill，故成品入库；过期由 journey.source-digest 兜底检查）
+!docs/tasks/**/journey.html

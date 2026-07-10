@@ -53,6 +53,10 @@
 - 仅前端禁用按钮防重复 / DB 唯一约束去重 — D9
 ### Execution note
 - Test policy: test-first（事务/幂等/归属面）
+- Risk class: strict-trigger:transaction-idempotency（幂等/事务一致性 + owner 归属面）
+- UI class: none
+- System-wide check: none（写集与同 wave task 隔离；IdempotencyService 只读复用）
+- Verification: `cd backend && uv run pytest tests/test_meal_records.py -q`
 - 复用声明: 幂等必须复用 IdempotencyService（照 presign-upload 模式）；归属断言用聚合 `belongs_to`
 - Fallback 约束: DB 写失败必须回滚且幂等 key 不落缓存（可重试）；禁止吞错返回假 201
 ### Stop conditions

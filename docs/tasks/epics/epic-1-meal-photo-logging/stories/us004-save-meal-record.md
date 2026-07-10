@@ -8,7 +8,7 @@
 
 **Happy Path**
 - [ ] 确认保存后生成一条饮食记录，包含照片引用、菜品明细、记录时间与餐次 `验证: API POST /api/v1/meal-records → 201 + data.record_id exists`
-- [ ] 保存的记录字段完整且餐次取值合法 `验证: DB SELECT meal_type, recorded_at FROM meal_records WHERE id=<record_id> → 1 row, meal_type IN ('breakfast','lunch','dinner','snack')`
+- [ ] 保存的记录字段完整且餐次取值合法，含可聚合的营养快照（Epic 2 今日总览的消费前提） `验证: DB SELECT meal_type, recorded_at, total_calories, total_protein, total_fat, total_carbs FROM meal_records WHERE id=<record_id> → 1 row, meal_type IN ('breakfast','lunch','dinner','snack') 且 4 个 total_* 非 NULL`
 
 **Edge Cases**
 - [ ] 重复提交同一确认（双击/网络重试）只产生一条记录 `验证: pytest test_save_meal_record_idempotent → PASSED`

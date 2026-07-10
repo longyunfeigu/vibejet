@@ -16,7 +16,7 @@ vj-work (执行)
 
 `docs/tasks/plans/{date}-epic-{N}-{slug}/` review pack 目录。输出按两类读者组织——**human reviewer 看 README/design/decisions，执行器看 task-index/T*.md/verify.sh**：
 
-- **Context Ownership**：review pack 是人工 review manifest + 本 Epic delta；稳定跨 Epic 上下文写入 catalog；AI coding 执行上下文写入 task docs / `_execution_context.md`。
+- **Context Ownership**：review pack 是人工 review manifest + 本 Epic delta；稳定跨 Epic 上下文写入 catalog；AI coding 执行上下文写入 task docs + task-index 的 Epic Execution Checklist（**task doc 即执行包**，vj-work 不再二次蒸馏）。
 - **人工 review 主面**：`README.md` 负责入口、冲突和阅读路径；`design.md` 负责问题建模、术语场景、模块边界、依赖图、核心流程、DB/API 设计、风险和 reviewer checklist；`decisions.md` 是 D/ACD 唯一真相源。
 - **给机器看（不需散文润色）**：`docs/tasks/work/epic-{N}-{slug}/task-index.md` + `T*.md`，包含 Unit/Task DAG、波次、共享文件冲突、write scope、验证命令和 stop conditions。
 - **Unit 粒度**：每个 Story 映射为一个 Implementation Unit；Unit 是产品语义边界，不按前端 / 后端 / 数据库拆开。
@@ -29,7 +29,7 @@ vj-work (执行)
 ## 关键设计取舍
 
 - **不 fork compound 的 ce-plan**：只借其 implementation-units / Provides-Consumes / 方向性设计思想，按 vj 轻量风格自包含实现，零插件耦合。
-- **research 并行多代理**：Phase 2 优先并行派 design-context / upstream-contracts / codebase-scout 三个只读研究任务（模板见 `references/research-agents.md`）+ 条件性 `vj-learnings-researcher`；无 subagent 能力时顺序内联执行，仍保留三份结构化结果。
+- **research 并行多代理**：Phase 2 优先并行派 design-context / upstream-contracts / codebase-scout 三个只读研究任务（模板见 `references/research-agents.md`）+ 条件性 `vj-learnings-researcher` + 条件性 external-solutions scout（Agent E：epic 含生态已解决的通用能力时检索 GitHub/生态做 build-vs-buy 评估，Phase 3 收口进 decisions.md）；无 subagent 能力时顺序内联执行，仍保留结构化结果。
 - **学习飞轮**：读端 `vj-learnings-researcher`（Phase 2 调用），写端 `vj-compound`（实现收尾后沉淀 `docs/solutions/`）。
 
 ## 文件

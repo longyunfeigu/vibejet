@@ -18,11 +18,12 @@
 ### 继承假设
 - A1 (D4): 重算是前端比例纯函数；A2 (D9): 确认区生成 Idempotency-Key，重试沿用
 ### Read first
-- `frontend/src/features/home/` - canonical 数据流
-- `frontend/src/features/auth/` - RHF+Zod+helpers+测试结构
+- `frontend/src/features/home/` - canonical 数据流 (pattern)
+- `frontend/src/features/auth/` - RHF+Zod+helpers+测试结构 (pattern)
 - `frontend/src/components/layout/AppShell.tsx` - 壳与导航契约
 - `frontend/src/lib/apiClient.ts` - 信封/错误处理接法
 - `docs/reference/research/designs/prd-suishou-shiji/ui-mock-board.html` - 结构/状态参考（D8）
+- `.agents/skills/frontend-dev-guidelines/resources/dense-ui-craft.md` - operational 屏工艺真相源（UI class=critical 命中）
 ### Write scope
 - May modify:
   - `frontend/src/features/meal-record/`（新建）
@@ -52,6 +53,10 @@
 - 服务端重算接口 — D4
 ### Execution note
 - Test policy: test-first（重算 helpers）+ test-with-implementation（组件）
+- Risk class: medium（不动 shell/导航/design token；UI 面风险由 UI class 承载）
+- UI class: critical（operational 首屏型第一张屏——参考图前置闸 + B 轨截图闸，见注入块【前置闸】）
+- System-wide check: none（前端独占写集；`routeTree.gen.ts` 由 pnpm dev 再生成）
+- Verification: `cd frontend && pnpm vitest run src/features/meal-record`（Screen done / B 轨闸由 UI QA gate 独立判定，不计入本命令）
 - 复用声明: 必须复用 AppShell / SuspenseLoader / apiClient / shadcn 组件与既有 token；禁止新建风格体系
 - Fallback 约束: 禁止用 mock 数据伪装识别成功路径；开发期联调探针不得进 done 判定
 ### Stop conditions
@@ -93,7 +98,7 @@ Design / Screen context（UI Unit 必读 —— DESIGN.md 是视觉合同，docs
 【1】设计合同来源（按序）：`docs/project/DESIGN.md`（存在，v0.2）；无需 fallback。
 
 【2】本 Unit 适用的 DESIGN.md 章节（实现者必须逐节读原文）：
-    §调色板·全局 UI 系(L33-53)、§字阶(L73-83)、§圆角(L85-88)、§间距层级(L91-100)、
+    §调色板·全局 UI 系(L31-53)、§字阶(L73-83)、§圆角(L85-88)、§间距层级(L91-100)、
     §组件规则(L102-113)、§Richness Floor(L115-119，注意：表内暂无 operational 行，
     本屏富度地板以 review pack design.md §7 Screen Contract 为准——见 README Known Conflicts)
 

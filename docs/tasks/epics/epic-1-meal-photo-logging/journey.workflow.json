@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Epic 1 主旅程 · 拍照记录一餐",
+    "subtitle": "记录者在 /record 完成一餐记录（Story 1.1–1.5）",
+    "output": "journey.html"
+  },
+  "lanes": [
+    { "id": "user", "label": "记录者（用户）" },
+    { "id": "system", "label": "系统 · /record" },
+    { "id": "fallback", "label": "降级路径", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "p1", "label": "① 拍摄上传", "fromCol": 0, "toCol": 1 },
+    { "id": "p2", "label": "② AI 识别", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    { "id": "p3", "label": "③ 修正确认", "fromCol": 3, "toCol": 4 },
+    { "id": "p4", "label": "④ 保存", "fromCol": 5, "toCol": 5 }
+  ],
+  "groups": [],
+  "mainPath": ["shoot", "upload", "recognize", "edit", "recalc", "save", "record"],
+  "nodes": [
+    { "id": "shoot", "lane": "user", "col": 0, "type": "frontend", "label": "拍摄/上传", "sublabel": "或从相册选择" },
+    { "id": "edit", "lane": "user", "col": 3, "type": "frontend", "label": "修正明细", "sublabel": "改名/调量/删项" },
+    { "id": "save", "lane": "user", "col": 5, "type": "frontend", "label": "选餐次并保存", "sublabel": "确认无误后" },
+    { "id": "upload", "lane": "system", "col": 0, "type": "backend", "label": "上传照片", "sublabel": "展示进度", "tag": "Story 1.1" },
+    { "id": "recognize", "lane": "system", "col": 2, "type": "backend", "label": "AI 识别", "sublabel": "≤10 秒返回", "tag": "Story 1.2" },
+    { "id": "recalc", "lane": "system", "col": 4, "type": "backend", "label": "即时重算", "sublabel": "营养数值", "tag": "Story 1.3" },
+    { "id": "record", "lane": "system", "col": 5, "type": "database", "label": "生成饮食记录", "sublabel": "照片+明细+餐次", "tag": "Story 1.4" },
+    { "id": "fail", "lane": "fallback", "col": 2, "type": "security", "label": "识别失败", "sublabel": "低置信/超时" },
+    { "id": "textEntry", "lane": "fallback", "col": 3, "type": "frontend", "label": "文本补录", "sublabel": "手动描述该餐", "tag": "Story 1.5" }
+  ],
+  "edges": [
+    { "from": "shoot", "to": "upload", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "from": "upload", "to": "recognize", "variant": "default" },
+    { "from": "recognize", "to": "edit", "label": "识别结果", "variant": "emphasis", "fromSide": "top", "toSide": "bottom", "route": "drop", "labelSegment": 1 },
+    { "from": "edit", "to": "recalc", "label": "每次修改", "variant": "default", "fromSide": "bottom", "toSide": "top", "route": "drop", "labelSegment": 1 },
+    { "from": "recalc", "to": "save", "variant": "default", "fromSide": "top", "toSide": "bottom", "route": "drop" },
+    { "from": "save", "to": "record", "label": "确认保存", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDx": 38 },
+    { "from": "recognize", "to": "fail", "label": "失败/超时", "variant": "security", "role": "error", "fromSide": "bottom", "toSide": "top", "labelAt": [220, 292] },
+    { "from": "fail", "to": "textEntry", "variant": "dashed", "role": "branch" },
+    { "from": "textEntry", "to": "edit", "variant": "dashed", "role": "return", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "主路径要点",
+      "items": [
+        "4 步各映射一个 Story（1.1–1.4）",
+        "识别端到端 ≤10 秒，超时即降级",
+        "保存幂等：重复提交只产生一条记录"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "降级路径",
+      "items": [
+        "识别失败必须保留照片、可重试",
+        "文本补录（Story 1.5）回到修正步骤",
+        "失败态不允许只弹 toast 打发用户"
+      ]
+    }
+  ]
+}

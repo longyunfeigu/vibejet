@@ -33,6 +33,11 @@
 ## 3. Technical Approach
 ### Execution note
 - Test policy: verification-only
+- Risk class: low（收口验证，不新增业务代码）
+- UI class: none（浏览器演示按 verify.sh MANUAL 项 + UI QA 证据执行，非 UI 构建）
+- System-wide check: risk-triggered-two-hop（收口即全域：全量 pytest / lint-imports / flake8 / 前端 typecheck+vitest + Must Hold 逐条核验）
+- Verification: `bash docs/tasks/work/epic-1-meal-photo-logging/verify.sh all`
+- 复用声明: 无（不新增业务代码）
 - Fallback 约束: MANUAL 项必须有截图/操作证据，不接受"应该没问题"
 ### Stop conditions
 - 任何 Must Hold 不变量被打破（回报对应 task，不在收口 task 内打补丁掩盖）

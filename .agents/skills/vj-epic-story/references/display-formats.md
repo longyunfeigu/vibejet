@@ -95,7 +95,7 @@ Epic 1: 用户管理 (P0, 5 Story, 平铺模式)
 [Epic 概述]: 让新用户能注册登录找回密码
 [用户旅程]: 主旅程 5 步；异常旅程 4 条；全部已映射到 Story/AC
 [页面体验地图]: 2 个页面/区域；主操作、关键状态、体验护栏已覆盖
-[System-Wide]: 已识别 6 项（4 进 AC，2 进 Epic 文档）
+[System-Wide]: 已识别 6 项（4 进 AC，1 路由 PRD open questions，1 由 repo 基线承载）
 
 Story 1.1: 手机号注册 (US001)
   Happy: 1 | Edge: 2 | Error: 2 | Integration: 0 | FE: 2 | Assumptions: 1

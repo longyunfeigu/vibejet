@@ -9,8 +9,13 @@ description: 从 Story 文件或 Story 描述启动“参考实现研究 → DDD
 
 这个 skill 是一个轻量编排层：
 - Story 解析和仓库约束读取，遵循 `vj-work` task 执行的思路（先读 Story AC 与仓库硬约束再动手）
-- 参考实现研究和抽象提取，遵循 `reference-impl` 的思路
+- 参考实现研究和抽象提取：研究方法工具箱见 `references/research-methods.md`（唯一副本）
 - 最终目标不是搬运代码，而是产出符合本仓库 DDD 分层的实现
+
+工作流位置：plan-time 的轻量选型**建议**由 `vj-epic-plan` Phase 2 Agent E（external-solutions
+scout）产出，三选一结论（直接用 / 改造 / 自研）在其 Phase 3 收口登记 decisions.md（E 的建议
+是输入，拍板在 Phase 3）；本 skill 承接其中"改造 / 深度借鉴"路径的实现期深度研究与落地。
+也可脱离 epic 流程单独调用。
 
 ## 适用场景
 
@@ -66,11 +71,8 @@ description: 从 Story 文件或 Story 描述启动“参考实现研究 → DDD
 1. 读取 Story 文件或用户提供的 Story 内容
 2. 读取相关设计文档和仓库约束
 3. 解析参考来源和参考粒度
-4. 选择研究方法：
-   - 主流框架 / 库用法：优先查官方文档
-   - 已知 GitHub 项目但文件未知：先定位关键文件，再读源码
-   - 已知具体文件路径：直接读关键文件
-   - 参考对象尚未确定：先做多项目选型
+4. 选择研究方法：按 `references/research-methods.md` 的决策树选方法 A–E
+   （官方文档 / WebSearch+WebFetch / clone / gh CLI / 多项目选型），操作步骤见该文件
 5. 输出研究策略并停下等待确认
 
 Phase 0 输出必须包含：
@@ -91,7 +93,8 @@ Phase 0 输出必须包含：
 
 硬约束：
 - 只做研究，不写实现代码
-- 聚焦关键文件，不做无边界源码漫游
+- 按 Phase 0 选定的方法执行（操作手册：`references/research-methods.md`）
+- 聚焦关键文件，不做无边界源码漫游（方法 B ≤5 文件、方法 C ≤10 文件）
 - 优先提炼 Why 和 What，不直接抄 How
 
 Phase 1 输出必须包含：

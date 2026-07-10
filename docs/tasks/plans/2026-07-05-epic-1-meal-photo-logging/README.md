@@ -3,6 +3,7 @@ title: "Epic 1 拍照记录一餐 Review Entry"
 type: epic-review-pack-readme
 status: active
 date: 2026-07-05
+updated: 2026-07-08
 epic_id: "1"
 epic_source: docs/tasks/epics/epic-1-meal-photo-logging/epic.md
 execution_policy: "strict"
@@ -52,7 +53,9 @@ execution_policy: "strict"
 
 ## 6. Research Coverage Note
 
-Phase 2 研究：Agent A（design-context）✅ · Agent B（upstream-contracts）N/A（无上游 Epic，Consumes 为空）· Agent C（codebase-scout）**API 故障降级**——复用锚点由 Agent A 结果 + 主上下文对关键路径的直接验证补齐（file_asset/storage 契约、LLM provider 文件、conventions 全文），并有 plan_lint R7 对全部 Read first 路径做存在性兜底 · Agent D N/A（docs/solutions/ 无条目）。
+Phase 2 研究（07-05 首跑）：Agent A ✅ · Agent B N/A（无上游 Epic）· Agent C API 故障降级（主上下文直接验证补齐 + plan_lint R7 兜底）· Agent D N/A（docs/solutions/ 无条目）。
+
+2026-07-08 就地更新重跑：Agent C ✅（迟到返回；结论与 pack 一致，3 条增量已采纳——T002 补"全局 storage 校验默认关闭/100MB，端点必须自行强制"事实、T003 补 vision-capable 模型部署约束（`LLM__DEFAULT_MODEL`）与外部 I/O 事务外三段式、Checklist #10 并入三段式规则）· Agent A 未返回——其覆盖面由主上下文直接验证补齐：file_asset `relay_upload_stream`（file_asset_service.py:367）、`LLMPort.generate json_schema`（ports/llm.py:149）、anthropic/openai provider 文件、`IdempotencyService`/`idempotency_for`、`tests/test_llm_*.py`、DESIGN.md 引用行号（42/71/75/93/106/109/110/112）、Epic Execution Checklist 全部 Source 指针与 catalog 文件存在性；plan_lint R7 继续对全部 Read first 路径兜底。Agent E（external-solutions）未派发：rg 快查确认候选通用能力仓库均有权威实现（上传=file_asset、AI=既有 LLM provider 栈、幂等=IdempotencyService），识别选型已有 D1 决策，无新增 build-vs-buy 事项。本次 vj-plan-review 按 delta 收窄派 3 persona：coherence 无 findings；feasibility 1 条 Non-blocking（DTO 为扁平单文件模块 `application/dto.py` 非包——已采纳，T001 write scope 与共享文件表改为追加该文件）；dependency 1 条 Non-blocking（波次表 T004 Units 漏标 U5 记录同构——已采纳补齐）。语义决策 D1–D9 未变、维持 07-05 全量审查结论。
 
 ## 7. Open Review Questions
 

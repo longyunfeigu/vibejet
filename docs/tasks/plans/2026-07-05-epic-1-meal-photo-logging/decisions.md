@@ -11,6 +11,7 @@ epic_id: "1"
 本文件是 D-ID / ACD-ID 的唯一真相源。其他 human docs 和 task docs 只引用 ID，不复制完整论证。
 
 > 本 plan 无人值守生成：以下 assumed 状态的决策均为"假设待审批"，等 reviewer 批准或改判。
+> **2026-07-08 就地更新**（无人值守默认就地更新，假设待审批）：应用户要求按当前需求文档重跑 vj-epic-plan。核对结果：PRD/epic/story 自 07-05 后无内容变更，DESIGN.md 引用行号复核无漂移，D1–D9 / ACD1–3 语义决策全部维持不变；本次变更为 task packets 升级到"task doc 即执行包"契约（Execution note 机读字段、task-index Epic Execution Checklist / Batch 列 / 收口标记，plan_lint R13/R14 兜底）。
 > **catalog 已按当前假设同步（synced, pending review）**：任一 D 改判（尤其 D2/D5/D6/D7 涉及端点/枚举/schema）时，须随终稿重生对应 catalog 文件与受影响 task docs，不允许只改 decisions。<!-- vj-plan-review: applied [coherence/2] -->
 
 ## 1. Pending Decisions
@@ -35,7 +36,7 @@ epic_id: "1"
 |----|-----------|---------------------|----------------|-------------|----------|
 | ACD1 | Story 1.2 FE AC | 无"AI 首次使用确认"相关 AC | PRD §5.3 是 Must Hold：plan 侧已在 Screen Contract 增"首次发送授权确认"一等态（T005 Screen done 覆盖）；建议回改 story 1.2 增补 1 条 FE AC（`Browser 首次发起识别 → [data-testid=ai-consent] 可见且确认后不再出现`） | partial（合同已可执行，AC 追溯缺口） | pending approval |
 | ACD2 | Story 1.1 FE AC | 后端 422 有 AC，前端"上传失败态"呈现无 AC | Screen Contract 已增"上传失败"态；建议回改 story 1.1 增补 1 条 FE AC（`Browser 上传超限/非图片 → [data-testid=upload-error] 可见且保留重选入口`） | partial | pending approval |
-| ACD3 | epic.md System-Wide「已下放 Story 1.4 Integration AC」 | epic 声称"记录含可聚合营养字段"已下放 1.4，实际 1.4 Integration AC 只有 ownership | 数据模型已含快照列（design §6）；建议回改：epic 措辞修正，或 story 1.4 补 1 条快照字段 AC 使追溯闭合 | yes（实现无差） | pending approval |
+| ACD3 | epic.md System-Wide（该 section 已于 2026-07-09 随 vj-epic-story 规则变更移除，扫查结论直接落 AC） | epic 曾声称"记录含可聚合营养字段"已下放 1.4，实际 1.4 Integration AC 只有 ownership | 已采纳"story 补 AC"路径：story 1.4 Happy AC「字段完整」扩展为断言 recorded_at + 4 个 total_* 快照列非 NULL，追溯闭合（AC 总数仍 7，不触 R1 上限） | yes（实现无差） | approved |
 
 ## 3. Approved Decisions
 

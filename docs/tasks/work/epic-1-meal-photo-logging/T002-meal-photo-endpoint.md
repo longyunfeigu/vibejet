@@ -13,6 +13,7 @@
 - Story AC: `docs/tasks/epics/epic-1-meal-photo-logging/stories/us001-meal-photo-upload.md`
 ### 现状
 - T001 已建 `api/routes/meal_photos.py` 骨架并注册；file_asset 上传链路（owner-scoped、kind 列）可用
+- 注意：全局 storage 校验默认关闭且上限 100MB（`core/config.py` storage.validation_enabled=False / max_file_size）——契约的 image/*、≤10MB、非空校验必须在本端点/服务层自行强制，不能指望底层拦截
 ### 目标态
 - 薄端点完成：meal 特定校验（仅 image/*、≤10MB、非空）→ 委托 file_asset 上传服务（kind=meal-photo）→ 统一信封返回 `data.photo_id`
 ### 继承假设
@@ -53,6 +54,10 @@
 - 前端直用 `/storage/upload` — meal 校验规则无处安放（D2）
 ### Execution note
 - Test policy: test-first（ownership/校验面）
+- Risk class: strict-trigger:public-api-contract（新公共端点 `POST /api/v1/meal-photos`，epic 级 strict 已计入）
+- UI class: none
+- System-wide check: none（写集与同 wave task 隔离；file_asset 为只读消费）
+- Verification: `cd backend && uv run pytest tests/test_meal_photos.py -q`
 - 复用声明: 必须委托 file_asset 上传服务；禁止重写存储/归属逻辑
 - Fallback 约束: 无
 ### Stop conditions

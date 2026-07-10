@@ -7,7 +7,7 @@ description: 以一个 Epic（含若干 Story）为单元生成适合人工 Revi
 
 把一个已拆好的 Epic（`docs/tasks/epics/` 下的 epic.md + stories）转成可执行的实现计划。
 
-**协作链**：`vj-product-requirements → vj-architecture → api-design → data-model → vj-epic-story (WHAT) → vj-epic-plan (本 skill) → vj-plan-review → vj-work (执行)`
+**工作流位置**：在 vj-epic-story (WHAT) 之后、vj-work (执行) 之前；写盘后自动触发 vj-plan-review。完整链条见 `docs/reference/guides/ai-workflow.md` §1（api-design / data-model 非默认前置，仅命中 delta 时按需触发，见其 §3）。
 
 ## 三层输出与受众
 
@@ -86,14 +86,15 @@ catalog 各文件的最小结构以现存文件为准；首次创建时：`api/c
 ### Phase 2：并行收集上下文
 
 1. 内联提炼 `epic_context`（格式见 `references/research-agents.md` 开头）。
-2. 按 `references/research-agents.md` 派发只读研究代理：A design-context、B upstream-contracts（**从 catalog 生成 Consumes**，不挖旧 plan）、C codebase-scout、D learnings（条件）。无 subagent 能力时主上下文顺序执行并标注 "research inline fallback"。
-3. 合并为上下文小结：架构与硬约束 / Consumes（真相源指向 catalog，缺失要声明）/ 复用锚点（直接复用·需改造·不应重建）/ 设计上下文与 UI Surface delta（前端 Epic；推不出的列待审批决策，不自由发挥）/ institutional learnings / 隐含约束。
+2. 按 `references/research-agents.md` 派发只读研究代理：A design-context、B upstream-contracts（**从 catalog 生成 Consumes**，不挖旧 plan）、C codebase-scout、D learnings（条件）、E external-solutions（条件：epic 含生态大概率已解决的通用能力，或预估自研 >200 行解决已解决问题——AGENTS.md「Prefer Existing Solutions」的机器位）。无 subagent 能力时主上下文顺序执行并标注 "research inline fallback"。
+3. 合并为上下文小结：架构与硬约束 / Consumes（真相源指向 catalog，缺失要声明）/ 复用锚点（直接复用·需改造·不应重建）/ 生态方案建议（Agent E 有产出时：每个能力的候选表 + 用/改造/自研建议）/ 设计上下文与 UI Surface delta（前端 Epic；推不出的列待审批决策，不自由发挥）/ institutional learnings / 隐含约束。
 
 ### Phase 3：Execution Policy + 决策收口
 
 1. 按 strict triggers 判 **Execution policy: fast | strict**（触发器清单以 AGENTS.md「Plan 规范」为准）。写进 README frontmatter + task-index Required Gates。不输出 Flow A/B/C。
 2. AC 没写也推不出、会改变范围或验收口径的事项集中到 `decisions.md`。有用户在场用阻塞提问（Claude `AskUserQuestion`）；**无人值守 → 标"假设待审批"+ 最合理假设 + Confidence，不阻塞**。两种情况都绝不静默跳过。
-3. Scope Challenge 四问挡 scope creep：真问题还是过度设计？成功判据？可复用什么？影响半径？
+3. **Build-vs-buy 收口**：Agent E 有产出时，每个候选能力在 `decisions.md` 登记 D 条目做三选一——直接用（引库 + 薄封装）/ 改造（实现期路由 `story-reference-impl`）/ 自研（必须写为何现有方案不适用，AGENTS.md 要求）。引入新运行时依赖时按 strict triggers 复核 Execution policy（外部系统 / 安全敏感依赖面），依赖增量注明在对应 D 条目内；仅当与既有架构约定冲突时另在 README Known Conflicts 摘要。
+4. Scope Challenge 四问挡 scope creep：真问题还是过度设计？成功判据？可复用什么？影响半径？
 
 ### Phase 4：生成 review pack 草稿
 
@@ -103,6 +104,7 @@ catalog 各文件的最小结构以现存文件为准；首次创建时：`api/c
 
 - 每 Story 一个 Unit；识别 barrier/owner tasks；生成 Task DAG / 波次。
 - **默认 1 Unit = 1 task**；拆多 task 必须同时满足：合同稳定、写集隔离或 owner 明确、独立 done signal、能缩短 critical path 或降低上下文。无并行收益或太小无独立验证就不拆。
+- **并行是一等编排目标**：barrier 收最窄、fan-out 尽量宽，避免无必要的线性链（教训：纯线性 DAG 会让 vj-work 只能串行冷启动 subagent，隔离的代价全付、并行的收益全无）。同 wave 写集隔离的 task 显式标注；相邻小 task（同 lane、预计 diff <150 行、共享 pattern）标 Batch 组供 vj-work 合并派发。
 - 共享文件冲突逐一检查（常见序列化点：`unit_of_work.py`、`models/__init__.py`、`main.py`、`dto.py`、`apiClient.ts`、`routeTree.gen.ts`）。
 - 前端 Epic 保留 Execution lanes / Frontend composition waves。
 - 实现涌现型、用户可观测的新行为用例回流 story AC 或 decisions ACD；纯实现级用例投影到 task docs。
@@ -118,10 +120,10 @@ catalog 各文件的最小结构以现存文件为准；首次创建时：`api/c
    - [ ] 拆 task 的理由指向 barrier / capability / screen / 隔离 / 并行收益，而非技术分层
    - [ ] （前端 Epic）每个新增/更新 Screen 的 Contract 完整度已过 `_shared/ui-planning-contract.md` §6 gate
 3. **自动审查**：draft 写盘后自动执行 `vj-plan-review`（多视角只读审查 → 自主采纳 → 修正 review pack）；用户可说"跳过审查"。
-4. **定稿 + Catalog Sync**：采纳审查结果重写终稿；命中 delta 同步写 `docs/project/api|data|ui/` 对应文件并复核与终稿一致（不留"后续再同步"）；更新 README Catalog Sync 表为 synced/N-A；跑 `python3 .agents/skills/_shared/scripts/render_doc_html.py <review-pack-dir>` 生成人读 HTML（失败不阻塞）；strict epic 默认再用全局 `archify` skill 生成展示级交互图（架构图 + 最高风险流程/状态机图）到 `<review-pack-dir>/diagrams/`，design.md/README 链接引用（Mermaid 源为真相，archify 图为派生视图；archify 不可用不阻塞）。
+4. **定稿 + Catalog Sync**：采纳审查结果重写终稿；命中 delta 同步写 `docs/project/api|data|ui/` 对应文件并复核与终稿一致（不留"后续再同步"）；更新 README Catalog Sync 表为 synced/N-A；跑 `python3 .agents/skills/_shared/scripts/render_doc_html.py <review-pack-dir> <work-dir>` 生成人读 HTML（review pack 与 task packets 都出人读视图——task 文档虽是机读投影，人工抽查/审批时同样要能读；失败不阻塞）；strict epic 默认再用全局 `archify` skill 生成展示级交互图（架构图 + 最高风险流程/状态机图）到 `<review-pack-dir>/diagrams/`，design.md/README 链接引用（Mermaid 源为真相，archify 图为派生视图；archify 不可用不阻塞）。
 5. **生成 task 文档 + verify.sh**（投影自定稿 design/decisions + 已同步 catalog；续作/重跑整目录覆盖重写）：
-   - `task-index.md`：Required gates、Unit DAG（与 epic.md `**依赖**:` 行一致）、Task DAG/波次、barrier/owner 表、Unit→Task 映射、共享文件冲突表。
-   - 每 task 一份 `T{NNN}-{slug}.md`：按 `references/task-doc.template.md` 投影（anchors / write scope / stop conditions 等必填字段见模板）。UI Unit（Files 含 `.tsx` 或路径含 `routes/`/`features/`/`components/`）注入模板附录的 Design/Screen context 块。
+   - `task-index.md`：Required gates、**Epic Execution Checklist**（10-15 条带 source pointer 的本 epic 硬约束——vj-work 原样注入每个 subagent，是执行者不全文读 guideline 的前提）、Unit DAG（与 epic.md `**依赖**:` 行一致）、Task DAG/波次（含 Batch 列）、barrier/owner 表、Unit→Task 映射、共享文件冲突表。
+   - 每 task 一份 `T{NNN}-{slug}.md`：按 `references/task-doc.template.md` 投影（anchors / write scope / stop conditions 等必填字段见模板）。**task doc 即执行包，vj-work 不再二次蒸馏**：Execution note 必填 Test policy / Risk class / UI class / System-wide check / Verification（定向命令）；Read first 只列目标文件、≤3 个 pattern file 与命中风险面的 guideline resource 精准指针。UI Unit（Files 含 `.tsx` 或路径含 `routes/`/`features/`/`components/`）注入模板附录的 Design/Screen context 块。
    - `verify.sh`：按 `references/verify.template.sh` 把每个 Unit 的 Story AC `验证:` 命令物化成可执行入口（`bash verify.sh U1` / `bash verify.sh all`）；按 kind 物化规则见模板头注释（pytest/API/DB 可执行，Browser 记 MANUAL；全 MANUAL 的 Unit exit 3 不算通过）。命令与 story 冲突时以 story 为准并回改 story 或登记 ACD。
 6. **机检**：跑 `python3 .agents/skills/_shared/scripts/plan_lint.py <review-pack-dir>`。exit != 0 时修复后重跑；**lint 不过 = 本 skill 未完成**，不得 handoff。
 7. **Handoff**：告知 review pack 与 work_dir 绝对路径（可点击）+ 本次同步的 catalog 文件；下一步选项：`vj-work` 执行（直接装载 task packets，不重新生成）或继续打磨 review pack（改完重跑 step 5-6 保持投影一致）。

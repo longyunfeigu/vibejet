@@ -1,6 +1,6 @@
 # vj-epic-plan 研究子代理模板
 
-Phase 2 优先并行派发三个只读研究任务（Agent A/B/C），外加一个条件性任务（Agent D，仅当 `docs/solutions/` 存在且非空时派发）。编排器读取本文件，把 `{epic_context}` 替换为实际内容；Claude Code 可用 `Agent`，Codex 可用 `multi_agent_v1.spawn_agent`（若暴露），无 subagent 能力时在主上下文顺序执行三个模板并标注 `research inline fallback`。待全部完成后统一合并结果。
+Phase 2 优先并行派发三个只读研究任务（Agent A/B/C），外加两个条件性任务（Agent D，仅当 `docs/solutions/` 存在且非空时派发；Agent E，仅当 epic 含生态大概率已解决的通用能力时派发）。编排器读取本文件，把 `{epic_context}` 替换为实际内容；Claude Code 可用 `Agent`，Codex 可用 `multi_agent_v1.spawn_agent`（若暴露），无 subagent 能力时在主上下文顺序执行**命中的模板**（A/B/C 必做，D/E 条件命中才做）并标注 `research inline fallback`。待全部完成后统一合并结果。
 
 `{epic_context}` 格式（由主代理在 Phase 2.0 内联准备）：
 
@@ -170,3 +170,55 @@ Epic ID（设计稿路径用）: {epic-N}
 ```
 
 调用方：`vj-epic-plan` Phase 2（Agent D）、`vj-work`（strict 模式开工前可选）、`review`（审查涉及历史踩坑面时可选）。写端契约见 `vj-compound`。
+
+---
+
+## Agent E — external-solutions（生态方案侦察，条件派发）
+
+派发条件（AGENTS.md「Prefer Existing Solutions Over Reinventing」的机器位）——命中任一：
+
+- Story 涉及生态大概率已解决的通用技术能力：文件上传/解析、富文本、图表、diff、markdown
+  渲染、OCR、导入导出、支付、通知、全文搜索、任务调度、状态机、鉴权协议等。
+- 初步估计需自研 >200 行解决一个业界已解决的问题（AGENTS.md 过度工程红线）。
+
+不派发：纯 CRUD、纯 UI 组合、或主代理派发前 rg 快查已确认仓库内有权威实现覆盖的能力
+（E 与 A–D 并行派发，不等 Agent C 结论；合并阶段若 E 的建议与 codebase-scout 找到的
+既有实现冲突，以仓库既有实现优先，丢弃该能力的外部候选）。
+派发时主代理在 epic_context 后附上候选能力清单（哪些能力点疑似生态已解决）。
+
+```
+你是一个只读的生态方案侦察员，为 vj-epic-plan Phase 2 回答"这些能力应该引库、改造还是自研"。
+
+<本次任务>
+{epic_context}
+候选能力清单: {逗号分隔的能力点}
+</本次任务>
+
+步骤（每个候选能力独立走一遍）：
+1. 先用 rg 快查复核仓库内确无既有实现（你与 codebase-scout 并行，拿不到它的结论）；
+   已有则标"仓库疑似已有，待合并阶段与 codebase-scout 结果对照"并跳过外部检索。
+2. WebSearch 搜索候选（"{能力} open source {python|typescript} 2026"、"{能力} github"），
+   聚焦 GitHub 项目与成熟库。
+3. 初筛 ≤3 个候选，标准：维护活跃（近 6 个月有 commit）、社区规模（stars/下载量）、
+   license 可商用（MIT/Apache-2.0/BSD 优先；GPL 系标红；不明 license 不得直接引入）、
+   与现有 stack 契合（后端 Python/FastAPI/SQLAlchemy async；前端 React 19/TS/Tailwind/shadcn）。
+4. 每个候选快速读 README + 1-2 个核心模块（WebFetch / gh api，不 clone 仓库——
+   深度研究是实现期 story-reference-impl 的事），评估集成成本与架构侵入性。
+5. 给三选一建议：直接用（包管理器引入 + 薄封装）/ 改造（借设计自实现或 vendor 部分代码，
+   实现期路由 story-reference-impl）/ 自研（必须说明为何现有方案不适用）。
+
+结构化输出（每个候选能力一节；无内容写"暂无"，不留空）：
+
+**{能力名}**
+| 候选 | Stars/活跃度 | License | 契合度 | 集成成本 | 备注 |
+|------|-------------|---------|--------|----------|------|
+- 建议：{直接用 {lib} | 改造（参考 {repo}）| 自研}
+- 理由与拒因：{为什么选它 / 为什么其他候选不行}
+- 风险：{维护风险 / 依赖重量 / 安全面 / license}
+
+**检索范围**
+实际搜索词与读过的 README / 文件列表。
+
+约束：只读，不改文件、不 clone；建议是 Phase 3 决策的输入不是决策本身；
+候选全部不合格时明确说"建议自研"并给出依据，不硬凑推荐。
+```

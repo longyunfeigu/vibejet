@@ -25,6 +25,11 @@
       （可跳读的人读主线；缺 → ERROR）
   R12 pipe 表格表头行后必须紧跟 GFM 分隔行（|---|），否则整块渲染成纯文本 → ERROR
       （检查 pack 三件套 + task-index + task docs，跳过 code fence）
+  R13 task doc 即执行包：Execution note 必含 Test policy / Risk class / UI class /
+      System-wide check / Verification 五个机读字段（缺 → ERROR；vj-work 不再二次蒸馏，
+      缺字段 = 执行包不完整）
+  R14 task-index.md 必含 Epic Execution Checklist 段且非空壳（缺 → ERROR）；
+      每个编号条目必须带 source pointer（`Source:` 标记；缺 → ERROR）
 
 Usage:
     python3 plan_lint.py <review-pack-dir> [--work-dir <dir>] [--repo-root <dir>]
@@ -211,6 +216,17 @@ def main() -> int:
         for tid in sorted(referenced):
             if not any(name.startswith(f"{tid}-") or name == f"{tid}.md" for name in task_files):
                 rep.error("R3", f"task-index 引用 {tid} 但 {work_dir.name}/ 下无对应 T 文档")
+        # R14 Epic Execution Checklist present, non-empty, items carry source pointers
+        checklist = section_body(index_content, r"Epic Execution Checklist")
+        if checklist is None:
+            rep.error("R14", "task-index.md 缺 Epic Execution Checklist 段（subagent 注入约束的来源）")
+        else:
+            items = [ln for ln in checklist.splitlines() if re.match(r"^\s*\d+\.\s+\S", ln)]
+            if not items:
+                rep.error("R14", "task-index.md Epic Execution Checklist 是空壳：至少列 1 条带 source pointer 的硬约束")
+            for ln in items:
+                if "Source:" not in ln:
+                    rep.error("R14", f"Epic Execution Checklist 条目缺 source pointer（需 `Source:` 标记）: {ln.strip()[:60]}")
         # R4 orphan task docs
         for name in sorted(task_files):
             tid = name.split("-")[0].removesuffix(".md")
@@ -253,6 +269,16 @@ def main() -> int:
                 rep.error("R6", f"{name} 引用 design.md#{anchor} 解析不到 design.md 标题")
             elif not any(c in slug for c in contract_slugs):
                 rep.warn("R6", f"{name} 锚了 design.md 叙事区标题 #{anchor}（不稳定，应改锚合同区块或 decisions D/ACD）")
+
+        # R13 execution packet fields in Execution note
+        note = section_body(content, r"Execution note")
+        if note is None:
+            rep.error("R13", f"{name} 缺 Execution note 段（执行包机读字段的落点）")
+        else:
+            for field in ("Test policy:", "Risk class:", "UI class:",
+                          "System-wide check:", "Verification:"):
+                if field not in note:
+                    rep.error("R13", f"{name} Execution note 缺执行包字段: {field}")
 
         # R7 path existence for Read first / Write scope
         for section in ("Read first", "Write scope"):

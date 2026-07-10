@@ -15,8 +15,18 @@
   · Plan/Epic/Story 层：文档头横幅（类型/epic/policy/status 芯片）、
     D-ID/ACD/T/U/Story 令牌芯片、决策状态与 Confidence 芯片、表格斑马纹；
     三区制分层（"合同区"h2 命中才生效）：合同区容器+角标、合同块语义色卡片、
-    Must Hold 不变量卡、"N、导语。正文"概念段升格为编号卡片
-  按 frontmatter `type:` 与内容特征自动判族，非对应文档零影响。
+    Must Hold 不变量卡、"N、导语。正文"概念段升格为编号卡片；
+    用户旅程升格（表头签名"步骤/场景+页面+用户行为+系统响应+覆盖"命中才生效）：
+    主旅程表→双泳道旅程板（用户/系统泳道×步骤列，SVG 连线画主路径）、
+    异常表→场景卡片组，原表格在 HTML 里不再展示（.md 仍是数据源）；
+    同目录存在 archify 手工旅程图（journey.html）时主旅程改为 iframe 引用它，
+    过期兜底：journey.source-digest 记录生成时的旅程章节摘要，构建时比对，
+    不一致 → 页面警示横幅 + stderr warning（更新流程见 journey_embed docstring）
+  · Task packet 层（按文件名判族：T{NNN}-*.md / task-index.md，无需 frontmatter）：
+    头部元数据行（Epic/Unit/Depends/Wave + Execution note 的 Risk/UI class/Test policy）
+    升格 banner 芯片；Generated from 折叠为溯源卡；Task scope 升格警示 callout；
+    Read first / Write scope / Execution note / Stop conditions / DoD 复用合同块语义卡片
+  按 frontmatter `type:`、内容特征与文件名自动判族，非对应文档零影响。
 
 用法：
     python3 .agents/skills/_shared/scripts/render_doc_html.py <file.md | dir> [...]
@@ -25,6 +35,7 @@
 单个文件渲染失败不中断批量，最后以非零 exit code 汇总报告。
 """
 
+import hashlib
 import html
 import json
 import re
@@ -458,6 +469,186 @@ blockquote.takeaway p { margin: 0; }
   border-radius: 999px; padding: 0.12em 0.75em;
   margin-right: 0.7em; vertical-align: 0.12em;
 }
+/* —— 用户旅程升格（Epic 族，表头签名命中才生效）：主旅程双泳道旅程板 + 异常场景卡 —— */
+.jmap {
+  margin: 1.15em 0;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 1.15rem 1.25rem 1.3rem;
+}
+.jmap-canvas {
+  position: relative;
+  min-width: fit-content;
+  padding: 0.4rem 0.35rem;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--border-soft) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--border-soft) 55%, transparent) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+.jmap-links {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.jmap-links path.jmap-line { fill: none; stroke-width: 2.25; stroke-linejoin: round; }
+.jmap-links .jmap-step-line { stroke: var(--info); }
+.jmap-links .jmap-flow-line { stroke: var(--accent); }
+.jmap-links .jmap-step-head { fill: var(--info); }
+.jmap-links .jmap-flow-head { fill: var(--accent); }
+.jmap-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--jmap-steps), minmax(12.5rem, 1fr));
+  gap: 2.1rem 1.3rem;
+  align-items: stretch;
+}
+.jmap-laneframe {
+  position: relative;
+  grid-column: 1 / -1;
+  margin: -0.65rem -0.55rem;
+  border: 1.5px dashed color-mix(in srgb, var(--border) 72%, var(--muted));
+  border-radius: 14px;
+  pointer-events: none; /* 定位元素叠在节点上方，放行文字选中与点击 */
+}
+.jmap-laneframe::before {
+  content: attr(data-label);
+  position: absolute; top: -0.8em; left: 0.95rem;
+  background: var(--surface);
+  padding: 0 0.65em;
+  font: 600 0.72rem/1.6 "SF Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.jmap-frame-user::before { color: var(--good); }
+.jmap-frame-sys::before { color: var(--info); }
+.jmap-stephead {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.4em 0.55em;
+  min-width: 0;
+}
+.jmap-stephead .journey-page {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.78em;
+}
+.jmap-stepnum {
+  width: 1.7rem; height: 1.7rem; border-radius: 50%;
+  background: var(--accent); color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.88rem; flex: none;
+}
+.jmap-node {
+  border-radius: 12px;
+  padding: 0.65rem 0.95rem 0.7rem;
+  box-shadow: var(--shadow);
+  font-size: 0.92em;
+  line-height: 1.7;
+  min-width: 0;
+}
+.jmap-user {
+  background: color-mix(in srgb, var(--good-bg) 52%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--good) 45%, var(--border));
+}
+.jmap-sys {
+  background: color-mix(in srgb, var(--info-bg) 46%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--info) 40%, var(--border));
+}
+.jmap-cover {
+  margin-top: 0.5em; padding-top: 0.5em;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 65%, transparent);
+  font-size: 0.88em; color: var(--muted);
+}
+/* archify 旅程图引用（journey.html 存在时替代泳道板） */
+.jmap-ref { margin: 1.15em 0; }
+.jmap-stale {
+  background: color-mix(in srgb, var(--warn-bg) 60%, var(--surface));
+  border-left: 3px solid var(--warn);
+  color: var(--warn);
+  border-radius: 0 10px 10px 0;
+  padding: 0.55em 1em;
+  margin-bottom: 0.7em;
+  font-size: 0.9em;
+}
+.jmap-embed {
+  display: block;
+  width: 100%;
+  height: 58rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.jmap-detail { margin-top: 0.7em; }
+.jmap-detail > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.jmap-detail > .jmap { margin-top: 0.7em; }
+.journey-page {
+  font-size: 0.84em;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.05em 0.75em;
+}
+.journey-lane { display: flex; gap: 0.65em; align-items: baseline; margin: 0.3em 0; }
+.lane-tag {
+  flex: none;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.14em;
+  border-radius: 999px; padding: 0.12em 0.7em;
+}
+.lane-user > .lane-tag { background: var(--good-bg); color: var(--good); }
+.lane-sys > .lane-tag { background: var(--info-bg); color: var(--info); }
+.exception-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(21rem, 100%), 1fr));
+  gap: 0.9rem;
+  margin: 1.15em 0;
+}
+.exception-card {
+  display: flex; flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: 12px;
+  padding: 0.7rem 1rem 0.75rem;
+  box-shadow: var(--shadow);
+}
+.exception-title { font-weight: 600; margin-bottom: 0.45em; }
+.exception-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.35em 0.8em;
+  margin-top: auto; padding-top: 0.55em;
+  border-top: 1px dashed var(--border-soft);
+  font-size: 0.92em;
+}
+.exception-cover { color: var(--muted); }
+/* —— Task packet 族（按文件名判族命中才生效） —— */
+header.doc-banner .scope-line { color: var(--muted); font-size: 0.92rem; margin-top: 0.35rem; }
+#content p.task-meta-row { color: var(--muted); font-size: 0.86em; }
+#content p.task-meta-row strong { color: var(--muted); }
+details.gen-from {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.45rem 1rem;
+  margin: 0.9rem 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+details.gen-from summary { cursor: pointer; }
+details.gen-from p { margin: 0.4rem 0 0.1rem; }
+.task-scope-callout {
+  background: color-mix(in srgb, var(--warn-bg) 45%, var(--surface));
+  border-left: 3px solid var(--warn);
+  border-radius: 0 10px 10px 0;
+  padding: 0.65em 1.1em;
+  margin: 0.9em 0;
+  font-size: 0.94em;
+}
 /* mermaid 加载失败降级卡 */
 .mermaid-fallback {
   border: 1px dashed var(--border);
@@ -496,6 +687,7 @@ $frontmatter_block
 <script>
 const MD_SOURCE = $md_json;
 const DOC_META = $doc_meta_json;
+const JOURNEY_EMBED = $journey_embed_json;
 document.addEventListener("DOMContentLoaded", async () => {
   const contentEl = document.getElementById("content");
   if (typeof marked === "undefined") {
@@ -511,6 +703,186 @@ document.addEventListener("DOMContentLoaded", async () => {
     div.className = "mermaid";
     div.textContent = code.textContent;
     code.parentElement.replaceWith(div);
+  }
+  // —— 用户旅程升格（Epic 族，表头签名命中才生效）：主旅程表→双泳道旅程板，异常表→场景卡 ——
+  // 数据源仍是 .md 里的表格（AI/校验消费）；这里只换人读视图，签名不命中的表格原样保留。
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const journeyLane = (cell, kind, tag) => {
+    const lane = document.createElement("div");
+    lane.className = "journey-lane lane-" + kind;
+    const tagEl = document.createElement("span");
+    tagEl.className = "lane-tag";
+    tagEl.textContent = tag;
+    const text = document.createElement("span");
+    text.className = "lane-text";
+    if (cell) text.append(...cell.childNodes);
+    lane.append(tagEl, text);
+    return lane;
+  };
+  const journeyPage = (cell) => {
+    const s = document.createElement("span");
+    s.className = "journey-page";
+    if (cell) s.append(...cell.childNodes);
+    return s;
+  };
+  const journeyCell = (cls, cell) => {
+    const d = document.createElement("div");
+    d.className = cls;
+    if (cell) d.append(...cell.childNodes);
+    return d;
+  };
+  // 主旅程 → 双泳道旅程板：用户/系统两条泳道、步骤为列；连线用 SVG overlay 画
+  // 用户→系统（竖直）与 系统→下一步用户（直角肘线），ResizeObserver 随布局重绘。
+  const buildJourneyMap = (rows, col) => {
+    const jmap = document.createElement("div");
+    jmap.className = "jmap";
+    const canvas = document.createElement("div");
+    canvas.className = "jmap-canvas";
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("class", "jmap-links");
+    const grid = document.createElement("div");
+    grid.className = "jmap-grid";
+    grid.style.setProperty("--jmap-steps", rows.length);
+    const place = (el, row, colIdx) => {
+      el.style.gridRow = String(row);
+      if (colIdx != null) el.style.gridColumn = String(colIdx);
+      grid.append(el);
+      return el;
+    };
+    const laneFrame = (row, cls, label) => {
+      const d = document.createElement("div");
+      d.className = "jmap-laneframe " + cls;
+      d.dataset.label = label;
+      return place(d, row);
+    };
+    laneFrame(2, "jmap-frame-user", "01 · 用户");
+    laneFrame(3, "jmap-frame-sys", "02 · 系统");
+    rows.forEach((cells, i) => {
+      const head = document.createElement("div");
+      head.className = "jmap-stephead";
+      const num = document.createElement("span");
+      num.className = "jmap-stepnum";
+      num.textContent = cells[0] ? cells[0].textContent.trim() : "";
+      head.append(num, journeyPage(cells[col.page]));
+      place(head, 1, i + 1);
+    });
+    const userNodes = rows.map((cells, i) =>
+      place(journeyCell("jmap-node jmap-user", cells[col.user]), 2, i + 1));
+    const sysNodes = rows.map((cells, i) => {
+      const d = journeyCell("jmap-node jmap-sys", cells[col.sys]);
+      d.append(journeyCell("jmap-cover", cells[col.cover]));
+      return place(d, 3, i + 1);
+    });
+    canvas.append(svg, grid);
+    jmap.append(canvas);
+    const path = (d, cls) => {
+      const p = document.createElementNS(SVGNS, "path");
+      p.setAttribute("d", d);
+      p.setAttribute("class", cls);
+      svg.append(p);
+    };
+    const draw = () => {
+      const base = canvas.getBoundingClientRect();
+      if (!base.width) return;
+      svg.replaceChildren();
+      const rel = (el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left - base.left, right: r.right - base.left,
+                 top: r.top - base.top, bottom: r.bottom - base.top,
+                 cx: r.left - base.left + r.width / 2, cy: r.top - base.top + r.height / 2 };
+      };
+      userNodes.forEach((u, i) => {
+        const ur = rel(u), sr = rel(sysNodes[i]);
+        path("M " + ur.cx + " " + ur.bottom + " L " + ur.cx + " " + (sr.top - 5),
+          "jmap-line jmap-step-line");
+        path("M " + (ur.cx - 4.5) + " " + (sr.top - 6) + " L " + (ur.cx + 4.5) + " " +
+          (sr.top - 6) + " L " + ur.cx + " " + sr.top + " Z", "jmap-step-head");
+        if (i + 1 < userNodes.length) {
+          const nu = rel(userNodes[i + 1]);
+          const gx = (sr.right + nu.left) / 2;
+          path("M " + sr.right + " " + sr.cy + " L " + gx + " " + sr.cy + " L " + gx + " " +
+            nu.cy + " L " + (nu.left - 5) + " " + nu.cy, "jmap-line jmap-flow-line");
+          path("M " + (nu.left - 6) + " " + (nu.cy - 4.5) + " L " + (nu.left - 6) + " " +
+            (nu.cy + 4.5) + " L " + nu.left + " " + nu.cy + " Z", "jmap-flow-head");
+        }
+      });
+    };
+    const ro = new ResizeObserver(draw);
+    ro.observe(grid);
+    // 挂到元素上防 GC：无强引用的 ResizeObserver 可能被回收，
+    // 导致延迟显示的板子（如闭合 details 内）展开时永远画不出连线
+    jmap.__ro = ro;
+    jmap.__redraw = draw;
+    return jmap;
+  };
+  for (const tbl of [...contentEl.querySelectorAll("table")]) {
+    const heads = [...tbl.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    const isMain = heads[0] === "步骤";
+    const isBranch = heads[0] === "场景";
+    const col = {
+      page: heads.findIndex((h) => h.includes("页面")),
+      user: heads.findIndex((h) => h.includes("用户行为")),
+      sys: heads.findIndex((h) => h.includes("系统响应")),
+      cover: heads.findIndex((h) => h.includes("覆盖")),
+    };
+    if ((!isMain && !isBranch) || Object.values(col).some((i) => i < 0)) continue;
+    const rows = [...tbl.querySelectorAll("tbody tr")].map((tr) => [...tr.children]);
+    if (!rows.length) continue;
+    // 同目录有 archify 手工旅程图 → 主旅程 iframe 引用它（过期时加警示）；没有则回落泳道板
+    if (isMain && JOURNEY_EMBED) {
+      const wrap = document.createElement("div");
+      wrap.className = "jmap-ref";
+      if (JOURNEY_EMBED.stale) {
+        const warn = document.createElement("div");
+        warn.className = "jmap-stale";
+        warn.textContent = "⚠ 此图为 archify 手工生成，源摘要与当前旅程章节不一致，可能已过期" +
+          "——请基于 journey.workflow.json 重新生成；存疑时以 epic.md 表格为准。";
+        wrap.append(warn);
+      }
+      const frame = document.createElement("iframe");
+      frame.className = "jmap-embed";
+      frame.src = JOURNEY_EMBED.src;
+      frame.loading = "lazy";
+      frame.title = "主旅程图（archify）";
+      wrap.append(frame);
+      // archify 图是有损压缩视图（节点只放短语）；全文细节收进折叠的泳道板，按需展开
+      const det = document.createElement("details");
+      det.className = "jmap-detail";
+      const sum = document.createElement("summary");
+      sum.textContent = "完整步骤明细（含未删节的用户行为/系统响应）";
+      const board = buildJourneyMap(rows, col);
+      det.append(sum, board);
+      det.addEventListener("toggle", () => {
+        if (det.open) requestAnimationFrame(board.__redraw);
+      });
+      wrap.append(det);
+      tbl.replaceWith(wrap);
+      continue;
+    }
+    let box;
+    if (isMain) {
+      box = buildJourneyMap(rows, col);
+    } else {
+      box = document.createElement("div");
+      box.className = "exception-grid";
+      for (const cells of rows) {
+        const cover = document.createElement("span");
+        cover.className = "exception-cover";
+        if (cells[col.cover]) cover.append(...cells[col.cover].childNodes);
+        const card = document.createElement("div");
+        card.className = "exception-card";
+        const title = document.createElement("div");
+        title.className = "exception-title";
+        if (cells[0]) title.append(...cells[0].childNodes);
+        const foot = document.createElement("div");
+        foot.className = "exception-foot";
+        foot.append(journeyPage(cells[col.page]), cover);
+        card.append(title, journeyLane(cells[col.user], "user", "用户"),
+          journeyLane(cells[col.sys], "sys", "系统"), foot);
+        box.append(card);
+      }
+    }
+    tbl.replaceWith(box);
   }
   // —— 表格包一层 .table-wrap：撑满容器宽（列不再挤成窄条），超宽时容器内横向滚动 ——
   for (const t of contentEl.querySelectorAll("table")) {
@@ -587,6 +959,78 @@ document.addEventListener("DOMContentLoaded", async () => {
       label.className = "takeaway-label";
       label.textContent = "一句话";
       p0.prepend(label);
+    }
+  }
+  // —— Task packet 族：机读投影的人读分层（判族命中才生效） ——
+  if (DOC_META._kind === "task") {
+    // 头部元数据段：Epic 行弱化（banner 已承载）；Generated from 折叠；Task scope 升格 callout
+    for (const p of [...contentEl.querySelectorAll("p")]) {
+      const first = p.firstElementChild;
+      if (!first || first.tagName !== "STRONG" || p.firstChild !== first) continue;
+      const label = first.textContent.trim();
+      if (label.startsWith("Epic:")) {
+        p.classList.add("task-meta-row");
+      } else if (label.startsWith("Generated from:")) {
+        // 相邻行会并入同一段：先把 "Task scope:" 起的节点拆出去
+        const scopeStrong = [...p.querySelectorAll("strong")]
+          .find((s) => s.textContent.trim().startsWith("Task scope:"));
+        let scopeBox = null;
+        if (scopeStrong) {
+          scopeBox = document.createElement("div");
+          scopeBox.className = "task-scope-callout";
+          const nodes = [];
+          let n = scopeStrong;
+          while (n) { const nx = n.nextSibling; nodes.push(n); n = nx; }
+          nodes.forEach((nd) => scopeBox.append(nd));
+        }
+        const det = document.createElement("details");
+        det.className = "gen-from";
+        const sum = document.createElement("summary");
+        sum.textContent = "溯源锚点（Generated from）";
+        const inner = document.createElement("p");
+        while (p.firstChild) inner.append(p.firstChild);
+        det.append(sum, inner);
+        p.replaceWith(det);
+        if (scopeBox) det.after(scopeBox);
+      } else if (label.startsWith("Task scope:")) {
+        const box = document.createElement("div");
+        box.className = "task-scope-callout";
+        while (p.firstChild) box.append(p.firstChild);
+        p.replaceWith(box);
+      }
+    }
+    // 执行合同字段升格语义卡片（复用合同块样式）：先看哪、能改哪、怎么执行、何时停、何时算完
+    const cardKinds = [
+      [/^Read first/, "data"],
+      [/^Write scope/, "ui"],
+      [/^Execution note/, "api"],
+      [/^Stop conditions/, "risk"],
+    ];
+    for (const h3 of [...contentEl.querySelectorAll("h3")]) {
+      const hit = cardKinds.find(([re]) => re.test(h3.textContent.trim()));
+      if (!hit) continue;
+      const card = document.createElement("div");
+      card.className = "contract-block blk-" + hit[1];
+      h3.before(card);
+      let node = h3;
+      while (node) {
+        const next = node.nextElementSibling;
+        card.append(node);
+        node = next && !/^H[23]$$/.test(next.tagName) ? next : null;
+      }
+    }
+    const dodH2 = [...contentEl.querySelectorAll("h2")]
+      .find((h) => /Definition of Done/i.test(h.textContent));
+    if (dodH2) {
+      const card = document.createElement("div");
+      card.className = "contract-block blk-check";
+      dodH2.before(card);
+      let node = dodH2;
+      while (node) {
+        const next = node.nextElementSibling;
+        card.append(node);
+        node = next && next.tagName !== "H2" ? next : null;
+      }
     }
   }
   // —— EARS 增强（PRD 族）：R 编号+句式徽章、来源标签+统计/过滤、Epic 标题 ——
@@ -835,6 +1279,8 @@ DOC_KIND_LABEL = {
     "epic": "Epic",
     "story": "Story",
     "prd": "PRD",
+    "task": "Task Packet · 执行投影",
+    "task-index": "Task Index · 执行入口",
 }
 
 
@@ -858,7 +1304,11 @@ def parse_meta(frontmatter: str, body: str, md_path: Path) -> dict:
             meta[m.group(1)] = m.group(2)
     kind = meta.get("type", "")
     if not kind:
-        if meta.get("epic_id") and meta.get("epic_name"):
+        if md_path.name == "task-index.md":
+            kind = "task-index"
+        elif re.match(r"^T\d{3}(-|\.md$)", md_path.name):
+            kind = "task"
+        elif meta.get("epic_id") and meta.get("epic_name"):
             kind = "epic"
         elif re.match(r"^us\d{3}-", md_path.name) or re.search(r"^### Story \d+\.\d+", body, re.M):
             kind = "story"
@@ -866,6 +1316,25 @@ def parse_meta(frontmatter: str, body: str, md_path: Path) -> dict:
             kind = "prd"
     meta["_kind"] = kind
     meta["_kind_label"] = DOC_KIND_LABEL.get(kind, "")
+    # task 族：从模板固定格式的正文提取 banner 芯片素材（旧版 task 文档缺字段则跳过，不报错）
+    if kind == "task":
+        def grab_inline(label: str) -> str:
+            m = re.search(rf"\*\*{label}:\*\*\s*([^·\n]+)", body)
+            return m.group(1).strip() if m else ""
+        m = re.search(r"\*\*Epic:\*\*\s*\[([^\]]+)\]", body)
+        meta["_epic_name"] = m.group(1).strip() if m else ""
+        meta["_task_scope"] = grab_inline("Unit / Scope")
+        meta["_wave"] = grab_inline("Wave")
+        meta["_depends"] = grab_inline("Depends")
+        for fld, key in (("Test policy", "_test_policy"), ("Risk class", "_risk"),
+                         ("UI class", "_ui_class")):
+            m = re.search(rf"^-\s*{fld}:\s*([^\n（(]+)", body, re.M)
+            if m and "{" not in m.group(1):
+                meta[key] = m.group(1).strip()
+    elif kind == "task-index":
+        m = re.search(r"\*\*Execution policy:\*\*\s*(fast|strict)", body)
+        if m and not meta.get("execution_policy"):
+            meta["execution_policy"] = m.group(1)
     return meta
 
 
@@ -886,12 +1355,31 @@ def build_banner(meta: dict, title: str) -> str:
         chips.append(f'<span class="chip meta">{html.escape(meta["priority"])}</span>')
     if meta.get("date"):
         chips.append(f'<span class="chip meta">{html.escape(meta["date"])}</span>')
+    # task 族芯片（字段缺失即跳过，兼容旧版 task 文档）
+    if meta.get("_epic_name"):
+        chips.append(f'<span class="chip meta">{html.escape(meta["_epic_name"])}</span>')
+    if meta.get("_wave"):
+        chips.append(f'<span class="chip meta">Wave {html.escape(meta["_wave"])}</span>')
+    if meta.get("_depends"):
+        chips.append(f'<span class="chip meta">Depends: {html.escape(meta["_depends"])}</span>')
+    risk = meta.get("_risk", "")
+    if risk:
+        cls = "pol-strict" if "strict" in risk else "pol-fast"
+        chips.append(f'<span class="chip {cls}">risk: {html.escape(risk)}</span>')
+    if meta.get("_ui_class"):
+        chips.append(f'<span class="chip doc-status">UI: {html.escape(meta["_ui_class"])}</span>')
+    if meta.get("_test_policy"):
+        chips.append(f'<span class="chip meta">{html.escape(meta["_test_policy"])}</span>')
+    scope_line = (
+        f'<div class="scope-line">{html.escape(meta["_task_scope"])}</div>'
+        if meta.get("_task_scope") else ""
+    )
     meta_row = f'<div class="meta-row">{"".join(chips)}</div>' if chips else ""
     return (
         '<header class="doc-banner">'
         f'<div class="kicker">{html.escape(meta["_kind_label"])}</div>'
         f'<div style="font-size:1.05rem;font-weight:600">{html.escape(title)}</div>'
-        f"{meta_row}</header>"
+        f"{scope_line}{meta_row}</header>"
     )
 
 
@@ -907,12 +1395,49 @@ def extract_title(body: str, fallback: str) -> str:
     return fallback
 
 
+def journey_source_digest(body: str) -> str | None:
+    """`## 用户旅程` 章节的内容摘要——archify 旅程图过期检查的比对基准。"""
+    m = re.search(r"^## 用户旅程\n.*?(?=^## |\Z)", body, re.S | re.M)
+    return hashlib.sha1(m.group(0).encode("utf-8")).hexdigest()[:16] if m else None
+
+
+def journey_embed(md_path: Path, body: str) -> dict | None:
+    """同目录存在 archify 旅程图（journey.html）时返回 iframe 引用信息。
+
+    这是"手工精装修图必须与旅程章节同步"规则的兜底检查：sidecar 文件
+    journey.source-digest 记录生成图时的章节摘要（archify schema 不允许 meta 扩展字段，
+    故独立存放），与当前摘要不一致 → 页面警示横幅 + 构建期 stderr warning。
+    """
+    html_path = md_path.parent / "journey.html"
+    if not html_path.is_file():
+        return None
+    digest = journey_source_digest(body)
+    if digest is None:
+        return None
+    sidecar = md_path.parent / "journey.source-digest"
+    try:
+        recorded = sidecar.read_text(encoding="utf-8").strip()
+    except OSError:
+        recorded = ""
+    stale = recorded != digest
+    if stale:
+        print(
+            f"warning: {html_path.name} 可能过期——旅程章节摘要 {digest} ≠ "
+            f"journey.source-digest 记录值 {recorded or '(缺失)'}；"
+            f"请基于 journey.workflow.json 用 archify 重新生成，"
+            f"并把新摘要写入 {sidecar.name}",
+            file=sys.stderr,
+        )
+    return {"src": html_path.name, "stale": stale}
+
+
 def render_file(md_path: Path) -> Path:
     text = md_path.read_text(encoding="utf-8")
     frontmatter, body = split_frontmatter(text)
+    meta = parse_meta(frontmatter, body, md_path)  # 在 fix_cjk_strong 之前：**…** 正则要吃原文
+    embed = journey_embed(md_path, body)  # 摘要基准取原文，须在 fix_cjk_strong 之前
     body = fix_cjk_strong(body)
     title = extract_title(body, md_path.stem)
-    meta = parse_meta(frontmatter, body, md_path)
 
     frontmatter_block = ""
     if frontmatter.strip():
@@ -941,6 +1466,7 @@ def render_file(md_path: Path) -> Path:
             mermaid_script_tag=MERMAID_SCRIPT_TAG if "```mermaid" in body else "",
             md_json=js_json(body),
             doc_meta_json=js_json(meta),
+            journey_embed_json=js_json(embed),
         ),
         encoding="utf-8",
     )
