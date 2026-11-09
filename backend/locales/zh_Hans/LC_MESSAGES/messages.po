@@ -225,3 +225,38 @@ msgstr "文档已重新进入解析队列"
 
 msgid "document.delete.soft.success"
 msgstr "文档已标记删除"
+
+# Auth / conversation / agent config / run / LLM / idempotency
+
+msgid "auth.required"
+msgstr "需要登录"
+
+msgid "auth.token.invalid"
+msgstr "登录凭证无效或已过期"
+
+msgid "conversation.not_found"
+msgstr "对话不存在"
+
+msgid "conversation.archived"
+msgstr "对话已归档"
+
+msgid "run.not_found"
+msgstr "运行记录不存在"
+
+msgid "agent_config.not_found"
+msgstr "Agent 配置不存在"
+
+msgid "agent_config.name.exists"
+msgstr "Agent 配置名称「{name}」已存在"
+
+msgid "llm.provider.error"
+msgstr "大模型服务出错"
+
+msgid "llm.timeout"
+msgstr "大模型请求超时"
+
+msgid "idempotency.key.reused"
+msgstr "Idempotency-Key 已被另一个请求使用"
+
+msgid "idempotency.in_progress"
+msgstr "使用该 Idempotency-Key 的请求正在处理中"

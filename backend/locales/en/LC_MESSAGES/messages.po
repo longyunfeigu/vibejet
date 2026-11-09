@@ -225,3 +225,38 @@ msgstr "Document re-queued for parsing"
 
 msgid "document.delete.soft.success"
 msgstr "Document soft-deleted"
+
+# Auth / conversation / agent config / run / LLM / idempotency
+
+msgid "auth.required"
+msgstr "Authentication required"
+
+msgid "auth.token.invalid"
+msgstr "Invalid or expired token"
+
+msgid "conversation.not_found"
+msgstr "Conversation not found"
+
+msgid "conversation.archived"
+msgstr "Conversation is archived"
+
+msgid "run.not_found"
+msgstr "Run not found"
+
+msgid "agent_config.not_found"
+msgstr "Agent config not found"
+
+msgid "agent_config.name.exists"
+msgstr "Agent config name '{name}' already exists"
+
+msgid "llm.provider.error"
+msgstr "LLM provider error"
+
+msgid "llm.timeout"
+msgstr "LLM request timed out"
+
+msgid "idempotency.key.reused"
+msgstr "Idempotency-Key reused with different request"
+
+msgid "idempotency.in_progress"
+msgstr "Request with this Idempotency-Key is in progress"
