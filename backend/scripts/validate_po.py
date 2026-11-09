@@ -3,6 +3,7 @@
 
 Exit non-zero if any .po cannot be parsed, or a key used in code is missing or untranslated.
 """
+
 from __future__ import annotations
 
 import re
