@@ -45,20 +45,20 @@ const guide = (type: string, author: string): ParsedGuide => ({
 });
 
 test('checkGuidePath: valid path has no issues', () => {
-  assert.deepEqual(checkGuidePath('DEV-20261021/bugfix/yuehan-x.md', guide('bugfix', 'yuehan')), []);
+  assert.deepEqual(checkGuidePath('2026-10/bugfix/yuehan-x.md', guide('bugfix', 'yuehan')), []);
 });
 
 test('checkGuidePath: bugfix guide under feature/ is rejected', () => {
-  const issues = checkGuidePath('DEV-20261021/feature/yuehan-x.md', guide('bugfix', 'yuehan'));
+  const issues = checkGuidePath('2026-10/feature/yuehan-x.md', guide('bugfix', 'yuehan'));
   assert.ok(issues.some(i => i.rule === 'path' && i.severity === 'error'));
 });
 
-test('checkGuidePath: release folder not matching DEV-/HOTFIX- is rejected', () => {
+test('checkGuidePath: folder that is not a YYYY-MM month is rejected', () => {
   const issues = checkGuidePath('release-1/bugfix/yuehan-x.md', guide('bugfix', 'yuehan'));
   assert.ok(issues.some(i => i.rule === 'path'));
 });
 
 test('checkGuidePath: file name not starting with author is rejected', () => {
-  const issues = checkGuidePath('HOTFIX-20261022/bugfix/x-yuehan.md', guide('bugfix', 'yuehan'));
+  const issues = checkGuidePath('2026-10/bugfix/x-yuehan.md', guide('bugfix', 'yuehan'));
   assert.ok(issues.some(i => i.rule === 'path'));
 });

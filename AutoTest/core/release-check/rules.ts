@@ -37,7 +37,7 @@ const VERIFY_SECTIONS: SectionId[] = ['verify', 'expected-after-fix'];
 // Sections whose text tells the verifier how to judge; verdict rules apply here only.
 const JUDGED_SECTIONS: SectionId[] = ['verify', 'invariants'];
 
-// safety-cn.md: 「不适用」 is decided by the verifier from services and requires; a guide may not declare it.
+// safety.md: 「不适用」 is decided by the verifier from services and requires; a guide may not declare it.
 const NOT_APPLICABLE: RegExp[] = [/不适用/, /\bnot applicable\b/i, /\bN\/A\b/];
 
 // Verification happens on the new version only; a guide may not ask to reproduce the old bug.
@@ -62,11 +62,11 @@ const P0_NOT_DIRECT: { re: RegExp; why: string }[] = [
   { re: /(?:观察|持续|等待?|跑满|监控)[^\n。；]{0,6}\d+(?:\.\d+)?\s*个?小时/, why: '要长时间观察' },
   { re: /\b(?:observe|watch|monitor|wait|run)\b[^.\n]{0,20}\b\d+(?:\.\d+)? ?(?:hours?|h)\b/i, why: '要长时间观察' },
   { re: /(?:业务|真实|线上|生产)流量|\b(?:business|production|real|live|customer) traffic\b/i, why: '依赖业务流量' },
-  { re: /(?:其他|别的|另一个?)(?:企业|租户|组织)|\b(?:another|other) (?:organi[sz]ation|tenant|org)s?\b/i, why: '要动其他企业（需要另一个企业时写明用第二个 QA 企业 AI Builder Sandbox 4）' },
+  { re: /(?:其他|别的|另一个?)(?:企业|租户|组织|用户|账号|账户)|\b(?:another|other) (?:organi[sz]ation|tenant|org|user|account)s?\b/i, why: '要动其他账号（需要另一个账号时写明用第二个测试账号 e2e-fixture-user-b）' },
 ];
 
-// The second QA organization stands in for "another organization" (safety.md); naming it makes the item direct.
-const SECOND_QA_ORG = /AI Builder Sandbox 4/i;
+// The second test account stands in for "another account" (safety.md); naming it makes the item direct.
+const SECOND_TEST_ACCOUNT = /e2e-fixture-user-b/i;
 
 const VAGUE_PHRASES: RegExp[] = [
   /功能正常/, /符合预期/, /显示正确/, /正常显示/, /无报错/,
@@ -80,8 +80,8 @@ const NOT_SELF_CONTAINED: RegExp[] = [
 
 const HARDCODED_ENV: RegExp[] = [
   /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
-  // Any host under the product domains, with or without a scheme, wherever it ends.
-  /(?:^|[^a-z0-9.-])(?:[a-z0-9-]+\.)+(?:wiz\.ai|talkbots\.cn)(?![a-z0-9.-])/i,
+  // A local dev address with a port names one developer's environment.
+  /\blocalhost:\d{2,5}\b/i,
   /password\s*[:=]/i,
   /密码\s*[:：=]/,
 ];
@@ -107,7 +107,7 @@ function checkServices(value: unknown): LintIssue[] {
     return [error('frontmatter', '字段 services 必须是非空列表')];
   }
   const unknown = list.filter(s => !(SERVICES as readonly string[]).includes(s));
-  return unknown.length === 0 ? [] : [error('frontmatter', `services 里有未知服务：${unknown.join(', ')}；按服务键填写，如 voiceAgent.backend`)];
+  return unknown.length === 0 ? [] : [error('frontmatter', `services 里有未知服务：${unknown.join(', ')}；按服务键填写，如 backend`)];
 }
 
 function checkRequires(value: unknown): LintIssue[] {
@@ -211,9 +211,9 @@ const p0DirectRule: Rule = ({ sections }) =>
     .filter(item => item.priority === 'P0')
     .flatMap(item => {
       const hit = P0_NOT_DIRECT
-        .filter(({ why }) => !(why.startsWith('要动其他企业') && SECOND_QA_ORG.test(item.text)))
+        .filter(({ why }) => !(why.startsWith('要动其他账号') && SECOND_TEST_ACCOUNT.test(item.text)))
         .find(({ re }) => re.test(item.text));
-      return hit ? [error('p0-direct', `「${headingOf('verify')}」第 ${item.index} 条 [P0] ${hit.why}，不能拿来直接跑：降成 [P1]，或改为研发在 MR 里附自测证据（STANDARD.md 1.5）`)] : [];
+      return hit ? [error('p0-direct', `「${headingOf('verify')}」第 ${item.index} 条 [P0] ${hit.why}，不能拿来直接跑：降成 [P1]，或改为研发在 PR 里附自测证据（STANDARD.md 1.5）`)] : [];
     });
 
 const judgedText = (sections: ParsedGuide['sections']) =>
@@ -223,7 +223,7 @@ const verdictOverrideRule: Rule = ({ sections }) =>
   judgedText(sections).flatMap(({ id, content }) =>
     NOT_APPLICABLE
       .filter(re => re.test(content))
-      .map(re => error('verdict-override', `「${headingOf(id)}」里写了「不适用」（${re.source}）：「不适用」由验证方按 services 和 requires 对照环境判；环境可能没有的依赖写进文件头 requires，能在 Autotest 里造出的前提写清怎么造（STANDARD.md 1.15）`)));
+      .map(re => error('verdict-override', `「${headingOf(id)}」里写了「不适用」（${re.source}）：「不适用」由验证方按 services 和 requires 对照环境判；环境可能没有的依赖写进文件头 requires，能用测试账号造出的前提写清怎么造（STANDARD.md 1.15）`)));
 
 const reproduceOldRule: Rule = ({ sections }) =>
   judgedText(sections).flatMap(({ id, content }) =>

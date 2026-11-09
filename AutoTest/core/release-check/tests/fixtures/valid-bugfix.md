@@ -2,7 +2,7 @@
 type: bugfix
 source_branch: fix/sample-bug_bob_20261020
 author: bob
-services: [agentFlow.backend]
+services: [backend]
 safety: writes-test-data
 risk: high
 regression: true

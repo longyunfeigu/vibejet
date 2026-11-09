@@ -3,21 +3,8 @@
  * Later phases import from here; do not duplicate these enums elsewhere.
  */
 
-// Image keys from common-values with the leading `images.` removed.
-export const SERVICES = [
-  'voiceAgent.backend', 'voiceAgent.agent', 'voiceAgent.frontend',
-  'voiceAgent.emotionService', 'voiceAgent.hecttorService',
-  'agentFlow.backend', 'agentFlow.mcpServer', 'agentFlow.intentService',
-  'agentFlow.intentCatalogLoader',
-  'aiSimulation.api', 'aiSimulation.web',
-  'humanAgent.backend', 'humanAgent.frontend',
-  'livekit.server', 'livekit.egress', 'livekit.sip',
-  'mcpGateway', 'appspace', 'opensips',
-  'presidio.analyzer', 'presidio.anonymizer',
-  'demoDatabaseMcp',
-  'kbhub.server', 'kbhub.frontend',
-  'wizPermission.service',
-] as const;
+// Service keys: the deployable parts of vibejet (FastAPI backend, React frontend, gRPC server).
+export const SERVICES = ['backend', 'frontend', 'grpc'] as const;
 
 export const GUIDE_TYPES = ['feature', 'bugfix'] as const;
 export const SAFETY_LEVELS = ['readonly', 'writes-test-data', 'costly'] as const;

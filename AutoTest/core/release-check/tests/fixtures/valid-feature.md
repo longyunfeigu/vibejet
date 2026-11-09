@@ -2,7 +2,7 @@
 type: feature
 source_branch: feature/sample-feature_alice_20261020
 author: alice
-services: [voiceAgent.backend]
+services: [backend]
 safety: readonly
 risk: low
 regression: true

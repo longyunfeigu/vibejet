@@ -1,6 +1,6 @@
 /**
  * guide-name.ts — derive and check Release-Check guide file names and paths.
- * Path layout: <release-branch>/<feature|bugfix>/<author>-<slug>.md
+ * Path layout: <YYYY-MM>/<feature|bugfix>/<author>-<slug>.md
  */
 
 import { ParsedGuide } from './parse-guide';
@@ -10,7 +10,7 @@ const BRANCH_PREFIX_RE = /^(?:feature|feat|fix|bugfix|hotfix|change)[/-]/i;
 const DATE_SUFFIX_RE = /[_-]\d{8}(?:-\d+)?$/;
 // Team convention `<slug>_<Person>_<date>`: an underscore-joined last word before the date is a person name.
 const UNDERSCORE_PERSON_RE = /_[^_-]+$/;
-const RELEASE_DIR_RE = /^(?:DEV|HOTFIX)-.+$/;
+const RELEASE_DIR_RE = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 const GUIDE_DIRS = ['feature', 'bugfix'];
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -42,12 +42,12 @@ const pathError = (message: string): LintIssue => ({ rule: 'path', severity: 'er
 export function checkGuidePath(relPath: string, guide: ParsedGuide): LintIssue[] {
   const parts = relPath.split('/');
   if (parts.length !== 3 || !parts[2].endsWith('.md')) {
-    return [pathError(`路径应为 <版本分支>/<feature|bugfix>/<作者>-<短名>.md，当前为 ${relPath}`)];
+    return [pathError(`路径应为 <YYYY-MM>/<feature|bugfix>/<作者>-<短名>.md，当前为 ${relPath}`)];
   }
   const [release, dir, file] = parts;
   const { type, author } = guide.frontmatter;
   return [
-    RELEASE_DIR_RE.test(release) ? null : pathError(`版本目录 ${release} 必须与发版分支同名（DEV-xxx 或 HOTFIX-xxx）`),
+    RELEASE_DIR_RE.test(release) ? null : pathError(`月份目录 ${release} 必须是 YYYY-MM`),
     GUIDE_DIRS.includes(dir) ? null : pathError(`二级目录必须是 feature 或 bugfix，当前为 ${dir}`),
     GUIDE_DIRS.includes(dir) && dir !== type ? pathError(`type 为 ${String(type)}，却放在 ${dir}/ 下`) : null,
     typeof author === 'string' && file.startsWith(`${author}-`) ? null : pathError(`文件名必须以作者 ${String(author)}- 开头，当前为 ${file}`),

@@ -72,7 +72,7 @@ Fix every finding and rerun until all three are clean:
 
 ```bash
 (cd AutoTest && npm run lint:release-check -- Release-Check/$MONTH/<type>/<file>.md)            # 0 errors
-python3 .claude/skills/writing-release-check/scripts/check_refs.py AutoTest/Release-Check/$MONTH/<type>/<file>.md   # 0 errors
+python3 .agents/skills/writing-release-check/scripts/check_refs.py AutoTest/Release-Check/$MONTH/<type>/<file>.md   # 0 errors
 ```
 
 `check_refs.py` checks that every endpoint has a reference, that the referenced line defines that endpoint, and that every `file:line` resolves. For each warning, open the line and confirm it.

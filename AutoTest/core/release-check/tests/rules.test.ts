@@ -12,7 +12,7 @@ const BUGFIX = read('valid-bugfix.md');
 
 const ctx: LintContext = {
   toolRegistry: new Set(['browser', 'api']),
-  guideExists: p => p === 'DEV-20261014/feature/alice-old.md',
+  guideExists: p => p === '2026-10/feature/alice-old.md',
 };
 
 const lint = (text: string) => lintGuide(parseGuide(text), ctx);
@@ -25,7 +25,7 @@ test('valid fixtures produce no errors', () => {
 });
 
 test('frontmatter: rejects unknown service', () => {
-  const text = FEATURE.replace('services: [voiceAgent.backend]', 'services: [voiceAgent.nope]');
+  const text = FEATURE.replace('services: [backend]', 'services: [nope]');
   const frontmatterErrors = errors(lint(text)).filter(i => i.rule === 'frontmatter');
   assert.equal(frontmatterErrors.length, 1);
 });
@@ -66,8 +66,8 @@ test('not-self-contained: flags 群消息', () => {
   assert.ok(rulesOf(lint(text)).includes('not-self-contained'));
 });
 
-test('hardcoded-env: flags https://demo.wiz.ai/x and 10.0.0.12', () => {
-  const url = FEATURE.replace('Agent 列表页。', '打开 https://demo.wiz.ai/x');
+test('hardcoded-env: flags http://localhost:5173/x and 10.0.0.12', () => {
+  const url = FEATURE.replace('Agent 列表页。', '打开 http://localhost:5173/x');
   const ip = FEATURE.replace('Agent 列表页。', '连 10.0.0.12');
   assert.ok(rulesOf(lint(url)).includes('hardcoded-env'));
   assert.ok(rulesOf(lint(ip)).includes('hardcoded-env'));
@@ -96,14 +96,14 @@ test('dry_run is not required: a guide without it gets no issue at all', () => {
 });
 
 test('supersedes: non-existent path is an error', () => {
-  const bad = FEATURE.replace('risk: low', 'risk: low\nsupersedes: DEV-20261014/feature/alice-missing.md');
-  const good = FEATURE.replace('risk: low', 'risk: low\nsupersedes: DEV-20261014/feature/alice-old.md');
+  const bad = FEATURE.replace('risk: low', 'risk: low\nsupersedes: 2026-10/feature/alice-missing.md');
+  const good = FEATURE.replace('risk: low', 'risk: low\nsupersedes: 2026-10/feature/alice-old.md');
   assert.ok(rulesOf(lint(bad)).includes('supersedes'));
   assert.ok(!rulesOf(lint(good)).includes('supersedes'));
 });
 
 test('hardcoded-env: flags hosts in backticks, without protocol, and before punctuation', () => {
-  for (const snippet of ['`https://demo.wiz.ai`', 'demo.wiz.ai', 'https://demo.wiz.ai, then', '打开 https://demo.talkbots.cn。', '<https://demo.wiz.ai>']) {
+  for (const snippet of ['`http://localhost:8010`', 'localhost:5173', 'http://localhost:5173, then', '打开 http://localhost:8010。', '<http://localhost:5173>']) {
     const text = FEATURE.replace('Agent 列表页。', snippet);
     assert.ok(rulesOf(lint(text)).includes('hardcoded-env'), snippet);
   }
@@ -230,9 +230,9 @@ test('frontmatter: requires must be a list', () => {
   assert.ok(rulesOf(lint(text)).includes('frontmatter'));
 });
 
-test('p0-direct: another organization named as the second QA organization is allowed', () => {
-  assert.ok(!rulesOf(lint(withP0('用 AI Builder Sandbox 4 的账号查，别的企业看不到这个任务，返回 404。'))).includes('p0-direct'));
-  assert.ok(!rulesOf(lint(withP0('Another organization (AI Builder Sandbox 4) cannot read it: 404.'))).includes('p0-direct'));
+test('p0-direct: another account named as the second test account is allowed', () => {
+  assert.ok(!rulesOf(lint(withP0('用 e2e-fixture-user-b 的账号查，别的企业看不到这个任务，返回 404。'))).includes('p0-direct'));
+  assert.ok(!rulesOf(lint(withP0('Another account (e2e-fixture-user-b) cannot read it: 404.'))).includes('p0-direct'));
 });
 
 test('frontmatter: regression may be omitted (defaults to false)', () => {

@@ -25,10 +25,7 @@ CHECKED_SECTIONS = {"入口", "怎么算对", "entry points", "how to verify"}
 ENDPOINT_RE = re.compile(r"`(GET|POST|PUT|PATCH|DELETE) (/[^`?]*)[^`]*`")
 SERVICES_RE = re.compile(r"^services:\s*\[([^\]]*)\]", re.M)
 SERVICE_DIRS = {
-    "voiceAgent": "RD/voice-agent/", "agentFlow": "RD/agent-flow/", "aiSimulation": "RD/ai-simulation/",
-    "humanAgent": "RD/human-agent-dashboard/", "kbhub": "RD/knowledge-hub/", "appspace": "RD/wiz-app-space/",
-    "templateMiddleware": "RD/template-middleware-service/", "wizPermission": "RD/wiz-permission/",
-    "ttbMcp": "RD/ttb-mcp/", "demoDatabaseMCP": "RD/demo-database-mcp/", "issueAiService": "RD/issue-ai-service/",
+    "backend": "backend/", "frontend": "frontend/", "grpc": "backend/",
 }
 REF_RE = re.compile(r"`((?:[\w.\-]+/)*[\w.\-]+\.[a-z]{1,5}):(\d+)(?:-(\d+))?`|`:(\d+)(?:-(\d+))?`")
 DECORATOR_RE = re.compile(r"""\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']""", re.I)

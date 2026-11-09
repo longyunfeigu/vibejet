@@ -1,25 +1,21 @@
 # Production smoke items
 
-> Chinese version: [smoke-cn.md](smoke-cn.md). Maintained by QA.
+Run on every environment after its upgrade. Independent of what changed: they only answer "after this upgrade, do the most basic user paths still work here". Every item is `[P0]` and runs as written per `STANDARD.md` 1.5; verdicts follow `safety.md`, and any failure stops this environment from being released.
 
-Run on every production environment after its upgrade, and on UAT too. Independent of what this release changed: they only answer "after this upgrade, do the most basic user paths still work here". Every item is `[P0]` and runs as written per `STANDARD.md` 1.5; verdicts follow `safety.md`, and any failure stops this environment from being released.
-
-- Identity: the test organization Autotest + the QA test account (same as for guides).
-- Safety: `costly`, 1 call per environment.
-- Standing fixture used: `e2e-fixture-unified` (`fixtures.md`). If this environment lacks it, create it per `fixtures.md` first; if the script cannot create it, the environment or the script is broken: record "blocked by environment" and report it for fixing.
+- Identity: the test account `e2e-fixture-user-a` (`fixtures.md`).
+- Safety: `readonly`.
 
 ## How to verify
 
-1. [P0] **Login**: log in through the browser with the QA test account; after entering the Autotest organization the agent list page shows `e2e-fixture-unified`. In the same session `GET /api/v1/me/permissions` returns 200 (`RD/voice-agent/backend/app/api/v1/permissions_me.py:29`).
-2. [P0] **Service liveness**: `GET /api/health` and `GET /api/health/ready` both return 200 (`RD/voice-agent/backend/app/api/v1/health.py:14`, `:23`).
-3. [P0] **Core APIs**: `GET /api/agents` returns 200 and includes `e2e-fixture-unified` (`RD/voice-agent/backend/app/api/v1/agents.py:176`); `GET /api/calls` returns 200 with a paginated list (`RD/voice-agent/backend/app/api/v1/calls.py:786`).
-4. [P0] **One call**: place 1 simulated call to `e2e-fixture-unified` through ai-simulation; the call ends normally. The call then appears in `GET /api/calls` with a duration above 0, and `GET /api/calls/{call_id}/messages` (`calls.py:1593`) returns 200 with at least one agent turn and one user turn.
+1. [P0] **Login**: log in through the browser at `/login` with `e2e-fixture-user-a`; the home page heading reads `你好，<full name or username>` (`frontend/src/features/home/components/HomeDashboard.tsx:43`). In the same session `GET /api/v1/auth/me` (`backend/api/routes/auth.py:111`, prefix `/api/v1` from `backend/main.py:187`) returns 200 and its body contains `"username": "e2e-fixture-user-a"`.
+2. [P0] **Service liveness**: `GET /health/live` and `GET /health/ready` both return 200 (`backend/api/routes/health.py:15`, `backend/api/routes/health.py:20`).
+3. [P0] **Core API**: `GET /api/v1/conversations` (`backend/api/routes/conversations.py:57`) with the account's token returns 200.
 
 ## Test data and cleanup
 
-Standing fixtures only; nothing is created, edited, or deleted. The call record stays in Autotest and needs no cleanup.
+Standing fixtures only; nothing is created, edited, or deleted.
 
 ## Easy to misjudge
 
-- Right after an agent upgrade, old replicas are still draining calls (up to about 100 minutes); a new call lands on a new replica and does not affect the verdict.
-- The opening line and content of a simulated call vary with the model; judge only that both sides spoke and the call ended normally, not what was said.
+- `GET /health` (without `/live` or `/ready`) also exists; the two probes above are the ones that say whether the service accepts traffic.
+- An empty conversation list is a pass: the item checks that the API answers, not that the account has data.
