@@ -17,7 +17,8 @@ pytest + pytest-asyncio；从 `backend/` 目录运行：`uv run pytest tests/ -v
 | `test_user_oauth_repository.py` | 用户仓储 OAuth 联合身份与 (provider,sub) 唯一性 |
 | `test_auth_google_service.py` / `test_auth_lark_service.py` | Google / 飞书登录应用服务 |
 | `test_google_code_exchanger.py` / `test_lark_code_exchanger.py` | OAuth 授权码换 token 客户端 |
-| `test_chat_service_stream.py` | SSE 流式聊天：预校验先于流（4xx 时机）+ 完整事件序列 |
+| `test_chat_service_stream.py` | SSE 流式聊天：预校验先于流（4xx 时机）+ 完整事件序列；非流式 LLM 失败不外泄上游报错原文 |
+| `test_i18n_message_keys.py` | 翻译表校验接进 pytest（调 `scripts/validate_po.py`：语法、代码用到的 key 都有非空译文）+ 业务异常缺翻译时退回默认文案、不返回 key |
 | `test_document_entity.py` / `test_document_repository.py` / `test_document_service.py` | 文档模块状态机、仓储、解析编排 |
 | `test_document_parsers.py` | 文档解析器（需 documents extra，未装则 skip） |
 | `test_file_asset_relay_cleanup.py` | relay 上传 DB 失败时孤儿对象 best-effort 清理 |

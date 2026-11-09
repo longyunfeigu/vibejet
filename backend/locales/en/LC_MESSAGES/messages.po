@@ -2,7 +2,16 @@
 # Copyright (C) 2025
 # This file is distributed under the same license as the project.
 msgid ""
-msgstr ""\n"Project-Id-Version: vibejet 1.0\n"\n"POT-Creation-Date: 2025-10-08 00:00+0000\n"\n"PO-Revision-Date: 2025-10-08 00:00+0000\n"\n"Last-Translator: Developer <dev@example.com>\n"\n"Language-Team: English\n"\n"Language: en\n"\n"MIME-Version: 1.0\n"\n"Content-Type: text/plain; charset=UTF-8\n"\n"Content-Transfer-Encoding: 8bit\n"
+msgstr ""
+"Project-Id-Version: vibejet 1.0\n"
+"POT-Creation-Date: 2025-10-08 00:00+0000\n"
+"PO-Revision-Date: 2025-10-08 00:00+0000\n"
+"Last-Translator: Developer <dev@example.com>\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 
 # Generic
 msgid "ok"
