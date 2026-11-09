@@ -1,5 +1,6 @@
 ---
 name: prd-to-bdd
+status: experimental
 description: Use when generating test cases from delivery or PRD docs under RD/docs/delivery or Product/requirements, when the user says "从交付文档生成用例" / "generate cases from delivery docs" / "prd to bdd", or provides a path under those directories. Also use when the user says "激活 pending 用例" / "activate pending" to activate previously generated pending cases.
 ---
 

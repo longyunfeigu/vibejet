@@ -368,15 +368,15 @@ Behavioral changes (non-breaking but behavior differs):
 
 ## Design Storage Location
 
-All design documents are stored in `RD/docs/delivery/`:
+All design documents are stored in `docs/work/delivery/`:
 
 | Work type | File path |
 |-----------|----------|
-| Feature design | `RD/docs/delivery/[YYYY-MM-DD]-feature-[slug]-design.md` |
-| Bug fix design | `RD/docs/delivery/[YYYY-MM-DD]-bugfix-[slug]-design.md` |
+| Feature design | `docs/work/delivery/[YYYY-MM]/[DD]-feature-[slug]/design.md` |
+| Bug fix design | `docs/work/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design.md` |
 
 T4 Architecture Decision Records are additionally cross-filed in:
-`RD/docs/architecture/adr/adr-[NNN]-[topic].md`
+`docs/reference/adrs/[NNNN]-[topic].md`
 
 Both the design doc and checklist report must be linked in the PR description.
 

@@ -39,7 +39,7 @@
 ## Performance
 
 - [ ] [HUMAN] Performance benchmarks run if dependency is in a hot path
-         (especially for llm-proxy, agent-flow, voice-agent core)
+         (especially for auth, ownership and data-access paths)
 
 ## Architecture Compliance
 

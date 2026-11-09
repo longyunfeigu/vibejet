@@ -30,7 +30,7 @@
 - [ ] [AUTO] No print() used — logger used throughout
 - [ ] [AUTO] All new functions have type hints
 - [ ] [AUTO] Pydantic schemas used for new request/response structures
-- [ ] [AUTO] Dependency direction follows layered architecture (CLAUDE.md)
+- [ ] [AUTO] Dependency direction follows layered architecture (AGENTS.md; `cd backend && uv run lint-imports`)
 
 ## Performance
 

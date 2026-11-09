@@ -24,10 +24,10 @@ Use these skills via slash commands in the RD context:
 
 | Skill | When to Use | Produces |
 |-------|------------|---------|
-| `/feature-design` | Before coding a new feature | Design doc in `RD/docs/delivery/` |
-| `/bug-fix-design` | Before fixing a bug | Design doc in `RD/docs/delivery/` |
-| `/feature-checklist` | After feature coding, before merging | Checklist report in `RD/docs/delivery/` |
-| `/bug-fix-checklist` | After bug fix coding, before merging | Checklist report in `RD/docs/delivery/` |
+| `/feature-design` | Before coding a new feature | Design doc in `docs/work/delivery/` |
+| `/bug-fix-design` | Before fixing a bug | Design doc in `docs/work/delivery/` |
+| `/feature-checklist` | After feature coding, before merging | Checklist report in `docs/work/delivery/` |
+| `/bug-fix-checklist` | After bug fix coding, before merging | Checklist report in `docs/work/delivery/` |
 
 Each skill runs step-by-step with a human confirmation gate between steps.
 
@@ -38,7 +38,7 @@ Each skill runs step-by-step with a human confirmation gate between steps.
 All design documents and checklist reports are stored in:
 
 ```
-RD/docs/delivery/
+docs/work/delivery/
 ├── [date]-feature-[slug]-design.md
 ├── [date]-feature-[slug]-checklist.md
 ├── [date]-bugfix-[slug]-design.md
@@ -77,6 +77,6 @@ Both documents must be linked in the PR description before merging.
 
 ## Related Standards
 
-- [Git Standards](../common/git-standards.md)
+- `AGENTS.md` (Commit & PR Guidelines)
 - [Testing Guidelines](../common/testing.md)
 - [Documentation Guidelines](../common/documentation.md)

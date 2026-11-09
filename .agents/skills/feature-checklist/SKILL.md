@@ -1,5 +1,6 @@
 ---
 name: feature-checklist
+status: experimental
 description: Feature Checklist - generate and execute the verification checklist for a feature, based on the completed feature design. Human gate before execution and after AUTO results. Ends by drafting the Release-Check verification guide QA uses to test the change.
 allowed-tools: Read, Glob, Grep, Bash(git *), Bash(python3 *), Bash(pytest *), Bash(npm run lint\:release-check *), Bash(npx tsx *), Write, AskUserQuestion
 user-invocable: true
@@ -15,9 +16,9 @@ Human confirmation is required before execution and again before the gate decisi
 **Prerequisite**: `/feature-design` must have been completed and confirmed.
 
 **Reference docs**:
-- `RD/docs/standards/ai-era-workflow/test-case-requirements.md`
-- `RD/docs/standards/ai-era-workflow/checklist-generation-guide.md`
-- `RD/docs/standards/ai-era-workflow/checklist-templates/`
+- `docs/reference/guides/delivery/test-case-requirements.md`
+- `docs/reference/guides/delivery/checklist-generation-guide.md`
+- `docs/reference/guides/delivery/checklist-templates/`
 
 ---
 
@@ -35,6 +36,20 @@ Options (pass exactly these three):
   re-presents this gate; if the revision involved a real trade-off, log a
   Decision Discussion entry (see below)
 - **Stop** — AI summarizes completed steps and halts; do not proceed further
+
+**Unattended mode** (vibejet adaptation): when the user has handed the work over and asked not
+to be interrupted (for example "全权交给你", "中途不要问我", or a scheduled / background run),
+do not call `AskUserQuestion`. At each gate:
+- pick the option the evidence supports yourself: **Confirm**, or **Revise** and fix the output
+  before moving on;
+- log the gate in the Decision Log as `Gate: auto-confirmed — pending user review`, with the
+  evidence you relied on;
+- pick **Stop** only for the reasons a human would: the root cause or the scope cannot be stated
+  with evidence, a T4 design needs approval, or the next step is destructive or irreversible.
+
+List every auto-confirmed gate at the top of the saved document, so the user can review them in
+one pass. The "never treat a user statement as confirmation" rule above applies to interactive
+runs.
 
 **Decision Discussion tracking**: when a "Revise" round involves a genuine
 trade-off or option comparison (not a simple wording fix), append one entry
@@ -284,15 +299,13 @@ Notes for retrospective:
 **Rule**: Do NOT fill in the Gate decision or reviewer name. Present the template for
 the human to complete.
 
-**After Gate PASS**, write **two files**:
+**After Gate PASS**, write **one file**, in Chinese:
 
 ```
-RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist.md       ← English (primary)
-RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist-cn.md    ← Chinese companion (required)
+docs/work/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist.md
 ```
 
 Use the same `[slug]` as the corresponding design document for this feature.
-The Chinese file is the same report fully translated — not a summary.
 
 The report must include the full checklist with all execution results and decision
 records filled in, followed by a **Decision Log** section at the end:
@@ -321,11 +334,11 @@ Then continue to **Step 5**. After Step 5 is confirmed (or exempted), output:
 
 ```
 Next steps:
-1. Checklist report saved to: RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist.md (EN) and RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist-cn.md (CN)
-2. Release-Check guide saved to: AutoTest/Release-Check/<release branch>/feature/<file name> (Step 5), or `release-check: exempt <reason>` added to the MR description
+1. Checklist report saved to: docs/work/delivery/[YYYY-MM]/[DD]-feature-[slug]/checklist.md
+2. Release-Check guide saved to: AutoTest/Release-Check/<YYYY-MM>/feature/<file name> (Step 5), or a `Release-Check: exempt <reason>` trailer in the commit message
 3. Include links to the design doc, the checklist report, and the Release-Check guide in the PR description
 4. After merge: if any checklist items were missing or ineffective, update the
-   checklist templates in RD/docs/standards/ai-era-workflow/checklist-templates/
+   checklist templates in docs/reference/guides/delivery/checklist-templates/
 ```
 
 ---
@@ -334,20 +347,23 @@ Next steps:
 
 **Purpose**: QA's verification AI tests every change in any environment
 from a written guide — developers are never asked to explain verbally. This step drafts that
-guide from the design and this checklist, so it ships in the same MR as the code.
+guide from the design and this checklist, so it ships in the same branch as the code.
 
 Standard (read first): `AutoTest/Release-Check/STANDARD.md`
-Template: `AutoTest/Release-Check/TEMPLATE-feature.md` (or `TEMPLATE-feature-cn.md`; a guide needs only one language)
+Template: `AutoTest/Release-Check/TEMPLATE-feature.md` (Chinese headings; write the guide in Chinese)
 
 **Exempt** only when the change has no runtime behavior to accept (pure refactor, CI, docs,
 AutoTest-only). Then skip this step and tell the developer to write
-`release-check: exempt <reason>` in the MR description.
+a `Release-Check: exempt <reason>` trailer in the commit message.
 
 ### 5.1 Locate the file
 
-Ask with `AskUserQuestion` (pre-fill your best guess):
-- **Release branch** the MR targets (`DEV-YYYYMMDD` or `HOTFIX-...`)
-- **GitLab username** of the MR author (guess from `git config user.email`)
+Confirm with `AskUserQuestion`, pre-filled with your best guess (in unattended mode, use the
+guess and log it):
+- **Guide folder**: the current month, `YYYY-MM` (vibejet has no release branches; guides are
+  grouped by month, like `docs/work/delivery/`)
+- **Author handle** of the change (guess from `git config user.name` / `user.email`; lowercase,
+  no spaces)
 
 Source branch: `git branch --show-current`. File name:
 
@@ -355,7 +371,7 @@ Source branch: `git branch --show-current`. File name:
 cd AutoTest && npx tsx -e "console.log(require('./core/release-check/guide-name').suggestGuideFileName('<source branch>', '<gitlab username>'))"
 ```
 
-Path: `AutoTest/Release-Check/<release branch>/feature/<file name>`
+Path: `AutoTest/Release-Check/<YYYY-MM>/feature/<file name>`
 
 ### 5.2 Draft from what this feature already produced
 
@@ -373,26 +389,27 @@ Write observable signals, not click-by-click steps. The acceptance AI finds its 
 **Drafting rules** (each one comes from a real acceptance run where the guide misled the AI):
 1. **Every check must be able to fail on the old version.** For each "How to verify" item, ask:
    would the version before this change pass it? If yes, the check is useless — rewrite it.
-2. **Name the exact component that serves the request.** Check routing/ingress: e.g. on UAT the
-   public flow chat API is served by the simulation backend, not `flow-backend`.
+2. **Name the exact component that serves the request.** Check routing: e.g. in local dev the
+   frontend's `/api` calls are proxied by Vite to the backend (`frontend/vite.config.ts`).
 3. **Name the real source of a setting** (env var vs start-up args vs values file), not where it
    "usually" lives.
-4. **Give the full page path** (left navigation → page, URL pattern like `/agent/<id>/voice`).
+4. **Give the full page path** (navigation → page, URL pattern like `/login`).
    Page names that also appear elsewhere get the AI lost.
-5. **List enumerations completely** (all voice names, all models, all endpoints) — or point to the
+5. **List enumerations completely** (all roles, all status values, all endpoints) — or point to the
    exact code constant.
-6. **Say what test data must already exist in the Autotest enterprise** (QA's test tenant). If it
+6. **Say what test data must already exist for the test account** (see
+   `AutoTest/Release-Check/_shared/fixtures.md`). If it
    may not exist, either declare it a prerequisite or use `safety: writes-test-data` and create
    `e2e-`-prefixed data that is deleted afterwards.
 7. **Define timing thresholds precisely**: from which moment to which moment, measured where.
 8. **"Same as before" needs a baseline**: name the metric and the allowed tolerance.
-9. **Deployment prerequisites beyond the image** (values changes, Deploy sync, rollout order) go
+9. **Deployment prerequisites beyond the image** (env vars, migrations, rollout order) go
    into "This change".
 10. No hosts, IPs, accounts, secrets, or environment names (STANDARD 1.8).
 11. **Never declare a verdict.** Do not write "not applicable" / 「不适用」 in "How to verify" or
     "Must not break" (lint `verdict-override` rejects it). If an item needs a precondition (a
-    configured key, a mode), say how to create it in Autotest; what the environment itself may lack
-    (a gray-release key, a model, outbound) goes into `requires` (STANDARD 1.15), and the verifier
+    configured key, a mode), say how to create it with the test account; what the environment itself may lack
+    (a service, an external dependency) goes into `requires` (STANDARD 1.15), and the verifier
     marks the dependent items not applicable where it is missing.
 12. **Verify on the new version only.** No step may reproduce the old bug, switch to the old image, or
     build the old failure path first (lint `reproduce-old`). Rule 1 is a thought test for you while
@@ -404,18 +421,18 @@ Write observable signals, not click-by-click steps. The acceptance AI finds its 
 14. **Count every call in `cost_estimate`**, including calls required by "Must not break"
     (lint `cost-mismatch`).
 15. **Keep other guides in step.** If this change removes or alters behavior that another guide in the
-    same release branch (or a `regression: true` guide) describes, update that guide in this MR or set
+    same month folder (or a `regression: true` guide) describes, update that guide in this branch or set
     `supersedes`.
-16. **Every `[P0]` runs as written** (STANDARD 1.5, lint `p0-direct`). P0 items run on UAT and on
-    every production environment: Autotest and standing fixtures only, no person-supplied resource
-    (test number, WhatsApp, real read-only account), no stopping/restarting/scaling a service, no business
+16. **Every `[P0]` runs as written** (STANDARD 1.5, lint `p0-direct`). P0 items run on
+    every environment the product is deployed to: test accounts and standing fixtures only, no
+    person-supplied resource (real customer account, third-party quota), no stopping/restarting/scaling a service, no business
     traffic, no hours of observation, safe on production. Anything else is P1, or developer evidence in
-    the MR. A P0 that cannot run during verification is returned to you as "guide defective".
+    the PR. A P0 that cannot run during verification is returned to you as "guide defective".
 
 ### 5.3 Lint and gate
 
 ```bash
-cd AutoTest && npm run lint:release-check -- Release-Check/<release branch>/feature/<file name>
+cd AutoTest && npm run lint:release-check -- Release-Check/<YYYY-MM>/feature/<file name>
 ```
 
 Fix every error, then present the guide through the Gate Protocol (Confirm / Revise / Stop).

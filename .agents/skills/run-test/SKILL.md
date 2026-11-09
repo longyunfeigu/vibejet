@@ -1,5 +1,6 @@
 ---
 name: run-test
+status: experimental
 description: |
   Execute E2E test cases using Playwright (default) or agent-browser strategy.
   Supports tag-based filtering (smoke/regression/negative), module-scoped runs, and specific scenario runs.

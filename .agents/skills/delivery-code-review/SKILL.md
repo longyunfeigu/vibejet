@@ -1,9 +1,10 @@
 ---
-name: code-review
+name: delivery-code-review
+status: experimental
 description: Code Review - reviews design document quality first, then code quality against standards. Stops if design fails. Saves a review report on completion. Works with feature-design and bug-fix-design outputs.
 allowed-tools: Read, Glob, Grep, Bash(git *), Write, AskUserQuestion
 user-invocable: true
-argument-hint: "[--branch <target>] [design doc path]  (e.g. '--branch master RD/docs/delivery/2026-04-14-feature-ai-builder-v2-design.md')"
+argument-hint: "[--branch <target>] [design doc path]  (e.g. '--branch master docs/work/delivery/2026-11/09-feature-example/design.md')"
 ---
 
 # Skill: Code Review
@@ -12,13 +13,13 @@ argument-hint: "[--branch <target>] [design doc path]  (e.g. '--branch master RD
 design document; if it passes, reviews the code. At the end, verifies git diff
 coverage. Saves a report automatically — no user confirmation gates.
 
-**Works with**: `/feature-design`, `/bug-fix-design` outputs under `RD/docs/delivery/`.
+**Works with**: `/feature-design`, `/bug-fix-design` outputs under `docs/work/delivery/`.
 
 **Reference standards**:
-- `RD/CLAUDE.md` (Critical Rules)
-- `RD/docs/standards/common/` (language, logging, security, exceptions, testing)
-- `RD/docs/standards/backend/` (python, fastapi, validation)
-- `RD/docs/standards/frontend/` (typescript-react)
+- `AGENTS.md` (Red Lines, Coding Style, Code Review Policy)
+- `docs/reference/guides/review-checklist-python-fastapi.md` (backend review checklist)
+- `.agents/skills/backend-dev-guidelines/` (python, fastapi, DDD layering, UoW)
+- `.agents/skills/frontend-dev-guidelines/` (typescript-react)
 
 ---
 
@@ -37,7 +38,7 @@ coverage. Saves a report automatically — no user confirmation gates.
 If both were provided as arguments, use them and skip asking.
 Otherwise, ask **one question** with both fields:
 
-> 1. Path to the design document (e.g. `RD/docs/delivery/2026-04-14-feature-ai-builder-v2-design.md`)
+> 1. Path to the design document (e.g. `docs/work/delivery/2026-11/09-feature-example/design.md`)
 >    — or `none` if this is a T1 change with no design document.
 > 2. Target branch to merge into (e.g. `master`, `main`, `develop`).
 
@@ -174,14 +175,14 @@ Review each file against all dimensions below. Every finding must include:
 
 ### 2a: Standards compliance
 
-Verify Critical Rules from `RD/CLAUDE.md`:
-- No `print()` — only `logger`
+Verify the Red Lines and conventions in `AGENTS.md`:
+- No `print()` — only `core.logging_config.get_logger(__name__)` (structlog)
+- DDD dependency direction holds: `cd backend && uv run lint-imports` passes
 - No raw `<button>/<input>/<select>` without checking shared components (frontend)
 - No hardcoded hex colors — use Tailwind token classes (frontend)
 - No `.env` with real secrets committed
 - All inputs at system boundaries validated via Pydantic
-- Commit messages in Conventional Commits format
-- New `.md` files have a `-cn.md` companion
+- Commit messages are imperative and concise; design trade-offs carry `Rejected:` / `Constraint:` trailers
 
 Verify language-specific standards for affected file types.
 
@@ -382,11 +383,10 @@ Aggregate all findings from Steps 1, 2, and 3 into a final report and save it.
 Determine the slug from the design document filename. If no design document,
 use a slug from the current branch name.
 
-Write **two files**:
+Write **one file**, in Chinese, next to the design document:
 
 ```
-RD/docs/delivery/[YYYY-MM-DD]-[type]-[slug]-review.md       ← English (primary)
-RD/docs/delivery/[YYYY-MM-DD]-[type]-[slug]-review-cn.md    ← Chinese companion
+docs/work/delivery/[YYYY-MM]/[DD]-[type]-[slug]/review.md
 ```
 
 Report structure:
@@ -442,8 +442,7 @@ Then output to the conversation:
 ```
 ## Review Complete
 
-Report (EN): RD/docs/delivery/[filename]-review.md
-Report (CN): RD/docs/delivery/[filename]-review-cn.md
+Report: docs/work/delivery/[YYYY-MM]/[DD]-[type]-[slug]/review.md
 
 Design: PASSED / FAILED
 Code: CRITICAL [N] | WARNING [N] | INFO [N]

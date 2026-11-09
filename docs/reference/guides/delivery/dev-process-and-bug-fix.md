@@ -26,9 +26,9 @@ Before writing a single line of code, AI must scan the codebase and produce an
 
 ```
 - Files likely to change
-- Modules affected (reference CLAUDE.md module map)
+- Modules affected (reference the AGENTS.md Project Structure)
 - Shared interfaces, schemas, or contracts touched
-- Critical paths involved (llm-proxy, agent-flow core, session handling)
+- Critical paths involved (auth and ownership, DB migrations, UoW transactions)
 - Features that depend on the behavior being changed
 - External dependencies involved
 ```
@@ -251,7 +251,7 @@ Every PR for a feature or bug fix must include in its description:
 - Analogical Investigation Report (Pre-Step C output)
 - Checklist execution summary
 
-See [Git Standards](../common/git-standards.md) for commit message format.
+See `AGENTS.md` (Commit & PR Guidelines) for commit message format and trailers.
 
 ---
 
@@ -261,5 +261,3 @@ See [Git Standards](../common/git-standards.md) for commit message format.
 - [Technical Design Spec](./technical-design-spec.md)
 - [Test Case Requirements](./test-case-requirements.md)
 - [Checklist Generation Guide](./checklist-generation-guide.md)
-- [Checklist Execution Guide](./checklist-execution-guide.md)
-- [Gate Review Criteria](./checklist-gate-review.md)

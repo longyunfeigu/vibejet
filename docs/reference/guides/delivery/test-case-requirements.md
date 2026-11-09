@@ -347,5 +347,3 @@ All test results must be recorded explicitly. The following format is required:
 - [Technical Design Spec](./technical-design-spec.md)
 - [Feature Type Classification](./feature-type-classification.md)
 - [Checklist Generation Guide](./checklist-generation-guide.md)
-- [Checklist Execution Guide](./checklist-execution-guide.md)
-- [Gate Review Criteria](./checklist-gate-review.md)

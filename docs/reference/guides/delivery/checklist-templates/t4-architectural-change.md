@@ -46,6 +46,6 @@
 
 ## Architecture Compliance
 
-- [ ] [AUTO] New structure follows layered architecture (CLAUDE.md)
+- [ ] [AUTO] New structure follows layered architecture (AGENTS.md; `cd backend && uv run lint-imports`)
 - [ ] [AUTO] No circular dependencies introduced
 - [ ] [HUMAN] New abstractions are documented in relevant module docs

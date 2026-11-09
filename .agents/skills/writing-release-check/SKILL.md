@@ -1,15 +1,14 @@
 ---
 name: writing-release-check
-description: Use when writing, updating or fixing a Release-Check guide under AutoTest/Release-Check/<release branch>/{feature,bugfix}/ -- an MR targeting DEV-* or HOTFIX-* needs one, or the MR review rejected a guide (STANDARD 1.3, 1.5, 1.11, 1.12, 1.13, 1.14, 1.15).
+status: experimental
+description: Use when writing, updating or fixing a Release-Check guide under AutoTest/Release-Check/<YYYY-MM>/{feature,bugfix}/ -- a change with runtime behavior needs one, or the review rejected a guide (STANDARD 1.3, 1.5, 1.11, 1.12, 1.13, 1.14, 1.15).
 ---
 
 # Writing a Release-Check guide
 
-> Chinese companion: [SKILL-cn.md](SKILL-cn.md)
-
 ## Overview
 
-A guide is accepted only when it passes **lint and the AI review** on the MR. Lint checks format; the AI review checks the rules marked *(AI review)* in `AutoTest/Release-Check/STANDARD.md`. Passing lint locally does not mean the guide is done. This skill turns the reviewer's checklist into writing steps, so the first push passes.
+A guide is accepted only when it passes **lint and the AI review** before it is merged (lint runs in CI; the AI review is the `delivery-code-review` / `review` pass). Lint checks format; the AI review checks the rules marked *(AI review)* in `AutoTest/Release-Check/STANDARD.md`. Passing lint locally does not mean the guide is done. This skill turns the reviewer's checklist into writing steps, so the first push passes.
 
 Read before writing: `AutoTest/Release-Check/STANDARD.md` (section 1 is the hard rules), `_shared/safety.md`, `_shared/fixtures.md`, `_shared/tools.md`.
 
@@ -21,11 +20,11 @@ Commit the code change first. Line numbers and endpoints come from the commit yo
 
 ```bash
 SRC=$(git branch --show-current)          # source_branch
-TARGET=DEV-YYYYMMDD                        # the MR target branch = the guide folder
-git diff --stat origin/$TARGET...HEAD      # what this MR changes
+MONTH=$(date +%Y-%m)                       # the guide folder
+git diff --stat master...HEAD              # what this branch changes
 ```
 
-Copy `TEMPLATE-feature.md` or `TEMPLATE-bugfix.md` (or the `-cn` version) to `AutoTest/Release-Check/$TARGET/{feature|bugfix}/<gitlab-user>-<short-name>.md`. Name the file as `README.md` says. Fill in the front matter as STANDARD section 3 says; `tools` uses names from `_shared/tools.md` only.
+Copy `TEMPLATE-feature.md` or `TEMPLATE-bugfix.md` to `AutoTest/Release-Check/$MONTH/{feature|bugfix}/<author>-<short-name>.md`. Name the file as `README.md` says. Fill in the front matter as STANDARD section 3 says; `tools` uses names from `_shared/tools.md` only.
 
 ### 2. Build a fact table before writing any prose
 
@@ -33,17 +32,17 @@ List every endpoint, log line, page element, console output, env var and DB colu
 
 | Fact | How to find it |
 |---|---|
-| Endpoint | `git grep -nE '@router\.(get\|post\|put\|patch\|delete)\(' -- RD/<service>` and the `include_router(..., prefix=...)` in that service's `main.py`. Full path = prefix + decorator path. |
-| Log keyword | `git grep -n '<words>' -- RD/<service>`. Copy the literal text from the logger call. |
+| Endpoint | `git grep -nE '@router\.(get\|post\|put\|patch\|delete)\(' -- backend/api/routes` and the `include_router(..., prefix=...)` in `backend/main.py`, plus the router file's own `APIRouter(prefix=...)`. Full path = include prefix + router prefix + decorator path. |
+| Log keyword | `git grep -n '<words>' -- backend frontend`. Copy the literal text from the logger call. |
 | Page element | Look up the visible text or `aria-label` in the frontend source. |
 | Env var / setting | Find the settings field and its default. |
 | Expected value | Every value you promise ("returns `pregen`", "422", "key absent") comes from the code path: read the schema defaults, validators and serializers. A field with a default is never "missing" on read. |
 
-**If you cannot find it in the code, it does not exist. Do not write it.** Never write an endpoint from memory or by analogy. For example, `POST /api/case-sets` does not exist; creating a case set is `POST /api/agents/{flow_id}/case-sets`.
+**If you cannot find it in the code, it does not exist. Do not write it.** Never write an endpoint from memory or by analogy. For example, the login decorator in `backend/api/routes/auth.py` is `/login`, but the route is `POST /api/v1/auth/login`: `/api/v1` comes from `backend/main.py` and `/auth` from the router's own prefix.
 
 ### 3. Write "Entry points" and "How to verify" from that table
 
-- Put the reference right after each fact: `` `POST /api/case-sets/{suite_id}/runs` (`RD/ai-simulation/backend/runs/routers/runs.py:129`) ``. Do this for every fact, including each endpoint in a list of several.
+- Put the reference right after each fact: `` `POST /api/v1/auth/login` (`backend/api/routes/auth.py:53`) ``. Do this for every fact, including each endpoint in a list of several.
 - Use repo-root paths. A bare `agents.py` or `App.tsx` matches several files, and a bare `:N` is unclear about which file it means.
 - For each item in "How to verify" and "Must not break", check:
 
@@ -51,8 +50,8 @@ List every endpoint, log line, page element, console output, env var and DB colu
 |---|---|
 | 1.4 | start with `[P0]`, `[P1]` or `[P2]` |
 | 1.2 / 1.3 | give exact signals (status code, field = value, log line, DB value, threshold). The guide has at least one signal a program can check. |
-| 1.5 (P0 only) | use only Autotest, fixtures from `_shared/fixtures.md`, or objects created on the spot and deleted afterwards. It needs no phone numbers, WhatsApp numbers or real accounts, and no restarts, scaling or platform config. It does not wait for traffic, runs in minutes, and is safe on production (at most 2 calls). An item that cannot do all of this becomes `[P1]` or is removed. |
-| 1.11 / 1.15 | say how to **create** each precondition in Autotest (`e2e-<file-name>-xxx`, deleted afterwards). Something the environment may lack (gray switch, model, outbound, extra service) goes into front-matter `requires` (`gray:` / `model:` / `service:` / `outbound`), plus `(requires: ...)` on the item. Do not write "not applicable", "if missing, mark as environment issue", "do not create" or "skip". |
+| 1.5 (P0 only) | use only the test accounts and fixtures from `_shared/fixtures.md`, or objects created on the spot and deleted afterwards. It needs no real customer accounts or third-party quota, and no restarts, scaling or platform config. It does not wait for traffic, runs in minutes, and is safe on production (at most 2 calls). An item that cannot do all of this becomes `[P1]` or is removed. |
+| 1.11 / 1.15 | say how to **create** each precondition with the test account (`e2e-<file-name>-xxx`, deleted afterwards). Something the environment may lack (an extra service) goes into front-matter `requires` (`service:`), plus `(requires: ...)` on the item. Do not write "not applicable", "if missing, mark as environment issue", "do not create" or "skip". |
 | 1.12 | check only the new version. It does not reproduce the old bug, switch images, or build the old error path first. |
 | 1.8 | contain no environment names, hosts, IPs, accounts or keys |
 | 1.3 | not use text the model writes as the signal ("the reply says X"); check the routing / jump log, the selected task or outlet, or an API field. An expected row count names its scope (e.g. rows created before the migration) |
@@ -65,15 +64,15 @@ List every endpoint, log line, page element, console output, env var and DB colu
 git grep -n -e '<endpoint or field you changed>' -- AutoTest/Release-Check/
 ```
 
-If this change alters behavior that another guide describes (in `$TARGET/`, or any guide with `regression: true`), update that guide in this MR, or set `supersedes: <path>`.
+If this change alters behavior that another guide describes (in `$MONTH/`, or any guide with `regression: true`), update that guide in this branch, or set `supersedes: <path>`.
 
 ### 5. Self-check before pushing
 
 Fix every finding and rerun until all three are clean:
 
 ```bash
-(cd AutoTest && npm run lint:release-check -- Release-Check/$TARGET/<type>/<file>.md)            # 0 errors
-python3 .claude/skills/writing-release-check/scripts/check_refs.py AutoTest/Release-Check/$TARGET/<type>/<file>.md   # 0 errors
+(cd AutoTest && npm run lint:release-check -- Release-Check/$MONTH/<type>/<file>.md)            # 0 errors
+python3 .claude/skills/writing-release-check/scripts/check_refs.py AutoTest/Release-Check/$MONTH/<type>/<file>.md   # 0 errors
 ```
 
 `check_refs.py` checks that every endpoint has a reference, that the referenced line defines that endpoint, and that every `file:line` resolves. For each warning, open the line and confirm it.

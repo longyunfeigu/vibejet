@@ -1,5 +1,6 @@
 ---
 name: test-self-heal
+status: experimental
 description: |
   Run a self-healing E2E test loop (Loop Engineering): run tests → read failures →
   triage against the known-pitfalls table → auto-fix test-side issues → re-run only the

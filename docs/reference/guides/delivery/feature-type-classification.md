@@ -23,9 +23,9 @@ Before classifying, scan the codebase and answer these questions:
 ```
 Exploration Questions:
 1. Which files will likely change?
-2. Which modules are affected (reference CLAUDE.md module map)?
+2. Which modules are affected (reference the AGENTS.md Project Structure)?
 3. Are any shared interfaces, schemas, or contracts involved?
-4. Does this touch any critical path (llm-proxy, agent-flow core, session handling)?
+4. Does this touch any critical path (auth and ownership, DB migrations, UoW transactions)?
 5. Are there other features that depend on the behavior being changed?
 6. Are any external dependencies (third-party libs, APIs) involved?
 ```

@@ -1,5 +1,6 @@
 ---
 name: feature-design
+status: experimental
 description: Feature Technical Design - guided design process for new features (Explore → Classify → Design), with human confirmation gate at each step
 allowed-tools: Read, Glob, Grep, Bash(git *), Write, AskUserQuestion
 user-invocable: true
@@ -13,9 +14,9 @@ produces a concrete output and requires human confirmation before proceeding.
 T1 features are exempt from design; T2 and above produce a design document.
 
 **Reference docs**:
-- `RD/docs/standards/ai-era-workflow/dev-process-and-bug-fix.md`
-- `RD/docs/standards/ai-era-workflow/feature-type-classification.md`
-- `RD/docs/standards/ai-era-workflow/technical-design-spec.md`
+- `docs/reference/guides/delivery/dev-process-and-bug-fix.md`
+- `docs/reference/guides/delivery/feature-type-classification.md`
+- `docs/reference/guides/delivery/technical-design-spec.md`
 
 ---
 
@@ -33,6 +34,20 @@ Options (pass exactly these three):
   re-presents this gate; if the revision involved a real trade-off, log a
   Decision Discussion entry (see below)
 - **Stop** — AI summarizes completed steps and halts; do not proceed further
+
+**Unattended mode** (vibejet adaptation): when the user has handed the work over and asked not
+to be interrupted (for example "全权交给你", "中途不要问我", or a scheduled / background run),
+do not call `AskUserQuestion`. At each gate:
+- pick the option the evidence supports yourself: **Confirm**, or **Revise** and fix the output
+  before moving on;
+- log the gate in the Decision Log as `Gate: auto-confirmed — pending user review`, with the
+  evidence you relied on;
+- pick **Stop** only for the reasons a human would: the root cause or the scope cannot be stated
+  with evidence, a T4 design needs approval, or the next step is destructive or irreversible.
+
+List every auto-confirmed gate at the top of the saved document, so the user can review them in
+one pass. The "never treat a user statement as confirmation" rule above applies to interactive
+runs.
 
 **Decision Discussion tracking**: when a "Revise" round involves a genuine
 trade-off or option comparison (not a simple wording fix), append one entry
@@ -96,7 +111,7 @@ Date: [today]
   (These fields require Field Addition Compatibility Analysis in Step 3.)
 
 ### Critical Paths Touched
-- [llm-proxy / agent-flow core / session handling / etc.] — YES/NO
+- [auth / ownership / DB migration / UoW transaction / etc.] — YES/NO
 
 ### External Dependencies Involved
 - [library / third-party service] — YES/NO
@@ -175,7 +190,7 @@ Next step: Use /feature-checklist to generate the verification checklist before 
 Produce the technical design document based on the confirmed classification.
 
 Read the level-specific requirements from:
-`RD/docs/standards/ai-era-workflow/technical-design-spec.md`
+`docs/reference/guides/delivery/technical-design-spec.md`
 
 ### Design Presentation Principles (MANDATORY)
 
@@ -232,7 +247,7 @@ This section bridges Background (why we're changing) and Proposed Change (what s
 - **After** diagram: target component topology and data flow (ASCII diagram)
 - **Component roles table**: what each component is responsible for after the change
 - **Data flow or sequence diagram** (Mermaid preferred): critical paths affected by this change,
-  covering both the happy path and key edge cases (e.g. unauthenticated, no tenant selected)
+  covering both the happy path and key edge cases (e.g. unauthenticated, non-owner access)
 
 Place this section **before** "Proposed Change / What Changes" so that readers understand
 the system-level picture before seeing the list of implementation decisions.
@@ -291,7 +306,7 @@ Q0/Q1/Q2 with a concrete recommendation — do NOT leave any answer blank or wri
 Present your recommendations to the user; let them confirm or revise each one.
 
 Read the template from:
-`RD/docs/standards/ai-era-workflow/technical-design-spec.md`
+`docs/reference/guides/delivery/technical-design-spec.md`
 — section "Supplementary Analysis: Field Addition Compatibility"
 
 When presenting Q0/Q1/Q2 to the user:
@@ -314,20 +329,18 @@ When presenting Q0/Q1/Q2 to the user:
 
 ## Step 4: Output and Next Steps
 
-After the design is confirmed, write **two files**:
+After the design is confirmed, write **one file**, in Chinese:
 
 ```
-RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/design.md       ← English (primary)
-RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/design-cn.md    ← Chinese companion (required)
+docs/work/delivery/[YYYY-MM]/[DD]-feature-[slug]/design.md
 ```
 
 Naming rules:
 - `[YYYY-MM]`: year and month from today's date
 - `[dayofmonth-description]`: `DD-feature-[slug]` (day of month + description)
 - `[slug]`: lowercase, hyphen-separated summary of the feature (max 5 words), e.g. `retry-logic-llm-proxy`
-- The Chinese file is the same document fully translated — not a summary
 
-**Always write both files**, regardless of T-level (T2–T6). T1 is exempt from design.
+**Always write the design file**, regardless of T-level (T2–T6). T1 is exempt from design.
 
 The document must contain the final confirmed content of every step, followed by
 a **Decision Log** section at the end:
@@ -360,8 +373,7 @@ Then output:
 
 Feature: [feature name]
 Type: T[N]
-Design document (EN): RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/design.md
-Design document (CN): RD/docs/delivery/[YYYY-MM]/[DD]-feature-[slug]/design-cn.md
+Design document: docs/work/delivery/[YYYY-MM]/[DD]-feature-[slug]/design.md
 Design status: Confirmed
 
 ---

@@ -1,5 +1,6 @@
 ---
 name: bug-fix-design
+status: experimental
 description: Bug Fix Design - guided pre-coding analysis for bug fixes (Root Cause → Side Effects → Analogical Investigation → Classify → Design), with human gate at each step
 allowed-tools: Read, Glob, Grep, Bash(git *), Write, AskUserQuestion
 user-invocable: true
@@ -13,9 +14,9 @@ cause identification, side effect analysis, and analogical investigation before 
 is written. Each step requires human confirmation.
 
 **Reference docs**:
-- `RD/docs/standards/ai-era-workflow/dev-process-and-bug-fix.md`
-- `RD/docs/standards/ai-era-workflow/feature-type-classification.md`
-- `RD/docs/standards/ai-era-workflow/technical-design-spec.md`
+- `docs/reference/guides/delivery/dev-process-and-bug-fix.md`
+- `docs/reference/guides/delivery/feature-type-classification.md`
+- `docs/reference/guides/delivery/technical-design-spec.md`
 
 ---
 
@@ -33,6 +34,20 @@ Options (pass exactly these three):
   re-presents this gate; if the revision involved a real trade-off, log a
   Decision Discussion entry (see below)
 - **Stop** — AI summarizes completed steps and halts; do not proceed further
+
+**Unattended mode** (vibejet adaptation): when the user has handed the work over and asked not
+to be interrupted (for example "全权交给你", "中途不要问我", or a scheduled / background run),
+do not call `AskUserQuestion`. At each gate:
+- pick the option the evidence supports yourself: **Confirm**, or **Revise** and fix the output
+  before moving on;
+- log the gate in the Decision Log as `Gate: auto-confirmed — pending user review`, with the
+  evidence you relied on;
+- pick **Stop** only for the reasons a human would: the root cause or the scope cannot be stated
+  with evidence, a T4 design needs approval, or the next step is destructive or irreversible.
+
+List every auto-confirmed gate at the top of the saved document, so the user can review them in
+one pass. The "never treat a user statement as confirmation" rule above applies to interactive
+runs.
 
 **Decision Discussion tracking**: when a "Revise" round involves a genuine
 trade-off or option comparison (not a simple wording fix), append one entry
@@ -328,20 +343,18 @@ Follow-up tasks created: [list or "none"]
 
 ## Step 4: Output and Next Steps
 
-After design is confirmed, write **two files**:
+After design is confirmed, write **one file**, in Chinese:
 
 ```
-RD/docs/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design.md       ← English (primary)
-RD/docs/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design-cn.md    ← Chinese companion (required)
+docs/work/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design.md
 ```
 
 Naming rules:
 - `[YYYY-MM]`: year and month from today's date
 - `[dayofmonth-description]`: `DD-bugfix-[slug]` (day of month + description)
 - `[slug]`: lowercase, hyphen-separated summary of the bug (max 5 words), e.g. `asr-param-mapping-wrong`
-- The Chinese file is the same document fully translated — not a summary
 
-**Always write both files**, regardless of T-level (T2–T6). T1 is exempt from design.
+**Always write the design file**, regardless of T-level (T2–T6). T1 is exempt from design.
 
 The document must contain the final confirmed content of every step, followed by
 a **Decision Log** section at the end:
@@ -374,8 +387,7 @@ Then output:
 
 Bug: [description]
 Type: T[N]
-Design document (EN): RD/docs/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design.md
-Design document (CN): RD/docs/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design-cn.md
+Design document: docs/work/delivery/[YYYY-MM]/[DD]-bugfix-[slug]/design.md
 Pre-coding analysis: Complete (Root Cause → Side Effects → Analogical Investigation)
 Design status: Confirmed
 
