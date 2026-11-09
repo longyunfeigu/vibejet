@@ -54,3 +54,8 @@ __pycache__/
 
 # Scenario-import test fixtures, regenerated at runtime by build-scenario-workbook.ts
 modules/ai-simulation/scenario-file-import/cases/test-data/*.xlsx
+
+# vibejet: the root .gitignore ignores lib/ and package-lock.json (Python and pnpm defaults);
+# AutoTest needs both committed: runner libraries, and the lockfile for npm ci
+!core/runner/lib/
+!package-lock.json
