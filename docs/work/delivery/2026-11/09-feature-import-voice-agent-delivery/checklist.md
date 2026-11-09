@@ -3,6 +3,8 @@
 > 由 `/feature-checklist` 在**无人值守模式**下产出。HUMAN 项的判定是「自动确认，待你审」，每项附依据。
 >
 > **2026-11-09 修正**：#15 初版误判为 PASS（锁文件其实没提交）；#8、#9 原来只是推断，现已更新；新增复盘补查 #21、#22；总数初版也数错了。修正处都标了「修正」。
+>
+> **范围说明**：本清单里的 git 命令只覆盖第一次试跑的 commit（`12aded5..244609f`）。之后分支上的 bug 修复（第二次试跑）和依赖安全升级都改了 `backend/`，所以用 `..HEAD` 重跑会得到不同的结果。
 
 Feature: 引入 voice-agent 交付链与 AutoTest E2E 框架
 Type: T6 — External Dependency Change
@@ -42,8 +44,8 @@ Release-Check: 豁免（只改 AutoTest、文档、CI，没有运行时行为变
 
 | # | 类型 | 项 | 结果 | 依据 |
 |---|---|---|---|---|
-| 10 | AUTO | 产品代码未改：`git diff --stat 12aded5..HEAD -- backend frontend` | PASS | 0 files changed |
-| 11 | AUTO | vj 链 skill 未改：`git diff --name-only 12aded5..HEAD -- '.agents/skills/vj*'` | PASS | 0 个文件 |
+| 10 | AUTO | 产品代码未改：`git diff --stat 12aded5..244609f -- backend frontend` | PASS | 0 files changed |
+| 11 | AUTO | vj 链 skill 未改：`git diff --name-only 12aded5..244609f -- '.agents/skills/vj*'` | PASS | 0 个文件 |
 | 12 | AUTO | 类型检查：`npm run typecheck` | PASS | 0 errors |
 | 13 | AUTO | BDD 规范：`npm run lint:bdd` | PASS | 8/8 项通过 |
 | 14 | AUTO | 步骤匹配：`npm run bdd:gen`（含 CI 占位环境变量的跑法） | PASS | exit 0 |
@@ -67,7 +69,7 @@ Release-Check: 豁免（只改 AutoTest、文档、CI，没有运行时行为变
 
 | # | 类型 | 项 | 结果 | 依据 |
 |---|---|---|---|---|
-| 20 | AUTO | 新依赖只在 AutoTest：`git diff --name-only 12aded5..HEAD -- backend/pyproject.toml backend/uv.lock frontend/package.json frontend/pnpm-lock.yaml` | PASS | 0 个文件 |
+| 20 | AUTO | 新依赖只在 AutoTest：`git diff --name-only 12aded5..244609f -- backend/pyproject.toml backend/uv.lock frontend/package.json frontend/pnpm-lock.yaml` | PASS | 0 个文件 |
 
 ### 干净克隆（复盘补查，修正新增）
 
