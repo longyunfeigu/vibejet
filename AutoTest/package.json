@@ -1,0 +1,66 @@
+{
+  "name": "end2end-test",
+  "scripts": {
+    "bdd:gen": "npx bddgen test --config config/playwright.config.ts",
+    "bdd:report": "npx tsx core/runner/generate-smoke-report.ts",
+    "bdd:report:ai": "npx tsx core/runner/generate-ai-sim-metrics-report.ts",
+    "test:smoke:sg": "HEADLESS=true WORKERS=6 ./core/runner/run-bdd.sh smoke sg",
+
+    "test:kb:uat": "./core/runner/run-bdd.sh kb uat",
+
+    "test:va:uat": "HEADLESS=true ./core/runner/run-bdd.sh va uat",
+    "test:va:dev-single-org": "VOICE_AGENT_ENV=dev-single-org HEADLESS=true npx bddgen test --config config/playwright.config.ts && VOICE_AGENT_ENV=dev-single-org npx playwright test --config config/playwright.config.ts --project=voice-agent --grep @single-org",
+    "test:va:local": "VOICE_AGENT_ENV=local npx bddgen test --config config/playwright.config.ts && VOICE_AGENT_ENV=local npx playwright test --config config/playwright.config.ts --project=voice-agent --grep @VA-AOS",
+    "test:qri:local": "VOICE_AGENT_ENV=local npx bddgen test --config config/playwright.config.ts && VOICE_AGENT_ENV=local npx playwright test --config config/playwright.config.ts --project=voice-agent --grep @VA-QRI",
+    "test:asr:local": "./core/runner/run-asr-local.sh",
+    "test:asr:local:ldm020": "ASR_TEST_GREP=@VA-LDM-020 ./core/runner/run-asr-local.sh",
+    "fixtures:asr:generate": "npm run fixtures:asr:generate:wiz && npm run fixtures:asr:generate:elevenlabs && npm run fixtures:asr:verify",
+    "fixtures:asr:generate:wiz": "./core/runner/generate-asr-audio-fixtures.sh",
+    "fixtures:asr:generate:elevenlabs": "npx tsx core/runner/generate-lang-detect-audio-fixtures.ts",
+    "fixtures:asr:verify": "python3 core/runner/verify-asr-audio-fixtures.py",
+    "fixtures:asr:pauses": "npx tsx core/runner/generate-pause-fixtures.ts",
+    "test:va:local-single-org": "VOICE_AGENT_ENV=local-single-org npx bddgen test --config config/playwright.config.ts && VOICE_AGENT_ENV=local-single-org npx playwright test --config config/playwright.config.ts --project=voice-agent --grep @single-org",
+    "test:va:al:uat": "VOICE_AGENT_ENV=uat npx bddgen test --config config/playwright.config.ts && VOICE_AGENT_ENV=uat npx playwright test --config config/playwright.config.ts --project=voice-agent --grep @VA-FLW-009",
+    "test:langdetect": "CAPABILITY=change-language npx playwright test --config config/playwright.config.ts --project=capability-e2e",
+    "test:asr:fallback": "VOICE_AGENT_ENV=local HEADLESS=true CAPABILITY=fallback CAPABILITY_CONTAINER=va-dev-voice-agent-agent,va-dev-asr-new npx playwright test --config config/playwright.config.ts --project=capability-e2e",
+    "test:capability": "npx playwright test --config config/playwright.config.ts --project=capability-e2e",
+    "test:capability:unit": "npx tsx --test 'modules/voice-agent/capability-e2e/tests/**/*.test.ts'",
+
+    "test:ai:uat": "HEADLESS=true ./core/runner/run-bdd.sh ai uat",
+
+    "test:mcp:uat": "./core/runner/run-bdd.sh mcp uat",
+
+    "test:wa:uat": "./core/runner/run-bdd.sh wa uat",
+
+    "test:pn:uat": "./core/runner/run-bdd.sh pn uat",
+    "watch:prd": "npx tsx core/runner/watch-requirements.ts",
+    "typecheck": "tsc --noEmit --project config/tsconfig.json",
+
+    "lint:bdd": "npx tsx core/runner/lint-bdd.ts",
+    "lint:release-check": "npx tsx core/release-check/cli.ts",
+    "test:release-check": "npx tsx --test 'core/release-check/tests/**/*.test.ts'",
+    "fixtures:release-check": "npx tsx core/release-check/fixtures/cli.ts",
+    "test:headless:uat": "HEADLESS=true ./core/runner/run-bdd.sh smoke uat",
+    "test:headless:sg": "HEADLESS=true ./core/runner/run-bdd.sh smoke sg",
+    "test:parallel:uat": "HEADLESS=true WORKERS=6 ./core/runner/run-bdd.sh all uat",
+    "test:parallel:sg": "HEADLESS=true WORKERS=1 ./core/runner/run-bdd.sh ai uat",
+    "coverage": "node core/runner/automation-coverage.mjs",
+    "coverage:check": "node core/runner/automation-coverage.mjs --min 80",
+    "coverage:tree": "node core/runner/build-feature-tree-src.mjs && node core/runner/feature-tree-coverage.mjs",
+    "classify": "node core/runner/classify-cases.mjs",
+    "test:runner": "node --test 'tests/runner/**/*.test.mjs'",
+    "test:unit": "npx tsx --test tests/api/**/*.test.ts",
+    "test:api:uat": "VOICE_AGENT_ENV=uat npx tsx core/runner/api-smoke.ts",
+    "snapshot:capture:uat": "VOICE_AGENT_ENV=uat npx tsx core/runner/capture-baseline-snapshot.ts",
+    "baseline:uat": "node core/runner/save-uat-baseline.mjs uat docs/superpowers/baselines/2026-06-16-uat-pre-refactor.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "^22.0.0",
+    "chokidar": "^5.0.0",
+    "playwright-bdd": "^8.5.0",
+    "typescript": "^5.7.0",
+    "xlsx": "^0.18.5",
+    "yaml": "2.5.1"
+  }
+}
