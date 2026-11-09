@@ -19,15 +19,13 @@
 对每个待激活场景，确认其后端路由和前端组件已在代码库中存在：
 
 ```bash
-# 后端：路由已注册
-grep -n "{api-keyword}" RD/voice-agent/backend/app/main.py
+# Backend: is the route registered? (routes live in backend/api/routes, prefixes in backend/main.py)
+grep -rn "{api-path-keyword}" backend/api/routes --include="*.py"
+grep -n "include_router" backend/main.py
 
-# 后端：实现文件存在 (排除 tests)
-find RD/voice-agent/backend/app -name "*.py" -not -path "*/tests/*" | xargs grep -l "{api-keyword}" 2>/dev/null
-
-# 前端：组件文件存在 (关注 src，排除 tests)
-find RD/voice-agent/frontend/src -name "{ComponentName}.tsx" 2>/dev/null
-find RD/voice-agent/frontend/src -type f \( -name "*.tsx" -o -name "*.ts" \) -not -path "*/__tests__/*" | xargs grep -l "{feature-keyword}" 2>/dev/null | head -5
+# Frontend: does the component exist? (source files, not tests)
+find frontend/src -name "{ComponentName}.tsx" 2>/dev/null
+find frontend/src -type f \( -name "*.tsx" -o -name "*.ts" \) -not -name "*.test.*" | xargs grep -l "{feature-keyword}" 2>/dev/null | head -5
 ```
 
 - 检查通过 → 继续 Step C
@@ -36,7 +34,7 @@ find RD/voice-agent/frontend/src -type f \( -name "*.tsx" -o -name "*.ts" \) -no
 ### Step C — 将场景从 pending 移入主 feature
 
 从 `{module}-{feature}.pending.feature` 中剪切目标场景，追加到 `{module}-{feature}.feature` 末尾：
-- **Assign TC tags**: pending scenarios may lack TC tags — assign `@{CASE_ID}` before moving. The Case ID must come from csv rows in `manual-test-cases-en.csv`; do not invent a second numbering scheme in feature files.
+- **Assign TC tags**: pending scenarios may lack TC tags — assign `@{CASE_ID}` before moving. The Case ID must come from csv rows in `manual-test-cases-cn.csv`; do not invent a second numbering scheme in feature files.
 - 保留场景原有的其他标签和步骤文本，不修改
 - feature 文件仅英文，无 `.cn.feature` 中文副本——不需要同步任何中文 feature。
 - 若 pending 文件移空，删除该文件；若仍有未激活场景，保留文件
@@ -79,7 +77,7 @@ npm run lint:bdd     # all checks PASS
 
 ### Step G — 更新 csv
 
-用 Python 打开 `manual-test-cases-en.csv` 和 `manual-test-cases-cn.csv`，
+用 Python 打开 `manual-test-cases-cn.csv` 和 `manual-test-cases-cn.csv`，
 将激活场景对应行的 Notes 列中 `Implementation pending — feature not yet in codebase` 字样删除。
 
 ```python
@@ -128,5 +126,5 @@ Step F — Validation
 Step G — csv updated
   ✓ {n} rows cleared of "Implementation pending" note
 
-Run: npm run test:{module-alias}:uat
+Run: npm run test:{module-alias}:local
 ```

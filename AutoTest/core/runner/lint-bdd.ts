@@ -7,7 +7,7 @@
  * Check E: Stability rules (no raw waitForTimeout, no bare CSS selector in steps)
  * Check F: TC tag coverage (every Scenario has exactly one valid @TC-* tag)
  * Check G: CSV structure (every case row has 16 columns; Execution Type is one of
- *          the canonical values; en/cn rows agree on Execution Type per Case ID)
+ *          the canonical Chinese values; vibejet keeps one Chinese case file)
  * Check H: API-first — no page.request.* in steps/pages (report-only during the
  *          framework refactor migration; data ops belong in core/api).
  * Check I: controlledWait budget — global controlledWait/workaroundSleep count
@@ -16,7 +16,7 @@
  * NOTE: Feature files are English-only. There is no .feature/.cn.feature
  * bilingual-sync check — the runner only executes plain English *.feature files,
  * and keeping a Chinese feature companion in lockstep proved more churn than
- * value. (Case documentation remains bilingual via cases/*.csv — see Check G.)
+ * value. (Case documentation lives in cases/manual-test-cases-cn.csv — see Check G.)
  *
  * Exit 0 only when all checks pass.
  */
@@ -37,6 +37,23 @@ function listModuleDirs(): string[] {
   return fs.readdirSync(MODULES_DIR, { withFileTypes: true })
     .filter(e => e.isDirectory() && e.name !== 'common')
     .map(e => e.name);
+}
+
+// Feature directories nest one level down: modules/<module>/<feature>/{features,steps,pages}.
+// Looking only at modules/<module>/<name> (as the source did) silently skipped every nested
+// feature, so find every directory with the given name under each module instead.
+function findModuleSubdirs(name: string): string[] {
+  const out: string[] = [];
+  function walk(dir: string): void {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const full = path.join(dir, e.name);
+      if (e.name === name) out.push(full);
+      else walk(full);
+    }
+  }
+  for (const mod of listModuleDirs()) walk(path.join(MODULES_DIR, mod));
+  return out;
 }
 
 // ── ANSI colours ──────────────────────────────────────────────────────────
@@ -61,9 +78,7 @@ const REQUIRED_TAGS = new Set(['@smoke', '@regression', '@slow', '@negative']);
 function checkTagCompliance(): TagComplianceResult {
   const violations: string[] = [];
 
-  for (const mod of listModuleDirs()) {
-    const featDir = path.join(MODULES_DIR, mod, 'features');
-    if (!fs.existsSync(featDir)) continue;
+  for (const featDir of findModuleSubdirs('features')) {
 
     const enFiles = fs.readdirSync(featDir).filter(f => f.endsWith('.feature') && !f.endsWith('.cn.feature'));
     for (const enFile of enFiles) {
@@ -123,9 +138,7 @@ function checkStepLocators(): LocatorResult {
   const violations: string[] = [];
 
   const allStepFiles: string[] = [];
-  for (const mod of listModuleDirs()) {
-    const stepsDir = path.join(MODULES_DIR, mod, 'steps');
-    if (!fs.existsSync(stepsDir)) continue;
+  for (const stepsDir of findModuleSubdirs('steps')) {
     const files = fs.readdirSync(stepsDir).filter(f => f.endsWith('.steps.ts'));
     for (const f of files) {
       allStepFiles.push(path.join(stepsDir, f));
@@ -235,9 +248,7 @@ function checkTcTagCoverage(): TcTagResult {
   const violations: string[] = [];
   const seenTags = new Map<string, string>(); // tag value → first file
 
-  for (const mod of listModuleDirs()) {
-    const featDir = path.join(MODULES_DIR, mod, 'features');
-    if (!fs.existsSync(featDir)) continue;
+  for (const featDir of findModuleSubdirs('features')) {
 
     const enFiles = fs.readdirSync(featDir)
       .filter(f => f.endsWith('.feature') && !f.endsWith('.cn.feature'));
@@ -294,18 +305,14 @@ function checkTcTagCoverage(): TcTagResult {
 
 function checkStability(): { passed: boolean; violations: string[] } {
   const violations: string[] = [];
-  const modules = listModuleDirs();
-
-  for (const mod of modules) {
-    const stepsDir = path.join(MODULES_DIR, mod, 'steps');
-    if (!fs.existsSync(stepsDir)) continue;
+  for (const stepsDir of findModuleSubdirs('steps')) {
 
     const stepFiles = fs.readdirSync(stepsDir).filter(f => f.endsWith('.steps.ts'));
 
     for (const file of stepFiles) {
       const filePath = path.join(stepsDir, file);
       const lines = readLines(filePath);
-      const rel = `${mod}/steps/${file}`;
+      const rel = path.relative(MODULES_DIR, filePath);
 
       lines.forEach((line, i) => {
         const lineNum = i + 1;
@@ -368,7 +375,6 @@ function checkStability(): { passed: boolean; violations: string[] } {
 const CSV_COLUMN_COUNT = 16;
 const EXEC_COL = 7;
 // Canonical 3-type bilingual vocabulary. English in en CSVs, Chinese in cn CSVs.
-const EXEC_EN = new Set(['Automated', 'Manual-Prod-Unsafe', 'Manual-Fault-Injection']);
 const EXEC_CN = new Set(['自动化测试', '手工测试-产线高危', '手工测试-故障注入']);
 // Canonical Execution Type → language-neutral key, for en/cn cross-check.
 const EXEC_KEY: Record<string, string> = {
@@ -409,7 +415,7 @@ function findCaseCsvs(): string[] {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (e.isDirectory()) {
         if (e.name !== 'test-data') walk(path.join(dir, e.name));
-      } else if (e.name === 'manual-test-cases-en.csv') {
+      } else if (e.name === 'manual-test-cases-cn.csv') {
         out.push(path.join(dir, e.name));
       }
     }
@@ -447,22 +453,8 @@ function checkCsvStructure(): { passed: boolean; violations: string[] } {
     return execByCase;
   }
 
-  for (const enPath of findCaseCsvs()) {
-    const enExec = validateFile(enPath, EXEC_EN);
-    const cnPath = enPath.replace(/-en\.csv$/, '-cn.csv');
-    const relCn = path.relative(MODULES_DIR, cnPath);
-    if (!fs.existsSync(cnPath)) {
-      violations.push(`${path.relative(MODULES_DIR, enPath)}: missing companion ${path.basename(cnPath)}`);
-      continue;
-    }
-    const cnExec = validateFile(cnPath, EXEC_CN);
-    // en/cn agreement on Execution Type per Case ID
-    for (const [caseId, key] of enExec) {
-      if (cnExec.has(caseId) && cnExec.get(caseId) !== key) {
-        violations.push(`${relCn}: ${caseId} Execution Type differs between en/cn (en=${key}, cn=${cnExec.get(caseId)})`);
-      }
-    }
-  }
+  // vibejet keeps one case file per feature, in Chinese (the source also kept an en companion).
+  for (const cnPath of findCaseCsvs()) validateFile(cnPath, EXEC_CN);
 
   return { passed: violations.length === 0, violations };
 }
@@ -471,14 +463,10 @@ function checkCsvStructure(): { passed: boolean; violations: string[] } {
 
 function checkApiInSteps(): { passed: boolean; violations: string[] } {
   const violations: string[] = [];
-  for (const mod of listModuleDirs()) {
-    for (const sub of ['steps', 'pages']) {
-      const dir = path.join(MODULES_DIR, mod, sub);
-      if (!fs.existsSync(dir)) continue;
-      for (const f of fs.readdirSync(dir).filter(n => n.endsWith('.ts'))) {
-        const full = path.join(dir, f);
-        violations.push(...findApiCallViolations(`${mod}/${sub}/${f}`, fs.readFileSync(full, 'utf-8')));
-      }
+  for (const dir of [...findModuleSubdirs('steps'), ...findModuleSubdirs('pages')]) {
+    for (const f of fs.readdirSync(dir).filter(n => n.endsWith('.ts'))) {
+      const full = path.join(dir, f);
+      violations.push(...findApiCallViolations(path.relative(MODULES_DIR, full), fs.readFileSync(full, 'utf-8')));
     }
   }
   return { passed: violations.length === 0, violations };

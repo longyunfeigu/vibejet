@@ -1,23 +1,22 @@
 # runner
 
 ## 职责
-测试执行和报告生成脚本，提供一键顺序执行全量测试、生成 Markdown 冒烟报告、监听 PRD 目录变更自动唤醒 AI 三项能力。
+测试执行、BDD 规范检查和覆盖率统计脚本。
 
 ## 内容
 
 | 文件 | 说明 |
 |------|------|
-| `run-all-tests.ts` | 顺序执行所有测试套件，统一收集结果 |
-| `generate-smoke-report.ts` | 读取测试结果，生成 Markdown 格式冒烟测试报告 |
-| `watch-requirements.ts` | 监听 PRD 目录文件变更，自动唤醒 AI 生成或更新测试用例 |
+| `run-bdd.sh` | 生成 BDD spec → 按模块执行 → 失败时输出失败用例 CSV |
+| `gen-failed-cases-csv.mjs` | 读 Playwright JSON 报告,输出四列失败用例 CSV |
+| `lint-bdd.ts` | BDD 规范检查(标签、定位器、测试数据命名、稳定性、Case ID、CSV 结构、API-first、等待预算) |
+| `automation-coverage.mjs` | 自动化覆盖率 = 有可执行 `.feature` 标签的 Case ID / 用例 CSV 里的 Case ID |
+| `classify-cases.mjs` | 给用例 CSV 的「执行方式」列按规则分类 |
 
 ## 使用
 
 ```bash
-npm run test:all:sg     # 顺序执行全量测试（Singapore 环境）
-npm run test:all        # 顺序执行全量测试（默认环境）
-npm run smoke:report    # 生成冒烟测试 Markdown 报告
-npm run watch:prd       # 启动 PRD 目录监听，文件变更时自动触发 AI
+npm run test:all:local    # 全量
+npm run lint:bdd          # 规范检查
+npm run coverage          # 覆盖率
 ```
-
-注意：`run-all-tests.ts` 按模块顺序执行，避免并发干扰；`watch-requirements.ts` 仅适用于本地开发阶段，不应在 CI 环境启动。

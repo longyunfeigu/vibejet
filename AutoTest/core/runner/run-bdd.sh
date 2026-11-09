@@ -1,23 +1,19 @@
 #!/usr/bin/env bash
-# Usage: ./run-bdd.sh [module|all|smoke] [env=uat]
-# module: all | smoke | kb | va | ai | mcp | wa | pn
-# env:    sg | uat | dev  (default: uat)
+# Usage: ./run-bdd.sh [module|all|smoke] [env=local]
+# module: all | smoke | auth | home
+# env:    an environment name in config/environments.json (default: local)
 MODULE=${1:-all}
-ENV=${2:-uat}
+ENV=${2:-local}
 
 # map module alias -> playwright --project value (bash 3.2 compatible)
 case "$MODULE" in
   all)   PROJECT="bdd" ;;
   smoke) PROJECT="bdd" ;;
-  kb)    PROJECT="knowledge-base" ;;
-  va)    PROJECT="voice-agent" ;;
-  ai)    PROJECT="ai-simulation" ;;
-  mcp)   PROJECT="mcp-registry" ;;
-  wa)    PROJECT="whatsapp" ;;
-  pn)    PROJECT="phone-number" ;;
+  auth)  PROJECT="auth" ;;
+  home)  PROJECT="home" ;;
   *)
     echo "Unknown module: $MODULE"
-    echo "Valid modules: all | smoke | kb | va | ai | mcp | wa | pn"
+    echo "Valid modules: all | smoke | auth | home"
     exit 1
     ;;
 esac
@@ -28,7 +24,7 @@ if [ "$MODULE" = "smoke" ]; then GREP_ARG="--grep @smoke"; fi
 PROJECT_ARG=""
 if [ -n "$PROJECT" ]; then PROJECT_ARG="--project=$PROJECT"; fi
 
-export VOICE_AGENT_ENV=$ENV
+export E2E_ENV=$ENV
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -56,9 +52,6 @@ fi
 
 npx playwright test --config config/playwright.config.ts $PROJECT_ARG $GREP_ARG
 E=$?
-
-npx tsx core/runner/generate-smoke-report.ts
-npx tsx core/runner/generate-ai-sim-metrics-report.ts
 
 # Emit a CSV of failed cases (用例名称/测试目的/测试步骤/失败原因) when any failed.
 node core/runner/gen-failed-cases-csv.mjs "$ENV"

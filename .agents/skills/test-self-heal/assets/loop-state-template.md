@@ -3,7 +3,7 @@
 > Loop Engineering State/Memory. One file per (module, env). Append per round; never rewrite history.
 
 ## Intent
-Drive UAT/SG/DEV module **{MODULE}** to all-green.
+Drive module **{MODULE}** to all-green.
 Test-side failures (waits/locators/isolation/flaky) auto-fixed; suspected real bugs reported, not patched.
 
 ## Stop Conditions

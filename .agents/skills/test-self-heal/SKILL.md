@@ -10,17 +10,17 @@ description: |
   Use when the user says things like:
   - "自愈循环" / "self-heal" / "跑测试并自动修复失败"
   - "loop until green" / "一直跑到全绿" / "修到全过为止"
-  - "跑 {模块} 自愈" / "run self-heal for knowledge-base"
-  - "test-self-heal kb uat" / "/test-self-heal va uat --dry-run"
+  - "跑 {模块} 自愈" / "run self-heal for auth"
+  - "test-self-heal auth local" / "/test-self-heal home local --dry-run"
   - "有头模式跑自愈" / "self-heal --headed" / "无头跑" / "屋头模式"
   - "帮我盯着这个模块的测试，失败就修"
 
   Parameters (positional + flags):
-  - {module}: kb | va | ai | mcp | wa | pn   (required)
-  - {env}: sg | uat | dev                    (default: uat)
+  - {module}: auth | home                   (required)
+  - {env}: a name in config/environments.json (default: local)
   - --rounds N: max loop rounds              (default: 3)
   - --dry-run: triage + report only, never modify code
-  - --headed | --headless: browser visibility (default: headless; use --headed to watch the run / debug SSO login)
+  - --headed | --headless: browser visibility (default: headless; use --headed to watch the run / debug login)
   - --workers N: parallel workers (default: 1; e.g. --workers 6 to parallelise — faster but can surface agent-state isolation flake)
 allowed-tools: |
   Bash(npm run*:*)
@@ -62,14 +62,14 @@ The single biggest LE failure mode is a loop that never converges and burns toke
 
 ## Step 0: Parse Input + Pre-check
 
-1. Parse `{module}`, `{env}`, `--rounds`, `--dry-run`, browser mode, and `--workers` from the user request. Map module alias via `core/runner/run-bdd.sh` (kb/va/ai/mcp/wa/pn).
+1. Parse `{module}`, `{env}`, `--rounds`, `--dry-run`, browser mode, and `--workers` from the user request. Map module alias via `core/runner/run-bdd.sh` (auth/home).
    - Browser mode: default **headless**. `--headed`/"有头" → headed; `--headless`/"无头"/"屋头" → headless.
    - Workers: default **1**. `--workers N` parallelises (`playwright.config.ts` reads `parseInt(process.env.WORKERS ?? '1')`).
    - Build one **`RUN_PREFIX`** env string and reuse it for every test command below:
      - headless adds `HEADLESS=true `; headed adds nothing (`process.env.HEADLESS === 'true'`, default headed).
      - workers>1 adds `WORKERS=N `.
      - e.g. headless + 6 workers → `RUN_PREFIX = "HEADLESS=true WORKERS=6 "`; headed + 1 worker → `RUN_PREFIX = ""`.
-   - Prefer **headless** for `/loop` unattended patrol (no popups, faster); **headed** for a first run / debugging SSO login. Prefer **`--workers 1`** when verifying a fix in Step 5 (parallelism can itself cause flake — see Triage).
+   - Prefer **headless** for `/loop` unattended patrol (no popups, faster); **headed** for a first run / debugging login. Prefer **`--workers 1`** when verifying a fix in Step 5 (parallelism can itself cause flake — see Triage).
 2. Initialise State file from `assets/loop-state-template.md` → write to `report/le-loop-state-{module}-{env}.md`. Fill Intent, Stop Conditions, Scope.
 3. Fast pre-check (cheap, avoids a wasted first round):
    ```bash
@@ -78,7 +78,7 @@ The single biggest LE failure mode is a loop that never converges and burns toke
    ```
    - `bddgen` non-zero → fix missing steps / type errors FIRST (that IS the loop's first repair).
    - env unreachable (not 2xx/3xx) → STOP, report environment blocker. Do not keep looping against a down env.
-   - Auth state may be expired; `config/global-setup.ts` auto re-logs-in via SSO, so do not treat expired auth as a blocker.
+   - Auth state may be expired; `config/global-setup.ts` auto re-logs-in through the login page, so do not treat expired auth as a blocker.
 
 ## Step 1: Action — Run the module
 
@@ -86,9 +86,9 @@ Reuse the project's own runner (do not reinvent). Apply `RUN_PREFIX` from Step 0
 
 ```bash
 ${RUN_PREFIX}npm run test:{module}:{env} > report/le-round{N}.log 2>&1
-# headless, 1 worker  → HEADLESS=true npm run test:kb:uat ...
-# headless, 6 workers → HEADLESS=true WORKERS=6 npm run test:kb:uat ...
-# headed,   1 worker  → npm run test:kb:uat ...
+# headless, 1 worker  → HEADLESS=true npm run test:auth:local ...
+# headless, 6 workers → HEADLESS=true WORKERS=6 npm run test:auth:local ...
+# headed,   1 worker  → npm run test:auth:local ...
 ```
 
 `run-bdd.sh` already calls `gen-failed-cases-csv.mjs` at the end, so a failed-cases CSV is emitted automatically.
@@ -109,7 +109,7 @@ node -e "const r=require('./report/test-reports-{env}/playwright/results.json');
 ## Step 3: Triage — classify each failure (the core decision)
 
 For each failing case, classify as **test-side (fixable)** or **real-bug (report-only)**.
-Match the error against the known-pitfalls table in `../../../CLAUDE.md` (section 四「常见陷阱与修复」):
+Match the error against the known-pitfalls table in `AutoTest/AGENTS.md` (section 四「常见陷阱与修复」):
 
 | Symptom | Class | Action |
 |---|---|---|
@@ -118,7 +118,7 @@ Match the error against the known-pitfalls table in `../../../CLAUDE.md` (sectio
 | `locator.* Timeout` / `click Timeout` / element not found | test-side | fix wait (`expect(...).toBeVisible`), fix locator priority |
 | `Test timeout` on a long flow | test-side | add `@slow` tag to scenario |
 | `409 Conflict` (resource exists) | test-side | add `deleteXxxIfExists()` + wait `not.toBeVisible` |
-| flake (passes on isolated re-run) | test-side | apply isolation: dedicated `e2e-{module}-{caseid}` agent |
+| flake (passes on isolated re-run) | test-side | apply isolation: dedicated `e2e-{module}-{caseid}` test object |
 | **assertion on business value fails** (correct element, wrong/absent data; API 4xx/5xx from product) | **real-bug** | DO NOT patch the test — report it |
 
 Decision rule for the ambiguous case: **if the test correctly drove the UI but the product produced the wrong
@@ -127,11 +127,11 @@ failing on a value/assertion (not a wait/locator) → treat as real bug. False "
 "fixing" a test to pass over a real defect is the worst outcome.
 
 **Concurrency check (only when this round ran with `--workers > 1`)**: parallel runs can fail for a reason that
-has nothing to do with the test's logic — two cases sharing the same agent mutate its state at once (CLAUDE.md
-零「并发执行时多个用例同时修改同一 agent 状态导致互相干扰」). Before classifying a parallel failure as test-side
+has nothing to do with the test's logic — two cases sharing the same test object mutate its state at once (AGENTS.md
+零「修改共享状态的用例必须用专属测试对象」). Before classifying a parallel failure as test-side
 or real-bug, **re-run that single case in isolation with `--workers 1`**:
 - passes solo, failed under parallel → **isolation flake**: fix by giving the scenario a dedicated
-  `e2e-{module}-{caseid}` agent (create at start, clean up at end), per CLAUDE.md 零节. Do NOT touch assertions.
+  `e2e-{module}-{caseid}` test object (create at start, clean up at end), per AGENTS.md 零节. Do NOT touch assertions.
 - still fails solo → it is a genuine test-side issue or real bug; classify normally per the table above.
 
 **Before any fix**, read the stability rules: `../prd-to-bdd/e2e-stability.md` (no `waitForTimeout`, locator
@@ -141,8 +141,8 @@ priority, wait-utils). Never introduce a hard wait to "fix" flake.
 
 - `--dry-run`: skip all edits. Only record the triage verdict + proposed fix per case in the State file.
 - Otherwise: fix only **test-side** cases. Edit POM / steps / feature under `modules/{module}/`.
-- **CRITICAL (project rule)**: if you change a `.feature` expected result/step, sync the matching row in both
-  `cases/manual-test-cases-en.csv` and `cases/manual-test-cases-cn.csv` (CLAUDE.md 零「修改 Feature 必须同步 Case CSV」).
+- **CRITICAL (project rule)**: if you change a `.feature` expected result/step, sync the matching row in
+  `cases/manual-test-cases-cn.csv` (AGENTS.md 零「修改 Feature 必须同步 Case CSV」).
 - After edits, validate locally before re-running:
   ```bash
   npm run bdd:gen && npm run typecheck && npm run lint:bdd
@@ -156,8 +156,8 @@ Do not re-run the whole module — re-run just the cases you touched, by Case ID
 Re-run the fixed cases with **`--workers 1`** (verification must be deterministic — don't let parallelism reintroduce flake):
 
 ```bash
-VOICE_AGENT_ENV={env} npm run bdd:gen && \
-HEADLESS={true|''} VOICE_AGENT_ENV={env} npx playwright test --config config/playwright.config.ts \
+E2E_ENV={env} npm run bdd:gen && \
+HEADLESS={true|''} E2E_ENV={env} npx playwright test --config config/playwright.config.ts \
   --workers 1 --project={project} --grep "@{CASE_ID_1}|@{CASE_ID_2}"
 ```
 
@@ -187,6 +187,6 @@ If real bugs were found, make them the headline of the Chinese report — that i
 
 ## Triggering this loop automatically
 
-- One-shot: `/test-self-heal kb uat`
-- Scheduled (unattended patrol): `/loop 2h /test-self-heal kb uat` (Claude Code loops auto-stop after 3 days)
+- One-shot: `/test-self-heal auth local`
+- Scheduled (unattended patrol): `/loop 2h /test-self-heal auth local` (Claude Code loops auto-stop after 3 days)
 - After git pull / on a schedule: wire a hook in `settings.json` that triggers this skill; the hook only triggers — triage stays here.

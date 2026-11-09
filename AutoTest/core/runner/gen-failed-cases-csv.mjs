@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTOTEST_ROOT = path.resolve(__dirname, '../..');
 
-const env = process.argv[2] || process.env.VOICE_AGENT_ENV || 'sg';
+const env = process.argv[2] || process.env.E2E_ENV || 'local';
 const resultsPath = path.join(
   AUTOTEST_ROOT,
   `report/test-reports-${env}/playwright/results.json`

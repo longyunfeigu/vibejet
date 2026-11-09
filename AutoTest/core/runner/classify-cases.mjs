@@ -106,12 +106,8 @@ function main() {
   }
 
   let totalChanged = 0;
-  const files = [...new Set(idx.cases.map((c) => c.csvPathEn))];
-  for (const en of files) {
-    totalChanged += patchCsv(en, codeById, WRITE);
-    const cn = en.replace('manual-test-cases-en.csv', 'manual-test-cases-cn.csv');
-    if (fs.existsSync(cn)) totalChanged += patchCsv(cn, codeById, WRITE);
-  }
+  const files = [...new Set(idx.cases.map((c) => c.csvPath))];
+  for (const file of files) totalChanged += patchCsv(file, codeById, WRITE);
 
   const lines = ['# Automation Classification Baseline', '', `Generated from ${idx.total} cases; ${idx.automated} automated.`, '',
     `- Automated (with .feature): ${tally.Automated}`, `- AUTO (target, no .feature yet): ${tally.AUTO}`,

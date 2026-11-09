@@ -89,7 +89,7 @@ Phase 1 设计结束时，必须输出下表并让每一行闭合：
 
 | 需求点 / 验收标准 | 维度 | 归属 Case ID |
 |---|---|---|
-| （逐条列出 PRD/交付文档的需求变更点和验收标准） | Happy / State / Permission / Boundary / Error | VA-XXX-001 |
+| （逐条列出 PRD/交付文档的需求变更点和验收标准） | Happy / State / Permission / Boundary / Error | AUTH-XXX-001 |
 
 闭合规则：
 - 交付文档的每个变更点和每条验收标准至少映射 1 个 Case ID；

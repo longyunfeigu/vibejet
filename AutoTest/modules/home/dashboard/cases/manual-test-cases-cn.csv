@@ -1,0 +1,9 @@
+用例编号,需求/缺陷编号,模块,功能点,场景标题,用例类型,优先级,执行方式,前置条件,测试数据,测试步骤,预期结果,后置清理,BDD 标签,负责人,备注
+HOME-DSH-001,2026-11-09-feature-import-voice-agent-delivery,home,首页,已登录用户看到问候语和首页各区块,冒烟,P0,自动化测试,已登录（全局前置）,无,1. 打开首页 /,"1. 标题为「你好，<用户名>」
+2.「最近动态」「质量门禁」两个区块可见
+3. 顶栏有「退出」按钮",无,@HOME-DSH-001 @smoke,edy,
+HOME-DSH-002,2026-11-09-feature-import-voice-agent-delivery,home,首页,后端不认的会话显示「会话已失效」并能回到登录页,负向,P1,自动化测试,已登录,本地会话里的 access / refresh token 都换成无效值,"1. 把本地会话换成无效 token
+2. 打开首页
+3. 点「重新登录」","1. 显示「会话已失效」
+2. 本地会话已被清除
+3. 点「重新登录」后到 /login",无,@HOME-DSH-002 @negative,edy,刷新失败时 apiClient 清会话（frontend/src/lib/apiClient.ts），路由错误态渲染 HomeSessionError

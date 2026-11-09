@@ -1,7 +1,6 @@
 # Test Automation Doctrine — The Three-Cost Model
 
-> **Companion:** [`test-automation-doctrine-cn.md`](./test-automation-doctrine-cn.md) (Chinese, required)
-> **Status:** Binding. Any agent extending AutoTest MUST follow this. Referenced as a CRITICAL principle in `AutoTest/CLAUDE.md`.
+> **Status:** Binding. Any agent extending AutoTest MUST follow this. Referenced as a CRITICAL principle in `AutoTest/AGENTS.md`.
 
 ---
 
@@ -99,7 +98,10 @@ above, treat it as an incomplete analysis and push back.
 
 ---
 
-## 4. Worked mapping (voice agent)
+## 4. Worked mapping (voice agent, from the source project)
+
+This table comes from the voice-agent project this doctrine was written for. For vibejet, build the same
+table for a capability when its first test is planned.
 
 Each capability tagged with its blocking cost and resulting tier. Use this as the
 template for classifying any new capability.
@@ -123,6 +125,9 @@ only for the subjective residue after proxy oracles — everything above is eith
 ---
 
 ## 5. Relationship to the existing exclusion gate
+
+> Source-project history: vibejet has no such plan, exclusion gate or capability-e2e framework yet. The
+> reading rule below still applies to any gate added later.
 
 The `2026-06-12-autotest-80pct-automation` plan defines an **exclusion gate** that
 skips `FAULT` (fault-injection) and `voice` cases as "non-automatable". Read that

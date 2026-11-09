@@ -1,14 +1,14 @@
 ---
 name: prd-to-bdd
 status: experimental
-description: Use when generating test cases from delivery or PRD docs under RD/docs/delivery or Product/requirements, when the user says "从交付文档生成用例" / "generate cases from delivery docs" / "prd to bdd", or provides a path under those directories. Also use when the user says "激活 pending 用例" / "activate pending" to activate previously generated pending cases.
+description: Use when generating test cases from delivery or PRD docs under docs/work/delivery or docs/product, when the user says "从交付文档生成用例" / "generate cases from delivery docs" / "prd to bdd", or provides a path under those directories. Also use when the user says "激活 pending 用例" / "activate pending" to activate previously generated pending cases.
 ---
 
 # Delivery Docs → BDD Full Pipeline Skill
 
-**Description**: Reads product requirements from `Product/requirements/` and delivery design/checklist documents from `RD/docs/delivery/`, synthesizes business + technical context, then generates bilingual case docs (CSV) → English-only `.feature` files → Page Object + Step Definitions. Validates the full chain at each phase.
+**Description**: Reads product requirements from `docs/product/` and delivery design/checklist documents from `docs/work/delivery/`, synthesizes business + technical context, then generates Chinese case docs (CSV) → English-only `.feature` files → Page Object + Step Definitions. Validates the full chain at each phase.
 
-> **Feature language policy (CRITICAL)**: `.feature` files are **English-only**. Do NOT generate or maintain `.cn.feature` companions — they are no longer authored, and `lint:bdd` no longer checks feature bilingual sync. Bilingual documentation lives only in `cases/manual-test-cases-{en,cn}.csv`.
+> **Feature language policy (CRITICAL)**: `.feature` files are **English-only**. Do NOT generate or maintain `.cn.feature` companions — they are no longer authored, and `lint:bdd` no longer checks feature bilingual sync. Case documentation lives only in `cases/manual-test-cases-cn.csv` (vibejet writes outputs in Chinese).
 
 ## Single Source of Truth (CRITICAL)
 
@@ -18,7 +18,6 @@ description: Use when generating test cases from delivery or PRD docs under RD/d
 - execution-type decision (`Automated` / `Manual-Prod-Unsafe` / `Manual-Fault-Injection`)
 - case-to-BDD conversion rules
 
-`test-case-generator` is an execution helper and must not define a second case-generation specification.
 
 ---
 
@@ -62,9 +61,8 @@ Delivery doc 出来，代码未实现  →  写入  {module}-{feature}.pending.f
 ## Pipeline Overview
 
 ```
-Product/requirements/{requirement-doc}.md + RD/docs/delivery/{delivery-doc}.md
+docs/product/{prd}.md + docs/work/delivery/{YYYY-MM}/{DD-type-slug}/design.md
         ↓  Phase 1  合并业务需求与技术设计 → 提炼场景 → 追加 csv 行
-modules/{module}/{feature}/cases/manual-test-cases-en.csv
 modules/{module}/{feature}/cases/manual-test-cases-cn.csv
         ↓  Phase 2  读 csv 用例行 → 转换为 Gherkin 场景（仅英文 feature）
 modules/{module}/{feature}/features/{module}-{feature}.feature
@@ -73,8 +71,8 @@ modules/{module}/{feature}/pages/{FeatureName}Page.ts
 modules/{module}/{feature}/steps/{module}-{feature}.steps.ts
         ↓  Phase 4
 npm run bdd:gen && npm run typecheck && npm run lint:bdd
-        ↓  Phase 5  把新用例的 Case-ID 前缀挂到产品功能树叶子 → 重算覆盖率
-docs/feature-tree/feature-tree.src.md  →  npm run coverage:tree -- --write
+        ↓  Phase 5  重算自动化覆盖率
+npm run coverage
 ```
 
 ## Execution Rule — 引用文件必须先读后做 (CRITICAL)
@@ -86,7 +84,6 @@ docs/feature-tree/feature-tree.src.md  →  npm run coverage:tree -- --write
 | [`case-generate.md`](./case-generate.md) | Gate A / Phase 1(用例设计四法 + 封装规则 P1–P3 + 覆盖审计表) |
 | [`test-data-strategy.md`](./test-data-strategy.md) | Phase 1.4 执行方式判断 / Phase 3 写 POM/Steps |
 | [`e2e-stability.md`](./e2e-stability.md) | Phase 3 写或修 POM/Steps |
-| [`feature-tree-sync.md`](./feature-tree-sync.md) | Phase 5 功能树覆盖率同步(主 Pipeline 与激活后都要) |
 | [`activation.md`](./activation.md) | 用户说"激活 pending"时(另一条工作流) |
 
 ## Dual-Core Gates (CRITICAL)
@@ -110,18 +107,18 @@ Before Phase 2 (BDD conversion), ensure all three gates pass:
 
 ---
 
-## Phase 1 — Read PRD + Delivery Docs → Generate Case Docs (Bilingual)
+## Phase 1 — Read PRD + Delivery Docs → Generate Case Docs (Chinese)
 
 ### 1.1 Locate and Synthesize Source Docs (PRD + Delivery)
-- If the user provides a file path under `Product/requirements/` or `RD/docs/delivery/`, read it directly.
+- If the user provides a file path under `docs/product/` or `docs/work/delivery/`, read it directly.
 - If only one side is provided, search the other directory for the corresponding doc by feature/bugfix keywords.
 - Read both sources when available:
-  - **Business truth (PRD)**: `Product/requirements/*.md` for user stories, business goals, acceptance criteria, and business rules.
-  - **Technical truth (Delivery)**: `RD/docs/delivery/*.md` for UI components, routes/APIs, checklist/review constraints, and implementation intent.
-- Prefer English primary files (`*.md` excluding `*-cn.md`); use Chinese companion files (`*-cn.md`) only to clarify business wording.
+  - **Business truth (PRD)**: `docs/product/*.md` for user stories, business goals, acceptance criteria, and business rules.
+  - **Technical truth (Delivery)**: `docs/work/delivery/**/*.md` for UI components, routes/APIs, checklist/review constraints, and implementation intent.
+- vibejet writes delivery docs once, in Chinese; read them directly.
 - If multiple files exist for one delivery item:
   - PRD side: prefer primary requirement file + acceptance addendum
-  - Delivery side: `*-design.md` first, then `*-checklist.md`, then `*-review.md`
+  - Delivery side: `design.md` first, then `checklist.md`, then `review.md`
 - Extract and synthesize:
   - **Source document set**: list every PRD and Delivery file used.
   - **Business value and user flows**: primarily from PRD.
@@ -142,19 +139,17 @@ Phase 1 is strictly for **Business Analysis and QA Design**. You MUST NOT use `g
 
 **Step 1 — Check the delivery docs for an explicit module keyword**
 
-Future delivery docs may include a line like `**AutoTest Module**: voice-agent` in their frontmatter or header.
+Future delivery docs may include a line like `**AutoTest Module**: auth` in their frontmatter or header.
 If present, use it directly and skip Steps 2–3.
 
 **Step 2 — Use the static mapping table**
 
 | Product Area | AutoTest Module |
 |---|---|
-| Knowledge Base / KnowledgeHub | `knowledge-base` |
-| Voice Agent / Agent | `voice-agent` |
-| AI Simulation / Test Suite | `ai-simulation` |
-| MCP Registry / Gateway | `mcp-registry` |
-| WhatsApp / Channel | `whatsapp` |
-| Phone Number | `phone-number` |
+| Login / registration / session | `auth` |
+| Home dashboard | `home` |
+
+Conversations, documents, files and agent configs have no module yet; the first feature that needs one creates it.
 
 **Step 3 — If still ambiguous, search the codebase**
 
@@ -162,18 +157,18 @@ When the delivery doc's product area does not obviously match the table above, r
 by inspecting the source code. Examples:
 
 ```bash
-# Find which backend app package owns the feature
-grep -r "ai_builder\|ai-builder\|agentic_run" RD/ --include="*.py" -l | head -5
+# Find which backend route / application service owns the feature
+grep -rln "{keyword}" backend/api/routes backend/application --include="*.py"
 
-# Check which RD sub-module the feature lives in
-ls RD/voice-agent/   # is it here?
-ls RD/               # or a sibling?
+# Find the frontend feature folder
+ls frontend/src/features/
+grep -rln "{keyword}" frontend/src/features frontend/src/routes
 
 # Cross-reference existing AutoTest step files for related keywords
-grep -r "builder\|agentic" modules/ --include="*.ts" -l
+grep -r "{keyword}" modules/ --include="*.ts" -l
 ```
 
-Map the owning RD sub-module to the AutoTest module using the table above or create a new
+Map the owning backend / frontend area to the AutoTest module using the table above or create a new
 module only when no existing module is a reasonable fit.
 
 If none match even after codebase inspection, create a new module directory following the standard structure.
@@ -184,20 +179,13 @@ Every delivery doc maps to a **feature directory** inside the module. Files are 
 
 ```
 modules/{module}/{feature}/
-├── cases/      ← CSV test case docs (bilingual: en + cn)
+├── cases/      ← CSV test case doc (Chinese: manual-test-cases-cn.csv)
 ├── features/   ← .feature (English-only; no .cn.feature)
 ├── pages/      ← Page Object class
 └── steps/      ← Step Definitions
 ```
 
-**Existing modules** (knowledge-base, ai-simulation, mcp-registry, whatsapp, phone-number) already have a `base/` subdirectory holding their original content. New features for these modules go as siblings to `base/`:
-```
-modules/knowledge-base/
-├── base/           ← original content
-└── {new-feature}/  ← new feature from this delivery doc
-```
-
-**voice-agent** is already fully split; add new features as siblings to existing subdirectories (overview, lifecycle, hotwords, etc.).
+**Existing modules**: `auth` (feature `login`) and `home` (feature `dashboard`). New features go as sibling feature directories under their module, e.g. `modules/auth/register/`.
 
 **Naming rules for `{feature}`:**
 - Derive from the delivery doc filename: strip leading date prefix, take the meaningful slug
@@ -216,16 +204,15 @@ If a directory with the same feature already exists, append to it rather than cr
 ### 1.3 Append cases to the feature CSV files (CRITICAL)
 
 > **Idempotency Check (防重复检查)**:
-> Before generating any new scenarios, you MUST read the existing `modules/{module}/{feature}/cases/manual-test-cases-en.csv` (if it exists).
+> Before generating any new scenarios, you MUST read the existing `modules/{module}/{feature}/cases/manual-test-cases-cn.csv` (if it exists).
 > Compare your planned scenarios with the existing rows (check the `Requirement/Bug ID` and `Scenario Title` columns).
 > - If a scenario is already fully covered in the CSV, **skip it**.
 > - Only generate and append NEW cases that represent missing coverage or recent updates in the source documents.
 > - If ALL planned scenarios already exist in the CSV, stop the pipeline and report: "All scenarios are already covered. No new cases generated."
 
-Case documentation lives in **CSV** format, NOT markdown. Each feature directory has exactly two files:
-- `modules/{module}/{feature}/cases/manual-test-cases-en.csv` (English)
-- `modules/{module}/{feature}/cases/manual-test-cases-cn.csv` (Chinese)
-  **Columns (16, in order)**:
+Case documentation lives in **CSV** format, NOT markdown. Each feature directory has exactly one file, in Chinese, with the CN header row:
+- `modules/{module}/{feature}/cases/manual-test-cases-cn.csv`
+  **Columns (16, in order)** (the file uses the CN names):
 
 | # | EN Column | CN Column |
 |---|-----------|-----------|
@@ -250,11 +237,11 @@ Case documentation lives in **CSV** format, NOT markdown. Each feature directory
 Every case row MUST carry a source identifier in column 2. It traces the case
 back to what it covers and is used by the Idempotency Check above to dedupe.
 Derive the value, in priority order:
-1. **Delivery doc** — the source folder name under `RD/docs/delivery/YYYY-MM/`,
+1. **Delivery doc** — the source folder name under `docs/work/delivery/YYYY-MM/`,
    written as `YYYY-MM-DD-<slug>` (e.g. `2026-05-27-feature-template-middleware-voice-agent-orchestration`,
    `2026-05-22-bugfix-fallbacktts-streaming-ttfb`).
 2. **Product requirement** — the requirement filename stem under
-   `Product/requirements/` (e.g. `prod-si1-telephony-system`, `260526-kb-lifecycle-suite`)
+   `docs/product/` (e.g. `prd-auth`)
    when the case derives from a PRD rather than a dated delivery doc.
 3. **Bug/ticket ID** — the tracker ID (e.g. `UER-01`) for bug-driven cases.
 
@@ -264,7 +251,7 @@ the user — do NOT leave it blank. One source ID may be shared across all cases
 generated from the same doc.
 
 **Case ID format (MANDATORY)**: `{MODULE}-{FEATURE_CODE}-{NNN}`
-- `MODULE`: product/module code (`VA`, `KB`, `MCP`, ...)
+- `MODULE`: product/module code (`AUTH`, `HOME`, ...)
 - `FEATURE_CODE`: **3-5 uppercase letters**, human-recognizable, derived from feature domain (no opaque numeric fragment like `AE01`)
 - `NNN`: 3-digit sequence, zero-padded (`001`, `002`, ...)
 
@@ -279,44 +266,19 @@ Examples:
 - `VA-XY4-001` (legacy mixed code + number)
 - `VA-XY1-003` (legacy short code + number)
 
-**Voice-Agent feature code registry (use these exact codes):**
-- `AIB` = `ai-builder`
-- `AGR` = `agentic-run-api`
-- `AEL` = `audio-e2e-latency`
-- `ALM` = `action-latency-metrics`
-- `AST` = `admin-stt-config`
-- `ASR` = `asr-slice-recording`
-- `AVS` = `version-snapshot` (agent version snapshot reads)
-- `CHR` = `call-history-resolution`
-- `CHS` = `call-history-source`
-- `CSL` = `connection-latency`
-- `DFL` = `dialog-flow-structure`
-- `FBR` = `fallback-rules`
-- `GLP` = `global-prompt`
-- `HOT` = `hotwords`
-- `ICC` = `in-call-controller`
-- `IVR` = `ivr-interruptible`
-- `LFC` = `lifecycle-core`
-- `OVH` = `overview-call-history-structure`
-- `OVM` = `overview-metrics`
-- `RDL` = `routing-decision-latency`
-- `SET` = `setup-page-structure`
-- `SHL` = `shared-link`
-- `STT` = `stt-runtime`
-- `TTS` = `tts-tokenizer`
-- `VAD` = `vad-eou-runtime`
-- `WMS` = `waiting-messages`
+**vibejet feature code registry (use these exact codes; add a line when you create a feature):**
+- `AUTH-LGN` = `auth/login`
+- `HOME-DSH` = `home/dashboard`
 
 > The Case ID in the csv is the tracking ID. The corresponding BDD scenario gets a `@{CASE_ID}` tag (e.g., `@VA-SHL-001`). Record the Case ID tag in the **BDD Tag** column (column 14) alongside the execution tag (e.g., `@VA-SHL-001 @smoke`).
 
 **Test Data column for parameterized cases (Rule P1)**: when a case merges same-flow data variants per Case Packaging Rule P1 (`case-generate.md` §5), column 10 (Test Data) MUST enumerate the variant matrix (e.g. `provider ∈ {Deepgram, Cartesia, ElevenLabs, WIZ}`). Phase 2 converts such a row into a single `Scenario Outline` with one `Examples` row per variant.
 
 **Case Type values** (EN/CN): `Smoke/冒烟`, `Regression/回归`, `Runtime/Slow/回归`, `Negative/负向`  
-**Execution Type values** — canonical 3-value vocabulary enforced by `npm run lint:bdd`; use the correct language per file, never mix:
+**Execution Type values** — canonical 3-value vocabulary enforced by `npm run lint:bdd`; vibejet's case file is Chinese, so use the CN values:
 
 | File | Automated | Manual (prod-unsafe / hard-to-observe) | Manual (fault injection) |
 |------|-----------|----------------------------------------|--------------------------|
-| `manual-test-cases-en.csv` | `Automated` | `Manual-Prod-Unsafe` | `Manual-Fault-Injection` |
 | `manual-test-cases-cn.csv` | `自动化测试` | `手工测试-产线高危` | `手工测试-故障注入` |
 
 - `Automated` / `自动化测试`: standard UI/API flows automatable via Playwright
@@ -359,7 +321,7 @@ For non-`Automated` cases, Notes must include:
 **How to append**:
 1. If `modules/{module}/{feature}/cases/` does not exist yet, create it with `mkdir -p`.
 2. **Compute the next Case ID defensively** — do NOT just read the last line (trailing blank lines, comment rows, or a concurrent edit will break it). Parse ALL rows, filter empties, collect every existing Case ID for this `{FEATURE_CODE}`, take `max(sequence) + 1`, and print the full ID list as a sanity check before appending. (Same approach as Phase 2.2's "find next Case ID".) If the file doesn't exist, start at `001`.
-3. Create a temporary python script (e.g., `tmp_append_cases.py` in the workspace root) using the `csv` module to append new rows — do NOT overwrite existing rows. Write identical rows to both EN and CN files simultaneously. **Always use the `csv` module (never naked string concatenation) — test steps contain commas/quotes/newlines that only proper CSV quoting handles safely.** If you prefer Node over Python, use a real CSV library (`csv-stringify`/`papaparse`), not `fs` string append.
+3. Create a temporary python script (e.g., `tmp_append_cases.py` in the workspace root) using the `csv` module to append new rows — do NOT overwrite existing rows. Write the rows to the CN file. **Always use the `csv` module (never naked string concatenation) — test steps contain commas/quotes/newlines that only proper CSV quoting handles safely.** If you prefer Node over Python, use a real CSV library (`csv-stringify`/`papaparse`), not `fs` string append.
 4. Execute the script via `run_shell_command` and then delete the script.
 
 ```python
@@ -390,13 +352,13 @@ def append_cases(filepath, rows):
 Before converting CSV scenarios to `.feature` scenarios, verify that the backend API routes and frontend components described in the delivery docs actually exist in the codebase. This determines whether you write to the active or pending feature file.
 
 ```bash
-# Backend: check if the API route exists (exclude tests and migrations)
-grep -r "{api-path-keyword}" RD/voice-agent/backend/app --include="*.py" --exclude-dir="tests" -l
-grep -r "{api-path-keyword}" RD/voice-agent/backend/app/main.py
+# Backend: is the route registered? (routes live in backend/api/routes, prefixes in backend/main.py)
+grep -rn "{api-path-keyword}" backend/api/routes --include="*.py"
+grep -n "include_router" backend/main.py
 
-# Frontend: check if the UI component exists (focus on source files, exclude tests)
-find RD/voice-agent/frontend/src -type f \( -name "*.tsx" -o -name "*.ts" \) -not -path "*/__tests__/*" | xargs grep -l "{feature-keyword}" 2>/dev/null | head -5
-find RD/voice-agent/frontend/src -name "{ComponentName}.tsx" 2>/dev/null
+# Frontend: does the component exist? (source files, not tests)
+find frontend/src -name "{ComponentName}.tsx" 2>/dev/null
+find frontend/src -type f \( -name "*.tsx" -o -name "*.ts" \) -not -name "*.test.*" | xargs grep -l "{feature-keyword}" 2>/dev/null | head -5
 ```
 
 > **Avoid false positives (CRITICAL)**: a broad keyword (`status`, `update`, `config`) over-matches and wrongly marks a pending feature as implemented — you then waste effort writing POM/Steps for code that doesn't exist. Do NOT conclude "implemented" from hit count alone:
@@ -435,7 +397,7 @@ import csv
 new_rows = []
 # new_case_ids should be collected from Phase 1 append result, e.g. {"VA-SHL-001", "VA-SHL-002"}
 new_case_ids = set(...)
-with open('modules/{module}/{feature}/cases/manual-test-cases-en.csv', newline='', encoding='utf-8') as f:
+with open('modules/{module}/{feature}/cases/manual-test-cases-cn.csv', newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
     next(reader)  # skip header
     for row in reader:
@@ -447,10 +409,10 @@ with open('modules/{module}/{feature}/cases/manual-test-cases-en.csv', newline='
 ```
 
 ### 2.1 Rules (CRITICAL)
-- **Generate Gherkin scenarios only for rows where "Execution Type" is `Automated` (EN CSV).** Manual cases (`Manual-Prod-Unsafe` / `Manual-Fault-Injection`) must stay in the CSV file as documentation and MUST NOT be written to the `.feature` files.
+- **Generate Gherkin scenarios only for rows where "Execution Type" is `自动化测试`.** Manual cases (`Manual-Prod-Unsafe` / `Manual-Fault-Injection`) must stay in the CSV file as documentation and MUST NOT be written to the `.feature` files.
 - **feature 内容来自 csv，不是直接从 delivery docs 推导**
 - **English `.feature` is the execution source** — playwright-bdd runs this file only
-- **Do NOT create a `.cn.feature` companion** — feature files are English-only; bilingual docs live in `cases/*.csv`
+- **Do NOT create a `.cn.feature` companion** — feature files are English-only; case docs live in `cases/manual-test-cases-cn.csv`
 - No CSS selectors, API paths, or technical details in the feature file
 - All variable values wrapped in double quotes
 - **Every scenario MUST have a `@{CASE_ID}` tag placed first (see TC Tag Rules below)**
@@ -460,9 +422,9 @@ with open('modules/{module}/{feature}/cases/manual-test-cases-en.csv', newline='
 Every scenario MUST have exactly one `@{CASE_ID}` tag placed **first** on the tag line, before other tags.
 A `Scenario Outline` carries exactly one `@{CASE_ID}` tag like a normal Scenario — all its Examples rows share that one Case ID (they are variants of ONE case, not separate cases).
 
-**Format**: `@{CASE_ID}` where `{CASE_ID}` comes directly from the **Case ID column (col 1)** of `modules/{module}/{feature}/cases/manual-test-cases-en.csv`.
+**Format**: `@{CASE_ID}` where `{CASE_ID}` comes directly from the **Case ID column (col 1)** of `modules/{module}/{feature}/cases/manual-test-cases-cn.csv`.
 
-The csv Case ID follows the pattern `{MODULE}-{FEATURE}-{NNN}` (e.g., `KB-KB3-002`, `VA-SHL-001`, `MCP-MI1-003`), so the tag is `@KB-KB3-002`, `@VA-SHL-001`, etc.
+The csv Case ID follows the pattern `{MODULE}-{FEATURE}-{NNN}` (e.g., `AUTH-LGN-002`, `HOME-DSH-001`), so the tag is `@AUTH-LGN-002`, `@HOME-DSH-001`, etc.
 
 **Workflow — always assign csv Case ID first**:
 1. Append the new case row to the csv (Phase 1.3) — this assigns the Case ID
@@ -471,7 +433,7 @@ The csv Case ID follows the pattern `{MODULE}-{FEATURE}-{NNN}` (e.g., `KB-KB3-00
 **How to find the next Case ID**:
 ```python
 import csv
-with open('modules/{module}/{feature}/cases/manual-test-cases-en.csv', newline='', encoding='utf-8') as f:
+with open('modules/{module}/{feature}/cases/manual-test-cases-cn.csv', newline='', encoding='utf-8') as f:
     rows = [r for r in csv.reader(f) if r and r[0]]
 last_id = rows[-1][0]  # e.g. "KB-KB3-013" → next is "KB-KB3-014"
 ```
@@ -575,7 +537,7 @@ Feature: {Module Name} — {Feature Title}
 
 写本阶段的 POM/Steps 前，**必读** [`test-data-strategy.md`](./test-data-strategy.md)：
 Three-Tier 数据分类（Application Data 必建必清 / Infra & Config 预置 / Legacy 高成本降级 Manual）、
-per-scenario 数据播种、`e2e-{CaseID}` 命名、以及 Agent CRUD 必须走 `AgentManager`。
+per-scenario 数据播种、`e2e-{CaseID}` 命名、以及 测试数据 CRUD 必须走 `core/api/entities`。
 该分类同样驱动 Phase 1 的 AutoTest/Manual 执行方式判断。
 
 ### 3.1 Scan for existing coverage
@@ -601,7 +563,7 @@ File: `modules/{module}/{feature}/pages/{FeatureName}Page.ts`
 - Group methods by operation: navigate, fill*, click*, assert*, wait*, get*
 - `navigate()` must wait for a key element before returning (timeout: 30000ms)
 - Use `this.frame.getBy*` for iframe content; `this.page.getBy*` for main page
-- For UAT: all `waitFor` timeouts ≥ 20000ms
+- For shared remote environments: all `waitFor` timeouts ≥ 20000ms
 - **Action & Wait combo:** Every method that triggers a network request or major DOM change (e.g., `clickSave()`, `submitForm()`) MUST wait for the expected outcome before returning. Do NOT rely on the step definition to handle the wait.
   - **优先 UI 等待**: 如果操作引发明显的 UI Loading 变化，使用 `await expect(locator).toBeVisible()`。
   - **结合网络等待**: 如果是核心写入操作、弹窗无感消失或 UI 状态变化不可靠，必须结合 `waitForResponse` 拦截网络层。
@@ -652,27 +614,11 @@ If `lint:bdd` fails TC tag coverage → every scenario needs a valid `@{CASE_ID}
 
 ---
 
-## Phase 5 — Feature-Tree Coverage Sync (必读 [`feature-tree-sync.md`](./feature-tree-sync.md))
+## Phase 5 — Coverage
 
-The new cases you just generated carry new Case IDs (e.g. `VA-XXX-001`). The product
-**feature tree** (`docs/feature-tree/feature-tree.src.md`, GENERATED from `Product/feature-catalog.md`)
-must reflect that these cases now cover a product feature — otherwise coverage drifts and the
-new cases show up as "untracked".
-
-This PRD already tells you **which product feature** the cases belong to, so this is the moment
-to attach them. **必读 [`feature-tree-sync.md`](./feature-tree-sync.md)** then:
-
-1. Find the product feature this PRD covers in `feature-tree.src.md` (a `-` leaf under the right
-   `# 功能区 > ## 功能场景`). Leaves come from built (`Completed`/`In-Dev`) catalog rows.
-2. Add the new cases' **Case-ID prefix** to that leaf's `@cases:` (e.g. `@cases: VA-XXX*`). This
-   survives regeneration (carried by feature name). Do NOT add a leaf by hand — if there is no leaf,
-   the feature isn't a built row in `Product/feature-catalog.md`: flag it for the PM to add there
-   (and add its `EN<TAB>CN` line to `feature-names-cn.tsv`).
-3. Run `npm run coverage:tree -- --write` (regenerates from the catalog, then computes) and confirm the
-   new Case IDs are no longer under "Untracked automated cases" in `docs/feature-tree/coverage-report.md`.
-4. Commit the updated `feature-tree.src.md` + regenerated `FEATURE-TREE*.md` / `coverage-report.md`.
-
-This keeps the feature tree and its coverage % continuously in sync with every prd-to-bdd run.
+Run `npm run coverage` and report automated / total; `npm run coverage:check` fails below 80%.
+(The voice-agent source also synced a product feature tree generated from a PM feature catalog;
+vibejet has no feature catalog, so that step is not ported.)
 
 ---
 
@@ -688,7 +634,6 @@ Module: {module}
 Case slug: {case-slug}
 
 Phase 1 — Cases
-  ✓ {n} rows appended to modules/{module}/{feature}/cases/manual-test-cases-en.csv
   ✓ {n} rows appended to modules/{module}/{feature}/cases/manual-test-cases-cn.csv
 
 Phase 2 — Features
@@ -704,12 +649,10 @@ Phase 4 — Validation
   ✓ typecheck: 0 errors
   ✓ lint:bdd: all checks PASS
 
-Phase 5 — Feature-Tree Coverage Sync
-  ✓ attached {CASE_PREFIX}* to feature "{product feature}" in feature-tree.src.md
-  ✓ coverage:tree recomputed → {covered}/{total} = {pct}% (was {prev}%)
-  ✓ 0 new untracked cases
+Phase 5 — Coverage
+  ✓ npm run coverage → {automated}/{total}
 
-Run: npm run test:{module-alias}:uat
+Run: npm run test:{module-alias}:local
 ```
 
 ---
@@ -720,6 +663,4 @@ Run: npm run test:{module-alias}:uat
 不要走上面的主 Pipeline。**必读** [`activation.md`](./activation.md) 并严格按其 Step A–G 执行
 （确认目标 → 实现门检查 → 从 pending 移入主 feature → 补 POM/Steps → 验证 → 更新 csv）。
 
-> 激活完成后,被激活的用例已变为自动化,**同样要执行 Phase 5 功能树覆盖率同步**
-> (必读 [`feature-tree-sync.md`](./feature-tree-sync.md)):把这些用例的 Case-ID 前缀挂到对应
-> 产品功能叶子并重跑 `coverage:tree`,让覆盖率反映新激活的覆盖。
+> 激活完成后，被激活的用例已变为自动化，同样要执行 Phase 5（`npm run coverage`）。

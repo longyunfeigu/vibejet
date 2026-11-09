@@ -14,7 +14,6 @@
     "../modules/**/steps/**/*.ts",
     "../modules/**/pages/**/*.ts",
     "../modules/**/legacy-specs/**/*.ts",
-    "../modules/voice-agent/lang_detect/**/*.ts",
     "../core/runner/**/*.ts",
     "../core/release-check/**/*.ts",
     "../core/helpers/**/*.ts",
