@@ -1,6 +1,8 @@
 # 功能检查清单：引入 voice-agent 交付链与 AutoTest（试用期）
 
 > 由 `/feature-checklist` 在**无人值守模式**下产出。HUMAN 项的判定是「自动确认，待你审」，每项附依据。
+>
+> **2026-11-09 修正**：#15 初版误判为 PASS（锁文件其实没提交）；#8、#9 原来只是推断，现已更新；新增复盘补查 #21、#22；总数初版也数错了。修正处都标了「修正」。
 
 Feature: 引入 voice-agent 交付链与 AutoTest E2E 框架
 Type: T6 — External Dependency Change
@@ -33,8 +35,8 @@ Release-Check: 豁免（只改 AutoTest、文档、CI，没有运行时行为变
 
 | # | 类型 | 项 | 结果 | 依据 |
 |---|---|---|---|---|
-| 8 | HUMAN | AUTH-LGN-003 在翻译未编译的环境上会失败 | 未执行（推断） | 编译前用 curl 实测，接口返回 `auth.password.invalid`，剧本期望 `Invalid username or password`；但没有在编译前实际跑这个场景 |
-| 9 | HUMAN | lint-bdd 修复前，嵌套功能目录确实被跳过 | 未执行（推断） | 代码阅读：原版 Check B/C/E/F/H 只拼接 `modules/<m>/<dir>`；没有用原版 lint 对新模块实测 |
+| 8 | HUMAN | AUTH-LGN-003 在翻译未编译的环境上会失败 | N/A（修正：前提已失效） | 初版只是推断，没有实测。第二次试跑的修复（`526dd47`）让翻译缺失时退回英文默认文案：`PasswordErrorException` 的默认文案就是 `Invalid username or password`，和英文翻译、剧本期望一字不差。所以这个场景不再能发现「翻译没编译」，要靠中文场景断言 `用户名或密码错误` 才行 |
+| 9 | HUMAN | lint-bdd 修复前，嵌套功能目录确实被跳过 | PASS（修正：已补实测） | 在 `modules/auth/login/features/auth-login.feature` 里故意加一个没有标签的场景：原版 lint-bdd（voice-agent 原样，配它自己的 runner 库）结果 `All checks passed`，exit 0；适配版报 `Tag compliance: 1 violation(s)` 和 `TC tag coverage: 1 violation(s)`，exit 1 |
 
 ### 回归
 
@@ -50,7 +52,7 @@ Release-Check: 豁免（只改 AutoTest、文档、CI，没有运行时行为变
 
 | # | 类型 | 项 | 结果 | 依据 |
 |---|---|---|---|---|
-| 15 | AUTO | 锁文件已提交，可复现安装：`npm ci` | PASS | `AutoTest/package-lock.json`；`npm ci` exit 0 |
+| 15 | AUTO | 锁文件已提交，可复现安装：`npm ci` | FAIL → 已修（修正：初版误判为 PASS） | 初版在工作区跑 `npm ci` 通过，只是因为文件刚好在磁盘上：`AutoTest/.gitignore` 原样带来的 `package-lock.json` 规则把它忽略了，它从未提交，干净克隆上 `npm ci` exit 1。修复 `8137458`：在 `AutoTest/.gitignore` 里放行。干净克隆复验 exit 0 |
 | 16 | HUMAN | 回滚方式 | PASS（待审） | 删分支，或 revert 5 个 commit；不涉及数据迁移 |
 | 17 | HUMAN | 在 staging 上验证 | N/A | 开发期工具，不部署 |
 
@@ -67,15 +69,22 @@ Release-Check: 豁免（只改 AutoTest、文档、CI，没有运行时行为变
 |---|---|---|---|---|
 | 20 | AUTO | 新依赖只在 AutoTest：`git diff --name-only 12aded5..HEAD -- backend/pyproject.toml backend/uv.lock frontend/package.json frontend/pnpm-lock.yaml` | PASS | 0 个文件 |
 
+### 干净克隆（复盘补查，修正新增）
+
+| # | 类型 | 项 | 结果 | 依据 |
+|---|---|---|---|---|
+| 21 | AUTO | 干净克隆上跑 CI 的 AutoTest 步骤 | FAIL → 已修 | 根 `.gitignore` 的 `lib/` 规则让 `AutoTest/core/runner/lib/` 的 4 个文件（`case-index.mjs`、`classify-rules.mjs`、`guardrails.mjs`、`guardrails.d.mts`）从未提交。干净克隆上 `test:release-check`、`lint:release-check`、`test:runner`、`lint:bdd`、`typecheck`、`bdd:gen` 全部失败（`Cannot find module './lib/guardrails.mjs'`）。修复 `8137458` 后，干净克隆上 `npm ci` 和这六步全部 exit 0；CI 不跑的 `coverage`、`coverage:check`、`classify` 也 exit 0 |
+| 22 | AUTO | `test-self-heal` 要派发的 `.claude/agents/heal-verifier.md` 已提交 | FAIL → 已修 | 根 `.gitignore` 的 `.claude/*` 把它忽略了。修复 `61f3c9f`：只对这一个文件 `git add -f`，不改根 `.gitignore`（主目录里它有未提交的改动） |
+
 ---
 
-Total: 20 · AUTO: 11 | HUMAN: 9
+Total: 22 · AUTO: 14 | HUMAN: 8（修正：初版写成 AUTO 11 / HUMAN 9，数错了；实际是 12 / 8，再加补查的 2 项 AUTO）
 
 ## Gate Decision
 
-- AUTO：11 PASS / 0 FAIL
-- HUMAN：5 PASS（待审）/ 2 未执行（推断，见 #8、#9）/ 2 N/A（有理由）
-- Gate：**PASS（自动确认，待你审）**。#8、#9 没有实测，不算作证据；如需证据，可以对这两项各补跑一次。
+- AUTO：11 PASS；3 项 FAIL 已修（#15、#21、#22），在干净克隆上复验通过。
+- HUMAN：5 PASS（待审，#9 已补实测）/ 3 N/A（#2、#17 有理由；#8 前提已失效）
+- Gate：**PASS（修正后，自动确认，待你审）**。初版 Gate 是在工作区上判的，漏掉了「文件根本没提交」这一类问题。
 
 复盘备注：这次试跑暴露的问题不在清单范围里，而在 vibejet 本地环境（Python 版本、greenlet、翻译编译）。建议在清单模板里加一项「新克隆的仓库按文档能否一次跑起来」。
 
@@ -84,3 +93,5 @@ Total: 20 · AUTO: 11 | HUMAN: 9
 ## Decision Log
 
 - 全部关卡 `Gate: auto-confirmed — pending user review`。没有和用户来回讨论的取舍（用户的 4 个决定记在 design.md）。
+
+复盘备注（修正时补）：上面这条建议应验在本清单自己身上。凡是「已提交」「可复现安装」这类结论，都必须在干净克隆上验证；在工作区里跑通不算证据，被 `.gitignore` 忽略的文件也在磁盘上。
