@@ -1,0 +1,110 @@
+# 技术设计 — Bug 修复：错误提示返回原始翻译 key
+
+> 由 `/bug-fix-design` 在**无人值守模式**下产出。所有关卡都是「自动确认，待你审」，见文末 Decision Log。
+
+| 关卡 | 结论 | 依据 |
+|---|---|---|
+| Pre-Step A 根因 | 见 §2 | 修复前实测（§1）+ 代码 + 翻译表比对 |
+| Pre-Step B 修法 | 方案 C：补翻译 + 兜底 + 覆盖测试 | 见 §3 与 Decision Log |
+| Pre-Step C 类比排查 | 见 §4 | 扫描了代码里全部 43 个 key 和 4 个异常处理器 |
+| Step 2 分级 | **T2 逻辑扩展**（不冲突） | 只改一个处理函数和两份翻译表 |
+
+Bug: 11 个业务异常的翻译 key 不在中英翻译表里，接口把 key 原样当作提示返回
+Type: T2
+Date: 2026-11-09
+Status: Confirmed（自动确认，待审）
+Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次试跑；可以单独拆出去合并）
+
+---
+
+## 1. 背景
+
+跑 AutoTest E2E 时发现：错误响应的 `message` 字段是 key，而不是一句话。修复前实测（本地，翻译已编译）：
+
+| 请求 | HTTP | `message` | `message_key` | locale |
+|---|---|---|---|---|
+| `GET /api/v1/auth/me`，不带 token | 401 | `auth.required` | `auth.required` | en |
+| `GET /api/v1/auth/me`，`Authorization: Bearer invalid-token` | 401 | `auth.token.invalid` | `auth.token.invalid` | en |
+| `GET /api/v1/conversations/999999999`（测试账号） | 404 | `conversation.not_found` | `conversation.not_found` | en |
+| 同上加 `?lang=zh` | 404 | `conversation.not_found` | `conversation.not_found` | zh_Hans |
+| 对照：密码错误，加 `?lang=zh` | 401 | `用户名或密码错误` | `auth.password.invalid` | zh_Hans |
+
+前端直接把 `message` 显示给用户（`frontend/src/features/auth/helpers/authError.ts`）。
+
+## 2. 根因（Pre-Step A）
+
+**共同模式**：异常处理只认翻译表。翻译缺失时，它把 key 当作文案返回，异常类自带的英文默认文案被丢掉。
+
+1. **现象**：`message` 等于 key。
+2. **根因**：
+   - `backend/core/exceptions.py` 的 `business_exception_handler` 执行 `t(message_key or exc.message, **params)`；`backend/core/i18n.py` 的 `t()` 查不到时返回 msgid，也就是 key 本身。
+   - 有 11 个 key 只登记在代码里，两份翻译表（`backend/locales/{en,zh_Hans}/LC_MESSAGES/messages.po`）里都没有：`auth.required`、`auth.token.invalid`、`conversation.not_found`、`conversation.archived`、`run.not_found`、`agent_config.not_found`、`agent_config.name.exists`、`llm.provider.error`、`llm.timeout`、`idempotency.key.reused`、`idempotency.in_progress`。
+3. **为什么没早发现**：没有任何检查保证「代码里用到的 key 在翻译表里存在」。测试环境不编译 `.mo`，`t()` 总是返回 key，现有测试只断言 `code`，不断言 `message`。另外，本地开发如果没跑 `pybabel compile`，所有 key 都会原样返回；README 写了这一步，但没有机器检查。
+4. **孤立还是模式**：是模式。新增异常时漏补翻译，这种漂移还会继续发生。
+
+## 3. 修复方案（Pre-Step B）
+
+> **一句话**：补齐翻译，缺翻译时退回默认文案，再用测试把「代码里的 key 必须有翻译」锁住。
+
+1. **补翻译**：两份 `.po` 各加 11 条。英文 msgstr 和异常类自带的英文默认文案逐字一致（`agent_config.name.exists` 用 `{name}` 占位，值来自异常的 `details`），所以不论编译与否，英文结果都一样。
+2. **兜底**：`business_exception_handler` 在翻译缺失（`t()` 返回值等于 key）时，退回 `exc.message`。
+3. **防复发**：新增测试 `backend/tests/test_i18n_message_keys.py`。它扫描代码里的 `message_key="..."` 和 `t("...")` 字面量，要求每个 key 在每份 `.po` 里都有条目；另外测试兜底行为。
+
+**副作用**
+
+- **调用方是否依赖旧行为**：前端只展示 `message`；机器判断应该看 `code` 和 `message_key`，这两个不变。没有找到依赖旧行为的调用方。
+- **自定义文案被统一文案取代**：`LLMProviderException(message=...)` 和 `UnauthorizedException(message=...)` 接受调用方传入的文案。补上翻译后，翻译生效时返回统一文案（「LLM provider error」/「Authentication required」），调用方传入的文案不再出现在 `message` 里。我的判断是：上游 LLM 的报错文本可能带内部信息，统一文案更安全。但这是行为变化，列为待审决策。
+- **数据迁移**：不需要。
+- **可回滚**：可以，revert 这个 commit 即可。
+- **最坏情况**：某条翻译写错，提示文案不对；`code`、`message_key`、HTTP 状态都不受影响。
+
+## 4. 类比排查（Pre-Step C）
+
+模式：**key 只登记在代码里，没有同步进翻译表；或者某条错误路径根本不经过翻译。**
+
+| 位置 | 查了吗 | 结果 | 处理 |
+|---|---|---|---|
+| 代码里全部 `message_key` / `t()` 字面量（43 个） | 是 | 11 个缺翻译，其余 32 个齐全 | 本次补齐 |
+| `validation_exception_handler`（`validation.failed`）、`global_exception_handler`（`error.internal`） | 是 | 翻译存在 | 无 |
+| `http_exception_handler` | 是 | 不经过翻译，直接返回 `exc.detail`（例如 FastAPI 自带的英文） | **后续任务**：是否翻译 HTTPException 需要单独决定 |
+| 本地没编译 `.mo` | 是 | 所有 key 原样返回 | 兜底缓解（返回英文默认文案）；启动时自动编译列为**后续任务** |
+| 前端是否用 `message` 做逻辑判断 | 是 | 只展示，不做判断 | 无 |
+
+## 5. 影响面
+
+- 文件：`backend/core/exceptions.py`；`backend/locales/en/LC_MESSAGES/messages.po`；`backend/locales/zh_Hans/LC_MESSAGES/messages.po`；新增 `backend/tests/test_i18n_message_keys.py`
+- 模块：后端 core（异常处理）、i18n 翻译表
+- 接口：所有接口错误响应的 `message` 字段，只改它的值；`code`、`message_key`、HTTP 状态不变
+- 关键路径：鉴权失败、资源不存在等错误路径，只改提示文本
+
+**strict 触发判断**：改的是错误响应的展示文本，不改信封结构、错误码和状态码，所以不视为公共 API 契约变化。这是待审的假设。
+
+## 6. 提交计划
+
+1. `fix(i18n): ...` —— 处理函数兜底 + 两份翻译表 + 覆盖测试
+2. `docs(delivery): ...` —— 本设计、检查清单、Release-Check 验证指导
+
+---
+
+## Decision Log
+
+### 自动确认的关卡
+
+- Pre-Step A / B / C、Step 1、Step 2：`Gate: auto-confirmed — pending user review`。
+
+### Pre-Step B — 修法 — Decision Discussion
+
+**Decision point (option comparison)**：
+- A 只补翻译：修掉现象，但不防复发。
+- B 只加兜底：不再漏出 key，但缺翻译时中文用户看到英文。
+- C 补翻译 + 兜底 + 覆盖测试：漂移由机器检查拦住，漏网的 key 至少显示一句英文。
+- D 启动时自动编译 `.mo`，或把 `.mo` 提交进仓库：解决「没编译」那一层，代价是运行期依赖 Babel 或提交构建产物。
+
+**Rationale**：根因是漂移，只有 C 用一条会失败的检查锁住它（vibejet 原则：「把散文规则升格为会失败的检查」）。D 解决的是另一层问题，而且有代价，列为后续任务。
+**Decision**：C。`Gate: auto-confirmed — pending user review`。
+
+### Pre-Step B — 自定义文案被统一文案取代 — Decision Discussion
+
+**Decision point**：保留调用方传入的文案（不给这两个 key 补翻译）/ 使用统一文案（补翻译）。
+**Rationale**：上游 LLM 的报错文本可能带内部信息，统一文案更安全；`details` 仍保留具体信息。
+**Decision**：使用统一文案。`Gate: auto-confirmed — pending user review`（行为变化，请你确认）。
