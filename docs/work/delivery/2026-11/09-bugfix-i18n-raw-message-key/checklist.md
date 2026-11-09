@@ -10,7 +10,7 @@ Release-Check: [edy-i18n-raw-message-key.md](../../../../../AutoTest/Release-Che
 
 Root cause: 异常处理器只认翻译表，缺翻译时把 key 当文案返回；而这 11 个 key 没进翻译表
 Fix: 补翻译 + 缺翻译时退回默认文案 + 覆盖测试；另外，非流式聊天在大模型调用失败时改成统一文案
-Side effects identified: 2 | Analogical fixes bundled: 1（上游报错原文） | Follow-up tasks: 3
+Side effects identified: 2 | Analogical fixes bundled: 1（上游报错原文） | Follow-up tasks: 4
 
 ---
 
@@ -55,6 +55,7 @@ GET /api/v1/agent-configs/999999999             → HTTP 400 code=60005 message=
 | 9 | HUMAN | 后续任务：`HTTPException` 路径不翻译（`backend/core/exceptions.py:149`） | 已记录 | vibejet 没有任务跟踪系统，记在 design §4 和本清单 |
 | 10 | HUMAN | 后续任务：本地没编译 `.mo` 时，中文退回英文 | 已记录 | 同上。兜底保证至少返回一句英文 |
 | 11 | HUMAN | 后续任务：镜像构建时编译翻译失败会被静默跳过（`backend/Dockerfile:71` 末尾的 `\|\| true`） | 已记录 | Babel 是运行时依赖（`backend/pyproject.toml:243`），正常会编译成功；但失败时构建不会报错 |
+| 19 | HUMAN | 后续任务：compose 环境没有翻译（`docker-compose.yml:33` 的挂载盖掉了镜像里的翻译文件） | 已记录 | 独立验证时发现，记在 design §4 |
 
 ### 回归（T2）
 
@@ -75,13 +76,14 @@ GET /api/v1/agent-configs/999999999             → HTTP 400 code=60005 message=
 
 ---
 
-Total: 18 · AUTO: 11 | HUMAN: 7
+Total: 19 · AUTO: 11 | HUMAN: 8
 
 ## Gate Decision
 
 - AUTO：11 PASS / 0 FAIL / 0 WARNING
-- HUMAN：3 PASS（待审）/ 1 待你确认（#6，行为变化）/ 3 已记录的后续任务
+- HUMAN：3 PASS（待审）/ 1 待你确认（#6，行为变化）/ 4 已记录的后续任务
 - Gate：**PASS（自动确认，待你审）**。#6 是产品取舍：大模型调用失败时，响应不再带上游原文。如果你希望保留原文，就 revert `d2fe08e`，同时要接受「没编译翻译时原文会返回给调用方」。
+- 独立验证：另起一个验证 agent，只拿指导和 `_shared/`，对本地环境实测：6 项（4 P0、1 P1、1 条底线）全部 pass。它指出的指导缺口已经修进指导和 `_shared/tools.md`：登录请求格式没写、语言优先级漏了 `Accept-Language`、翻译过期会被误判成产品 bug、compose 环境没有翻译、兜底只有单测证据。它还指出：在翻译齐全的环境里，接口检查只能覆盖「补翻译」这一半，兜底那一半只能靠单测。
 
 复盘备注：
 - 这个 bug 能存活，是因为测试只断言 `code`，不断言 `message`。建议在 T2 清单模板里加一项：错误响应类的改动，测试要断言 `message`，不能只断言 `code`。

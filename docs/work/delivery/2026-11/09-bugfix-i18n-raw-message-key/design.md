@@ -71,6 +71,7 @@ Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次�
 | 本地没编译 `.mo` | 是 | 所有 key 原样返回 | 兜底缓解（返回英文默认文案）；启动时自动编译列为**后续任务** |
 | 兜底返回 `exc.message` 时，它会不会是上游原文 | 是（检查清单阶段补查） | 非流式聊天把上游报错原文作为 message | 本次修复（§3 第 4 点） |
 | 镜像构建时编译翻译 | 是 | Babel 是运行时依赖（`backend/pyproject.toml:243`），镜像构建时会编译（`backend/Dockerfile:71`）；但命令末尾的 `\|\| true` 会让编译失败被静默跳过 | **后续任务**：编译失败应让构建失败 |
+| 用 `docker-compose.yml` 起的环境 | 是（独立验证时发现） | 后端目录挂载进容器（`docker-compose.yml:33`），盖掉镜像里编译好的翻译文件；翻译文件被 `.gitignore` 和 `backend/.dockerignore` 排除。所以 compose 环境默认没有中文；修复前它的所有错误都返回 key，修复后返回英文默认文案 | **后续任务**：compose 环境启动时编译翻译 |
 | 前端是否用 `message` 做逻辑判断 | 是 | 只展示，不做判断 | 无 |
 
 ## 5. 影响面

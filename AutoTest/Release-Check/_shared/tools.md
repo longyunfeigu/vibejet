@@ -5,7 +5,7 @@ The lint reads the **first column** of this table; a guide's `tools` field may l
 | Name | What it does | Read/Write | Status |
 |---|---|---|---|
 | `browser` | Drive the vibejet web app like a user: Playwright through `AutoTest/`, or the `web-access` skill for an ad-hoc check | read + write via UI | available |
-| `api` | Call vibejet REST APIs with a test account's bearer token; create and delete test data | read + write | available |
+| `api` | Call vibejet REST APIs with a test account's bearer token: `POST /api/v1/auth/login` with body `{"username", "password"}` (`backend/application/dto.py:214`), token at `data.access_token` (`backend/application/dto.py:239`); create and delete test data | read + write | available |
 | `db-readonly` | Run one SQL statement in a read-only transaction (30 s timeout) inside the Postgres container; prints a table | read only | available |
 | `app-logs` | Read the backend's log output for a time window (`docker logs` of the app container, or the dev server's terminal output) | read only | available |
 | `e2e-suite` | Run AutoTest BDD scenarios by module or tag (`npm run test:<module>:<env>` in `AutoTest/`) | read + write test data | available |
