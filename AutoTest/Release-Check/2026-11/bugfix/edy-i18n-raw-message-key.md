@@ -41,7 +41,7 @@ tools: [api]
 
 ## 本次改动
 - 中英两份翻译表各补了 11 个 key，从第 231 行开始：`backend/locales/en/LC_MESSAGES/messages.po`、`backend/locales/zh_Hans/LC_MESSAGES/messages.po`。
-- 业务异常处理器：翻译表里没有这个 key 时，退回异常自带的英文默认文案，不再返回 key 本身（`backend/core/exceptions.py:93`）。翻译齐全的环境里走不到这条路径，所以不列为验证项；证据是单测 `test_missing_translation_falls_back_to_default_message_not_the_key`（`backend/tests/test_i18n_message_keys.py:71`）。
+- 业务异常处理器：翻译表里没有这个 key 时，退回异常自带的英文默认文案，不再返回 key 本身（`backend/core/exceptions.py:93`）。翻译齐全的环境里走不到这条路径，所以不列为验证项；证据是单测 `test_missing_translation_falls_back_to_default_message_not_the_key`（`backend/tests/test_i18n_message_keys.py:58`）。
 - 非流式聊天在大模型调用失败时，`message` 固定为 `LLM provider error`，不再带上游报错原文（`backend/application/services/chat_service.py` 的 `send_message_sync`）。要触发它得让大模型调用失败，所以不列为验证项；证据是单测 `test_sync_llm_failure_does_not_return_upstream_error_text`。
 - 修好现有的翻译表校验脚本 `backend/scripts/validate_po.py`，并通过 `backend/tests/test_i18n_message_keys.py` 接进 CI：代码里用到的每个 key，都必须在每份翻译表里有非空译文。两份翻译表的头部也从一行还原成了多行。
 - 部署前提没变，以下都不是本次引入的：镜像构建时编译翻译（`backend/Dockerfile:71`），但命令末尾的 `|| true` 让编译失败时被静默跳过；用 `docker-compose.yml` 起的环境，会用宿主机的后端目录盖掉镜像里的翻译文件，所以要先在宿主机上编译。
