@@ -5,7 +5,7 @@
 | 关卡 | 结论 | 依据 |
 |---|---|---|
 | Pre-Step A 根因 | 见 §2 | 修复前实测（§1）+ 代码 + 翻译表比对 |
-| Pre-Step B 修法 | 方案 C：补翻译 + 兜底 + 覆盖测试 | 见 §3 与 Decision Log |
+| Pre-Step B 修法 | 方案 C：补翻译 + 兜底 + 覆盖测试；检查清单阶段回改一次（不外泄上游报错） | 见 §3 与 Decision Log |
 | Pre-Step C 类比排查 | 见 §4 | 扫描了代码里全部 43 个 key 和 4 个异常处理器 |
 | Step 2 分级 | **T2 逻辑扩展**（不冲突） | 只改一个处理函数和两份翻译表 |
 
@@ -49,11 +49,12 @@ Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次�
 1. **补翻译**：两份 `.po` 各加 11 条。英文 msgstr 和异常类自带的英文默认文案逐字一致（`agent_config.name.exists` 用 `{name}` 占位，值来自异常的 `details`），所以不论编译与否，英文结果都一样。
 2. **兜底**：`business_exception_handler` 在翻译缺失（`t()` 返回值等于 key）时，退回 `exc.message`。
 3. **防复发**：新增测试 `backend/tests/test_i18n_message_keys.py`。它扫描代码里的 `message_key="..."` 和 `t("...")` 字面量，要求每个 key 在每份 `.po` 里都有条目；另外测试兜底行为。
+4. **不外泄上游报错**（检查清单阶段补上）：非流式聊天在大模型调用失败时，抛默认文案的 `LLMProviderException()`，上游报错原文只留在日志和 run 记录里（`backend/application/services/chat_service.py` 的 `send_message_sync`）。原因：兜底返回 `exc.message`，而这里的 message 原本是上游报错原文，没编译翻译的环境会把它原样返回给调用方。
 
 **副作用**
 
 - **调用方是否依赖旧行为**：前端只展示 `message`；机器判断应该看 `code` 和 `message_key`，这两个不变。没有找到依赖旧行为的调用方。
-- **自定义文案被统一文案取代**：`LLMProviderException(message=...)` 和 `UnauthorizedException(message=...)` 接受调用方传入的文案。补上翻译后，翻译生效时返回统一文案（「LLM provider error」/「Authentication required」），调用方传入的文案不再出现在 `message` 里。我的判断是：上游 LLM 的报错文本可能带内部信息，统一文案更安全。但这是行为变化，列为待审决策。
+- **自定义文案被统一文案取代**：`LLMProviderException` 和 `UnauthorizedException` 都接受调用方传入的文案，但实际只有一处传了：非流式聊天把上游报错原文传给 `LLMProviderException`。`UnauthorizedException()` 的唯一调用点用的是默认文案（`backend/api/dependencies.py:151`）。修复前这里返回的是 key，调用方从没见过上游原文；修复后统一返回「LLM provider error」，第 4 点保证没编译翻译时也一样。这是行为变化，列为待审决策。
 - **数据迁移**：不需要。
 - **可回滚**：可以，revert 这个 commit 即可。
 - **最坏情况**：某条翻译写错，提示文案不对；`code`、`message_key`、HTTP 状态都不受影响。
@@ -68,11 +69,13 @@ Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次�
 | `validation_exception_handler`（`validation.failed`）、`global_exception_handler`（`error.internal`） | 是 | 翻译存在 | 无 |
 | `http_exception_handler` | 是 | 不经过翻译，直接返回 `exc.detail`（例如 FastAPI 自带的英文） | **后续任务**：是否翻译 HTTPException 需要单独决定 |
 | 本地没编译 `.mo` | 是 | 所有 key 原样返回 | 兜底缓解（返回英文默认文案）；启动时自动编译列为**后续任务** |
+| 兜底返回 `exc.message` 时，它会不会是上游原文 | 是（检查清单阶段补查） | 非流式聊天把上游报错原文作为 message | 本次修复（§3 第 4 点） |
+| 镜像构建时编译翻译 | 是 | Babel 是运行时依赖（`backend/pyproject.toml:243`），镜像构建时会编译（`backend/Dockerfile:71`）；但命令末尾的 `\|\| true` 会让编译失败被静默跳过 | **后续任务**：编译失败应让构建失败 |
 | 前端是否用 `message` 做逻辑判断 | 是 | 只展示，不做判断 | 无 |
 
 ## 5. 影响面
 
-- 文件：`backend/core/exceptions.py`；`backend/locales/en/LC_MESSAGES/messages.po`；`backend/locales/zh_Hans/LC_MESSAGES/messages.po`；新增 `backend/tests/test_i18n_message_keys.py`
+- 文件：`backend/core/exceptions.py`；`backend/locales/en/LC_MESSAGES/messages.po`；`backend/locales/zh_Hans/LC_MESSAGES/messages.po`；新增 `backend/tests/test_i18n_message_keys.py`；`backend/application/services/chat_service.py`（`send_message_sync`）；`backend/tests/test_chat_service_stream.py`（加一个用例）
 - 模块：后端 core（异常处理）、i18n 翻译表
 - 接口：所有接口错误响应的 `message` 字段，只改它的值；`code`、`message_key`、HTTP 状态不变
 - 关键路径：鉴权失败、资源不存在等错误路径，只改提示文本
@@ -82,7 +85,8 @@ Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次�
 ## 6. 提交计划
 
 1. `fix(i18n): ...` —— 处理函数兜底 + 两份翻译表 + 覆盖测试
-2. `docs(delivery): ...` —— 本设计、检查清单、Release-Check 验证指导
+2. `fix(chat): ...` —— 非流式大模型调用失败时，不返回上游报错原文 + 测试
+3. `docs(delivery): ...` —— 本设计的回改、检查清单、Release-Check 验证指导
 
 ---
 
@@ -108,3 +112,14 @@ Branch: `feat/import-voice-agent-delivery`（voice-agent 交付链的第二次�
 **Decision point**：保留调用方传入的文案（不给这两个 key 补翻译）/ 使用统一文案（补翻译）。
 **Rationale**：上游 LLM 的报错文本可能带内部信息，统一文案更安全；`details` 仍保留具体信息。
 **Decision**：使用统一文案。`Gate: auto-confirmed — pending user review`（行为变化，请你确认）。
+
+### Pre-Step B（检查清单阶段回改）— 兜底与上游报错原文 — Decision Discussion
+
+**Decision point (option comparison)**：
+- 保持原样：非流式聊天继续把上游报错原文作为 message。没编译翻译的环境会把原文返回给调用方。
+- 调用点改成默认文案：`send_message_sync` 抛 `LLMProviderException()`，原文只进日志和 run 记录。
+- 处理器加白名单，只对部分异常兜底：要让 core 知道每个异常的情况，而问题出在调用点。
+
+**Additional context**：检查清单第 7 项（副作用）查兜底时发现。修复前这里返回的是 key，所以调用方从没见过上游原文；改调用点只是保住这个事实。
+**Rationale**：泄露发生在调用点，就在调用点修。上游原文已经记进日志（`llm_generate_failed`）和 run 记录，排查不受影响。
+**Decision**：调用点改成默认文案。`Gate: auto-confirmed — pending user review`。
