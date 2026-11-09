@@ -93,3 +93,47 @@ jobs:
       # 此处不要显式传 test-secret-key 之类的弱值——会被 Settings 校验拒绝导致收集失败
       - name: Test
         run: uv run pytest
+
+  autotest-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AutoTest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: AutoTest/package-lock.json
+
+      - name: Install dependencies (locked)
+        run: npm ci --no-audit --no-fund
+
+      # 验证指导（Release-Check）lint 及其单测、runner 单测、BDD 规范、类型检查、步骤匹配。
+      # 端到端用例需要运行中的前后端，不在 CI 跑（见 AutoTest/AGENTS.md「前置」）。
+      - name: Release-Check lint unit tests
+        run: npm run test:release-check
+
+      - name: Release-Check guides lint
+        run: npm run lint:release-check
+
+      - name: Runner unit tests
+        run: npm run test:runner
+
+      - name: BDD lint
+        run: npm run lint:bdd
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # bddgen 只加载配置、不跑 global-setup；给出占位环境变量即可校验每个步骤都有定义
+      - name: BDD step matching (bddgen)
+        env:
+          E2E_BASE_URL: http://localhost:5173
+          E2E_USERNAME: e2e-fixture-user-a
+          E2E_PASSWORD: not-used-by-bddgen
+        run: npm run bdd:gen
