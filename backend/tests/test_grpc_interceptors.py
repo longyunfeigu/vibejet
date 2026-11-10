@@ -169,7 +169,10 @@ BUSINESS_STATUS = [
     (BusinessCode.SYSTEM_ERROR, Status.INTERNAL),
     (BusinessCode.DATABASE_ERROR, Status.INTERNAL),
     (BusinessCode.NETWORK_ERROR, Status.UNAVAILABLE),
-    (BusinessCode.RUN_NOT_FOUND, Status.FAILED_PRECONDITION),  # 合法但未列入映射表
+    (
+        BusinessCode.RUN_NOT_FOUND,
+        Status.NOT_FOUND,
+    ),  # master 的统一登记表补登了它（以前漏登记、落到默认值）
     (999_999, Status.FAILED_PRECONDITION),  # 不是 BusinessCode
 ]
 

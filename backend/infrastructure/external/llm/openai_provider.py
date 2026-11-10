@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator, Optional
 
-from openai import AsyncOpenAI
+from openai import APIError, APIStatusError, AsyncOpenAI
 
 from application.ports.llm import (
     LLMChunk,
@@ -34,8 +34,15 @@ from application.ports.llm import (
 )
 from infrastructure.external.llm._shared import (
     STRUCTURED_OUTPUT_TOOL_NAME,
+    UpstreamResponseError,
+    is_sdk_upstream_failure,
     parse_tool_arguments,
 )
+
+
+def is_upstream_failure(exc: BaseException) -> bool:
+    """熔断失败口径（见 _shared.is_sdk_upstream_failure）。"""
+    return is_sdk_upstream_failure(exc, api_error=APIError, status_error=APIStatusError)
 
 
 def _normalize_finish_reason(finish_reason: Optional[str]) -> Optional[str]:
@@ -131,9 +138,7 @@ class OpenAIProvider:
             # OpenAI 要求展开成紧跟 assistant tool_calls 的 role="tool" 消息
             for tr in tool_results:
                 content = f"[tool error] {tr.content}" if tr.is_error else tr.content
-                result.append(
-                    {"role": "tool", "tool_call_id": tr.tool_use_id, "content": content}
-                )
+                result.append({"role": "tool", "tool_call_id": tr.tool_use_id, "content": content})
             if tool_calls:
                 # 无文本时 content 必须是 None：部分兼容端点拒绝空字符串 + tool_calls 组合
                 msg: dict = {
@@ -221,7 +226,10 @@ class OpenAIProvider:
             ),
             stream=False,
         )
-        choice = response.choices[0]
+        choices = getattr(response, "choices", None)
+        if not choices:
+            raise UpstreamResponseError("LLM upstream returned a 2xx response without choices")
+        choice = choices[0]
         usage = response.usage
         tool_calls = [
             ToolCall(

@@ -3,6 +3,7 @@ REST API客户端基类
 
 提供通用的HTTP请求功能，包括：
 - 自动重试
+- 熔断（下游持续故障时本地快速失败，见 infrastructure/external/circuit_breaker.py）
 - 错误处理
 - 请求/响应日志
 - 认证支持
@@ -21,6 +22,11 @@ from httpx_retries import Retry, RetryTransport
 from pydantic import BaseModel
 
 from core.logging_config import get_logger
+from infrastructure.external.circuit_breaker import (
+    CircuitBreakerOpenError,
+    SREBreaker,
+    is_downstream_httpx_failure,
+)
 
 logger = get_logger(__name__)
 
@@ -120,6 +126,28 @@ class ServerError(APIError):
     pass
 
 
+class CircuitOpenError(ServerError):
+    """熔断器打开：请求在本地被拒绝，没有发出"""
+
+    pass
+
+
+def _is_downstream_failure(exc: BaseException) -> bool:
+    """熔断记账口径：5xx 与源自下游的 httpx 错误是下游故障；4xx（含 429）说明下游健康。"""
+    if isinstance(exc, APIError):
+        return exc.status_code is not None and exc.status_code >= 500
+    return bool(is_downstream_httpx_failure(exc))
+
+
+def _breaker_name(base_url: str) -> str:
+    # 只取 host：base_url 可能带凭据，熔断开合日志里不能出现；畸形 URL 不在构造期报错
+    try:
+        host = httpx.URL(base_url).host
+    except httpx.InvalidURL:
+        host = ""
+    return host or "api-client"
+
+
 # Retry logic is handled by httpx-retries transport
 
 
@@ -140,6 +168,7 @@ class BaseAPIClient:
         auth_token: Optional[str] = None,
         verify_ssl: bool = True,
         debug: bool = False,
+        circuit_breaker: Optional[SREBreaker] = None,
     ):
         """
         初始化API客户端
@@ -153,6 +182,7 @@ class BaseAPIClient:
             auth_token: 认证令牌
             verify_ssl: 是否验证SSL证书
             debug: 是否开启调试模式
+            circuit_breaker: 熔断器；默认每个客户端实例（即每个下游服务）一个
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -160,6 +190,9 @@ class BaseAPIClient:
         self.retry_delay = retry_delay
         self.verify_ssl = verify_ssl
         self.debug = debug
+        # 按下游服务而非按 endpoint 熔断（Kratos 按 operation）：endpoint 常带 ID，
+        # 按它建熔断器会无限增长
+        self.circuit_breaker = circuit_breaker or SREBreaker(_breaker_name(self.base_url))
 
         # 设置默认请求头
         self.default_headers = {
@@ -328,16 +361,20 @@ class BaseAPIClient:
 
         # 发送请求
         try:
-            return await self._send_once(
-                method,
-                url,
-                params=params,
-                json_data=json_data,
-                data=data,
-                headers=request_headers,
-                files=files,
-                extra=kwargs,
-            )
+            # 熔断包住整次逻辑调用（含 RetryTransport 的重试）
+            with self.circuit_breaker.guard(_is_downstream_failure):
+                return await self._send_once(
+                    method,
+                    url,
+                    params=params,
+                    json_data=json_data,
+                    data=data,
+                    headers=request_headers,
+                    files=files,
+                    extra=kwargs,
+                )
+        except CircuitBreakerOpenError as exc:
+            raise CircuitOpenError(str(exc), status_code=503) from exc
         except APIError:
             # _handle_error_response 抛出的类型化子类（NotFoundError/RateLimitError/...）
             # 必须原样上抛——落进下面的兜底 catch 会被重包成通用 APIError，

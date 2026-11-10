@@ -9,7 +9,7 @@ import grpc
 from core.logging_config import get_logger
 from domain.common.exceptions import BusinessException
 from grpc_app.interceptors.request_id import get_request_id
-from shared.codes import BusinessCode
+from shared.codes import BusinessCode, transport_status
 
 logger = get_logger(__name__)
 
@@ -32,35 +32,8 @@ def is_mapped_error() -> bool:
 
 
 def _business_code_to_grpc_status(code: int) -> grpc.StatusCode:
-    try:
-        bc = BusinessCode(code)
-    except Exception:
-        return grpc.StatusCode.FAILED_PRECONDITION
-
-    mapping = {
-        BusinessCode.PARAM_VALIDATION_ERROR: grpc.StatusCode.INVALID_ARGUMENT,
-        BusinessCode.PARAM_ERROR: grpc.StatusCode.INVALID_ARGUMENT,
-        BusinessCode.PARAM_MISSING: grpc.StatusCode.INVALID_ARGUMENT,
-        BusinessCode.PARAM_TYPE_ERROR: grpc.StatusCode.INVALID_ARGUMENT,
-        BusinessCode.USER_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
-        BusinessCode.NOT_FOUND: grpc.StatusCode.NOT_FOUND,
-        # 与 HTTP 层一致（core/exceptions.py）：越权伪装为 not-found，跨传输层同语义
-        BusinessCode.CONVERSATION_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
-        BusinessCode.DOCUMENT_NOT_FOUND: grpc.StatusCode.NOT_FOUND,
-        BusinessCode.USER_ALREADY_EXISTS: grpc.StatusCode.ALREADY_EXISTS,
-        BusinessCode.PASSWORD_ERROR: grpc.StatusCode.UNAUTHENTICATED,
-        BusinessCode.UNAUTHORIZED: grpc.StatusCode.UNAUTHENTICATED,
-        BusinessCode.FORBIDDEN: grpc.StatusCode.PERMISSION_DENIED,
-        BusinessCode.PERMISSION_ERROR: grpc.StatusCode.PERMISSION_DENIED,
-        BusinessCode.TOO_MANY_REQUESTS: grpc.StatusCode.RESOURCE_EXHAUSTED,
-        BusinessCode.RATE_LIMIT_ERROR: grpc.StatusCode.RESOURCE_EXHAUSTED,
-        BusinessCode.SERVICE_UNAVAILABLE: grpc.StatusCode.UNAVAILABLE,
-        BusinessCode.SYSTEM_ERROR: grpc.StatusCode.INTERNAL,
-        BusinessCode.DATABASE_ERROR: grpc.StatusCode.INTERNAL,
-        BusinessCode.NETWORK_ERROR: grpc.StatusCode.UNAVAILABLE,
-    }
-
-    return mapping.get(bc, grpc.StatusCode.FAILED_PRECONDITION)
+    # 与 HTTP 处理器读同一张登记表（shared.codes.TRANSPORT_STATUS）
+    return grpc.StatusCode[transport_status(code).grpc]
 
 
 async def _abort_mapped(

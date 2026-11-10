@@ -149,7 +149,9 @@ class LLMPort(Protocol):
         json_schema: Optional[dict[str, Any]] = None,
     ) -> LLMResponse: ...
 
-    async def stream(
+    # 实现是 async generator，协议里声明为返回 AsyncIterator 的普通 def；
+    # 写成 async def 会被类型检查理解为"返回迭代器的协程"
+    def stream(
         self,
         messages: list[LLMMessage],
         *,

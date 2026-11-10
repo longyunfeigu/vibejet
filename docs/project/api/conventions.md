@@ -41,7 +41,10 @@ this base library.
 ```
 
 - `error` 是对象，不是字符串；判别错误用 `error.message_key` 或 `code`，不要断言 `body.error == "字符串"`。
-- 业务码 → HTTP 状态映射（节选）：`UNAUTHORIZED(30001)`→401、`FORBIDDEN(30002)`/`PERMISSION_ERROR(30000)`→403、`INVALID_ACCOUNT(30003)`→401、`NOT_FOUND`→404、`PARAM_VALIDATION_ERROR`→422。
+- 业务码 → HTTP / gRPC 状态的唯一登记处是 `backend/shared/codes/__init__.py` 的 `TRANSPORT_STATUS`
+  （HTTP 处理器与 gRPC 拦截器都从这里取；新增业务码漏登记由 `tests/test_error_status_mapping.py` 拦下）。
+  分类口径：参数错误→400/422；not-found 类→404；已存在→409；状态前置条件不满足（已归档/未就绪等）→400 +
+  `FAILED_PRECONDITION`；上游 LLM 故障→502、超时→504。
 - 401 响应附带 `WWW-Authenticate: Bearer` 头。
 
 ## 鉴权与归属
