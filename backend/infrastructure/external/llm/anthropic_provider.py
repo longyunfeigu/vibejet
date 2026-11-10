@@ -111,9 +111,7 @@ class AnthropicProvider:
             elif isinstance(m.content, str):
                 chat.append({"role": m.role, "content": m.content})
             else:
-                chat.append(
-                    {"role": m.role, "content": [_block_to_dict(b) for b in m.content]}
-                )
+                chat.append({"role": m.role, "content": [_block_to_dict(b) for b in m.content]})
         return ("\n\n".join(system_parts) or None), chat
 
     def _request_kwargs(

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from typing import AsyncGenerator, cast
 
 import httpx
 import openai
@@ -137,7 +138,8 @@ async def test_stream_abandoned_by_consumer_is_not_recorded_and_closes_inner() -
     provider = _FakeProvider(chunks=5)
     llm, breaker = _wrapped(provider)
 
-    stream = llm.stream(_MESSAGES)
+    # stream() 实际返回异步生成器（端口只声明为 AsyncIterator），aclose 存在
+    stream = cast(AsyncGenerator[LLMChunk, None], llm.stream(_MESSAGES))
     await stream.__anext__()
     await stream.aclose()
 
@@ -166,7 +168,8 @@ async def _stream_against(llm: CircuitBreakingLLM) -> BaseException:
     with pytest.raises(Exception) as exc_info:
         async for _ in llm.stream(_MESSAGES):
             pass
-    return exc_info.value
+    raised: BaseException = exc_info.value
+    return raised
 
 
 def _sse_transport(stream: httpx.AsyncByteStream) -> httpx.AsyncClient:
@@ -342,7 +345,7 @@ async def test_shutdown_closes_inner_sdk_client(monkeypatch: pytest.MonkeyPatch)
             closed.append(True)
 
     provider = _FakeProvider()
-    provider._client = _SDKClient()
+    monkeypatch.setattr(provider, "_client", _SDKClient(), raising=False)
     monkeypatch.setattr(llm_module, "_llm_client", _wrapped(provider)[0])
 
     await llm_module.shutdown_llm_client()

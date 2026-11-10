@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Validate .po files syntax using polib.
+"""Validate .po files: syntax, and every key used in code has a non-empty translation.
 
-Exit non-zero if any .po cannot be parsed.
+Exit non-zero if any .po cannot be parsed, or a key used in code is missing or untranslated.
 """
+
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
-import re
 
 try:
     import polib  # type: ignore
@@ -15,79 +16,72 @@ except Exception:  # pragma: no cover
     print("polib not installed; install it to validate .po files", file=sys.stderr)
     sys.exit(1)
 
+# \b：只认独立的 t(...)，否则 get("x") / split(".") 这类以 t( 结尾的调用都会被当成 key
+KEY_RE = re.compile(r"\bt\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
+MSGKEY_RE = re.compile(r"message_key\s*=\s*['\"]([a-zA-Z0-9_.]+)['\"]")
+# tests 不是运行时代码，里面会故意用没有翻译的 key
+EXCLUDE_DIRS = {".git", "venv", ".venv", "alembic", "locales", "grpc_app/generated", "tests"}
+
+
+def _syntax_errors(po_files: list[Path]) -> list[str]:
+    errors: list[str] = []
+    for f in po_files:
+        try:
+            polib.pofile(str(f))
+        except Exception as exc:  # pragma: no cover
+            errors.append(f"{f}: {exc}")
+    return errors
+
+
+def _used_keys(src_root: Path) -> set[str]:
+    used_keys: set[str] = set()
+    for p in src_root.rglob("*.py"):
+        if any(part in EXCLUDE_DIRS for part in p.relative_to(src_root).parts):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        used_keys.update(KEY_RE.findall(text))
+        used_keys.update(MSGKEY_RE.findall(text))
+    return used_keys
+
+
+def _print_keys(label: str, f: Path, keys: list[str]) -> None:
+    print(f"[i18n] {label} keys in {f}: {len(keys)}", file=sys.stderr)
+    print("  " + ", ".join(keys[:20]) + (" ..." if len(keys) > 20 else ""), file=sys.stderr)
+
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     po_files = list((root / "locales").glob("*/LC_MESSAGES/*.po"))
     if not po_files:
         return 0
-    errors: list[str] = []
 
-    # 1) Syntax validation
-    for f in po_files:
-        try:
-            polib.pofile(str(f))
-        except Exception as exc:  # pragma: no cover
-            errors.append(f"{f}: {exc}")
+    errors = _syntax_errors(po_files)
     if errors:
         print("PO syntax errors detected:\n" + "\n".join(errors), file=sys.stderr)
         return 1
 
-    # 2) Coverage check: collect used keys from codebase
-    src_root = root
-    used_keys: set[str] = set()
-    key_re = re.compile(r"t\(\s*['\"]([a-zA-Z0-9_.]+)['\"]")
-    msgkey_re = re.compile(r"message_key\s*=\s*['\"]([a-zA-Z0-9_.]+)['\"]")
-
-    def scan_file(p: Path) -> None:
-        try:
-            text = p.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            return
-        for m in key_re.finditer(text):
-            used_keys.add(m.group(1))
-        for m in msgkey_re.finditer(text):
-            used_keys.add(m.group(1))
-
-    exclude_dirs = {".git", "venv", ".venv", "alembic", "locales", "grpc_app/generated"}
-    for p in src_root.rglob("*.py"):
-        if any(part in exclude_dirs for part in p.parts):
-            continue
-        scan_file(p)
-
-    # 3) Validate each language file has all used keys translated (non-empty msgstr)
-    missing_total = 0
-    untranslated_total = 0
+    used_keys = _used_keys(root)
+    problems = 0
     for f in po_files:
         po = polib.pofile(str(f))
         keys_in_po = {e.msgid for e in po}
-        # missing keys
         missing = sorted(used_keys - keys_in_po)
-        # untranslated keys
-        untranslated = sorted([e.msgid for e in po if not (e.msgstr or "").strip()])
+        untranslated = sorted(e.msgid for e in po if not (e.msgstr or "").strip())
         if missing:
-            print(f"[i18n] Missing keys in {f}: {len(missing)}", file=sys.stderr)
-            print(
-                "  " + ", ".join(missing[:20]) + (" ..." if len(missing) > 20 else ""),
-                file=sys.stderr,
-            )
+            _print_keys("Missing", f, missing)
         if untranslated:
-            print(f"[i18n] Untranslated keys in {f}: {len(untranslated)}", file=sys.stderr)
-            print(
-                "  " + ", ".join(untranslated[:20]) + (" ..." if len(untranslated) > 20 else ""),
-                file=sys.stderr,
-            )
-        missing_total += len(missing)
-        untranslated_total += len(untranslated)
+            _print_keys("Untranslated", f, untranslated)
+        problems += len(missing) + len(untranslated)
 
         # info: extra keys (not used in code)
         extras = sorted(keys_in_po - used_keys)
         if extras:
             print(f"[i18n] Extra keys in {f}: {len(extras)} (info)")
 
-    if missing_total or untranslated_total:
-        return 1
-    return 0
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":

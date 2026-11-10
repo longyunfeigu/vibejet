@@ -3,9 +3,9 @@
 # pos: 基础设施层 - 存储 provider 协议契约，providers/* 与 adapters/storage_port 的公共接口；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Storage provider protocol definitions."""
 
-from typing import Protocol, AsyncIterator, Optional, runtime_checkable
+from typing import AsyncIterator, Optional, Protocol, runtime_checkable
 
-from .models import UploadResult, StorageObject, StorageMetadata, PresignedRequest
+from .models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
 
 
 @runtime_checkable
@@ -26,7 +26,9 @@ class StorageProvider(Protocol):
         """Download file from storage."""
         ...
 
-    async def stream_download(self, key: str, chunk_size: int = 8192) -> AsyncIterator[bytes]:
+    # 实现方都是 async generator（async def + yield），调用直接得到 AsyncIterator、无需 await；
+    # 协议写成 async def 会被类型检查当成"返回 AsyncIterator 的协程"，与实现对不上
+    def stream_download(self, key: str, chunk_size: int = 8192) -> AsyncIterator[bytes]:
         """Stream download file from storage."""
         ...
 

@@ -1,3 +1,7 @@
+# input: 无外部依赖（纯 dataclass）
+# output: MessagingConfig / KafkaConfig（driver 仅 aiokafka）/ TLSConfig / SASLConfig / ProducerTuning / ConsumerTuning / RetryConfig / RetryLayer
+# owner: unknown
+# pos: 基础设施层 - 消息配置模型（Kafka 单驱动 aiokafka）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -75,7 +79,9 @@ class KafkaConfig:
     sasl: SASLConfig = field(default_factory=SASLConfig)
     producer: ProducerTuning = field(default_factory=ProducerTuning)
     consumer: ConsumerTuning = field(default_factory=ConsumerTuning)
-    driver: Literal["confluent", "aiokafka"] = "confluent"
+    # aiokafka is the only driver (confluent was removed). The field stays so that
+    # existing KafkaConfig(driver="aiokafka") call sites keep working.
+    driver: Literal["aiokafka"] = "aiokafka"
 
 
 @dataclass(slots=True)

@@ -2,7 +2,16 @@
 # Copyright (C) 2025
 # This file is distributed under the same license as the project.
 msgid ""
-msgstr ""\n"Project-Id-Version: vibejet 1.0\n"\n"POT-Creation-Date: 2025-10-08 00:00+0000\n"\n"PO-Revision-Date: 2025-10-08 00:00+0000\n"\n"Last-Translator: Developer <dev@example.com>\n"\n"Language-Team: Chinese (Simplified)\n"\n"Language: zh_Hans\n"\n"MIME-Version: 1.0\n"\n"Content-Type: text/plain; charset=UTF-8\n"\n"Content-Transfer-Encoding: 8bit\n"
+msgstr ""
+"Project-Id-Version: vibejet 1.0\n"
+"POT-Creation-Date: 2025-10-08 00:00+0000\n"
+"PO-Revision-Date: 2025-10-08 00:00+0000\n"
+"Last-Translator: Developer <dev@example.com>\n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 
 # 通用
 msgid "ok"
@@ -225,3 +234,38 @@ msgstr "文档已重新进入解析队列"
 
 msgid "document.delete.soft.success"
 msgstr "文档已标记删除"
+
+# Auth / conversation / agent config / run / LLM / idempotency
+
+msgid "auth.required"
+msgstr "需要登录"
+
+msgid "auth.token.invalid"
+msgstr "登录凭证无效或已过期"
+
+msgid "conversation.not_found"
+msgstr "对话不存在"
+
+msgid "conversation.archived"
+msgstr "对话已归档"
+
+msgid "run.not_found"
+msgstr "运行记录不存在"
+
+msgid "agent_config.not_found"
+msgstr "Agent 配置不存在"
+
+msgid "agent_config.name.exists"
+msgstr "Agent 配置名称「{name}」已存在"
+
+msgid "llm.provider.error"
+msgstr "大模型服务出错"
+
+msgid "llm.timeout"
+msgstr "大模型请求超时"
+
+msgid "idempotency.key.reused"
+msgstr "Idempotency-Key 已被另一个请求使用"
+
+msgid "idempotency.in_progress"
+msgstr "使用该 Idempotency-Key 的请求正在处理中"

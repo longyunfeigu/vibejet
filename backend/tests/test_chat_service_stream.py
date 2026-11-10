@@ -1,6 +1,6 @@
 # input: ChatApplicationService + 内存 fake UoW/仓储/LLM
-# output: SSE 流式聊天的预校验时机（4xx 先于流）与完整事件序列测试
-# pos: 后端测试 - 聊天应用服务流式路径验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# output: SSE 流式聊天的预校验时机（4xx 先于流）与完整事件序列测试；非流式 LLM 失败不外泄上游报错原文
+# pos: 后端测试 - 聊天应用服务流式/非流式路径验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for ChatApplicationService.send_message_stream validation timing.
 
 审计 P1-1：会话不存在/已归档的域异常必须在返回 SSE 生成器之前抛出
@@ -22,6 +22,7 @@ from domain.conversation.entity import Conversation, Message, Run
 from domain.conversation.exceptions import (
     ConversationArchivedException,
     ConversationNotFoundException,
+    LLMProviderException,
 )
 
 
@@ -205,3 +206,27 @@ async def test_send_message_bumps_conversation_updated_at() -> None:
     repo = uow.conversation_repository
     assert repo.updated, "会话未被更新（updated_at 未 bump）"
     assert repo.updated[0].updated_at > before
+
+
+class _FailingGenerateLLM(_FakeLLM):
+    async def generate(self, messages: list[LLMMessage], **kwargs):
+        raise RuntimeError("upstream 401 from https://llm-gateway.internal/v1")
+
+
+async def test_sync_llm_failure_does_not_return_upstream_error_text() -> None:
+    """非流式 LLM 失败：响应 message 用统一文案，上游报错原文只留在日志和 run 记录里。"""
+    now = utcnow()
+    conv = Conversation(
+        id=1, title="t", status="active", owner_id=1, created_at=now, updated_at=now
+    )
+    uow = _FakeUoW(conv)
+    service = ChatApplicationService(uow_factory=lambda: uow, llm=_FailingGenerateLLM())
+
+    from application.dto import ChatRequestDTO
+
+    with pytest.raises(LLMProviderException) as exc_info:
+        await service.send_message_sync(1, ChatRequestDTO(message="hi"), owner_id=1)
+
+    assert exc_info.value.message == "LLM provider error"
+    run = await uow.run_repository.get_by_id(1)
+    assert run is not None and run.status == "failed"

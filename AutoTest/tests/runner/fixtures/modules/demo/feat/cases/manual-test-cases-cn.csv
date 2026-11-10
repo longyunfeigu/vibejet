@@ -1,0 +1,4 @@
+用例编号,需求/缺陷编号,模块,功能点,场景标题,用例类型,优先级,执行方式,前置条件,测试数据,测试步骤,预期结果,后置清理,BDD 标签,负责人,备注
+VA-DEMO-001,REQ-1,Demo,Feat,Render settings form,positive,P1,,,,,,,@VA-DEMO-001,qa,
+VA-DEMO-002,REQ-1,Demo,Feat,Upload published agent as template,positive,P1,,,,,,,@VA-DEMO-002,qa,
+VA-DEMO-003,REQ-1,Demo,Feat,"Voice call plays the greeting, hears first sentence",positive,P1,,,,,,,@VA-DEMO-003,qa,

@@ -14,9 +14,7 @@ from application.ports.document_parser import DocumentParserError
 
 markitdown = pytest.importorskip("markitdown", reason="documents extra not installed")
 
-from infrastructure.external.parsing.providers.markitdown import (  # noqa: E402
-    MarkitdownParser,
-)
+from infrastructure.external.parsing.providers.markitdown import MarkitdownParser  # noqa: E402
 from infrastructure.external.parsing.providers.textin import TextInParser  # noqa: E402
 
 
@@ -135,13 +133,55 @@ async def test_textin_non_dict_json_is_mapped() -> None:
     assert exc_info.value.code == "document.parse.textin_invalid_response"
 
 
-async def test_markitdown_parse_timeout_is_mapped() -> None:
+async def test_markitdown_parse_timeout_is_mapped(monkeypatch: pytest.MonkeyPatch) -> None:
     """转换线程超时必须映射为 document.parse.timeout（线程本身不可取消，仅丢弃等待）。"""
     import time
 
     parser = MarkitdownParser(timeout=1)
-    parser._convert_sync = lambda data, ct, fn: time.sleep(5) or ""  # type: ignore[method-assign]
+
+    def slow_convert(data: bytes, ct: str | None, fn: str | None) -> str:
+        time.sleep(5)
+        return ""
+
+    monkeypatch.setattr(parser, "_convert_sync", slow_convert)
 
     with pytest.raises(DocumentParserError) as exc_info:
         await parser.parse(b"slow", content_type="text/plain", filename="slow.txt")
     assert exc_info.value.code == "document.parse.timeout"
+
+
+async def test_markitdown_abandoned_conversions_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """超时被放弃的转换线程继续占名额：名额满了直接报 busy，线程跑完名额才回来。"""
+    import threading
+
+    import anyio
+
+    from infrastructure.external.parsing.providers import markitdown as markitdown_module
+
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(markitdown_module, "_conversion_slots", slots)
+    release = threading.Event()
+
+    def slow_convert(data: bytes, ct: str | None, fn: str | None) -> str:
+        release.wait(5)
+        return "converted text long enough to count as content"
+
+    parser = MarkitdownParser(timeout=1)
+    monkeypatch.setattr(parser, "_convert_sync", slow_convert)
+
+    with pytest.raises(DocumentParserError) as first:
+        await parser.parse(b"slow", content_type="text/plain", filename="a.txt")
+    assert first.value.code == "document.parse.timeout"
+
+    with pytest.raises(DocumentParserError) as second:
+        await parser.parse(b"slow", content_type="text/plain", filename="b.txt")
+    assert second.value.code == "document.parse.busy"
+
+    release.set()
+    with anyio.fail_after(5):
+        while not slots.acquire(blocking=False):
+            await anyio.sleep(0.01)
+    slots.release()
+
+    parsed = await parser.parse(b"ok", content_type="text/plain", filename="c.txt")
+    assert "converted text" in parsed.markdown

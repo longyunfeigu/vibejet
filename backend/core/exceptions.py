@@ -2,19 +2,21 @@
 自定义异常映射与全局异常处理器
 """
 
-from typing import Optional
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 import traceback
 import uuid
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette import status as http_status
 
-from .response import error_response
-from shared.codes import BusinessCode, transport_status
+from core.i18n import get_locale, t
 from core.logging_config import get_logger
 from domain.common.exceptions import BusinessException
-from core.i18n import t, get_locale
+from shared.codes import BusinessCode, transport_status
+
+from .response import error_response
 
 
 class RateLimitException(BusinessException):
@@ -53,7 +55,11 @@ def register_exception_handlers(app: FastAPI):
         # Render i18n message if message_key is provided, otherwise fallback to original message
         fmt_params = getattr(exc, "format_params", None)
         params = fmt_params if isinstance(fmt_params, dict) else (exc.details or {})
-        translated = t(getattr(exc, "message_key", "") or exc.message, **params)
+        message_key = getattr(exc, "message_key", None)
+        translated = t(message_key or exc.message, **params)
+        # 翻译表缺这个 key 时 t() 原样返回 key：退回异常自带的默认文案，不把 key 当提示漏给用户
+        if message_key and translated == message_key:
+            translated = exc.message
         response = error_response(
             code=exc.code,
             message=translated,
@@ -62,7 +68,7 @@ def register_exception_handlers(app: FastAPI):
             field=exc.field,
             request_id=request_id,
             locale=locale,
-            message_key=getattr(exc, "message_key", None),
+            message_key=message_key,
         )
         status_code = int(transport_status(exc.code).http)
         # 对于401可选地返回WWW-Authenticate，但仅对需要的场景添加
@@ -84,8 +90,7 @@ def register_exception_handlers(app: FastAPI):
         # 只保留 loc/msg/type：pydantic 的 input/ctx 会把原始入参回显进响应体
         # （如注册校验失败时的密码明文），前端错误追踪采集响应后即成泄露面
         errors = [
-            {"loc": e.get("loc"), "msg": e.get("msg"), "type": e.get("type")}
-            for e in exc.errors()
+            {"loc": e.get("loc"), "msg": e.get("msg"), "type": e.get("type")} for e in exc.errors()
         ]
 
         # 提取第一个错误的详细信息

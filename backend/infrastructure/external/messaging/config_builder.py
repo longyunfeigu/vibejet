@@ -1,5 +1,7 @@
-from __future__ import annotations
-
+# input: KafkaSettings 形状的配置对象（core.config.KafkaSettings 满足 KafkaSettingsLike 协议）
+# output: messaging_config_from_settings（→ MessagingConfig，aiokafka 驱动）, KafkaSettingsLike
+# owner: unknown
+# pos: 基础设施层 - 消息配置装配（设置子集 → messaging dataclass，不反向依赖 core）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Messaging config builder (composition root for messaging layer).
 
 This module maps application settings (Kafka settings subset) to the
@@ -9,24 +11,26 @@ Keeping this builder in the infrastructure layer avoids coupling core
 configuration to specific providers and preserves layering (core -> infra).
 """
 
+from __future__ import annotations
+
 from typing import Protocol
 
 from .config import (
-    MessagingConfig,
-    KafkaConfig,
-    TLSConfig,
-    SASLConfig,
-    ProducerTuning,
     ConsumerTuning,
+    KafkaConfig,
+    MessagingConfig,
+    ProducerTuning,
     RetryConfig,
     RetryLayer,
+    SASLConfig,
+    TLSConfig,
 )
 
 
 class KafkaSettingsLike(Protocol):
-    # Provider/driver
+    # Provider ("kafka" only). The driver is not read here: aiokafka is the only
+    # driver, and core settings reject the removed "confluent" value at startup.
     provider: str
-    driver: str  # "confluent" | "aiokafka"
 
     # Core Kafka
     bootstrap_servers: str
@@ -75,7 +79,11 @@ def messaging_config_from_settings(ks: KafkaSettingsLike) -> MessagingConfig:
 
     The function performs a simple field mapping. It assumes `ks` exposes
     attributes listed in KafkaSettingsLike and does not import from core.
+    Raises ValueError for a provider other than "kafka".
     """
+
+    if ks.provider != "kafka":
+        raise ValueError(f"Unsupported provider: {ks.provider}")
 
     tls = TLSConfig(
         enable=ks.tls_enable,
@@ -113,14 +121,14 @@ def messaging_config_from_settings(ks: KafkaSettingsLike) -> MessagingConfig:
         inflight_max=ks.consumer_inflight_max,
     )
 
-    # Retry layers parsing
+    # Retry layers parsing; malformed "suffix:delay_ms" items are skipped
     layers: list[RetryLayer] = []
     raw = ks.retry_layers or ""
     for item in [s.strip() for s in raw.split(",") if s.strip()]:
         try:
             suffix, delay = item.split(":", 1)
             layers.append(RetryLayer(suffix=suffix, delay_ms=int(delay)))
-        except Exception:
+        except ValueError:
             continue
     retry = RetryConfig(layers=layers or RetryConfig().layers, dlq_suffix=ks.retry_dlq_suffix)
 
@@ -132,10 +140,9 @@ def messaging_config_from_settings(ks: KafkaSettingsLike) -> MessagingConfig:
         sasl=sasl,
         producer=producer,
         consumer=consumer,
-        driver="aiokafka" if ks.driver == "aiokafka" else "confluent",
     )
     return MessagingConfig(
-        provider=ks.provider,
+        provider="kafka",
         kafka=kafka,
         retry=retry,
     )

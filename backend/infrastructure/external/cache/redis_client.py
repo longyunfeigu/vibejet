@@ -6,22 +6,37 @@ from __future__ import annotations
 
 import asyncio
 import json
-from core.logging_config import get_logger
+import random
+import socket
 import time
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from enum import Enum
-import random
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable, AsyncGenerator
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from redis import asyncio as aioredis
+from redis.asyncio.lock import Lock
 from redis.exceptions import RedisError
 
 from core.config import settings
-import socket
+from core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+_T = TypeVar("_T")
 
 
 # ============= 枚举和数据类 =============
@@ -59,7 +74,7 @@ class CacheMetrics:
         self.total_get = 0
         self.total_set = 0
         self.total_delete = 0
-        self.operation_times = []
+        self.operation_times: List[float] = []
 
     @property
     def hit_rate(self) -> float:
@@ -185,7 +200,9 @@ class RedisClient(CacheInterface):
         except (TypeError, ValueError):
             return value
 
-    async def _execute_with_metrics(self, operation: Callable, *args, **kwargs) -> Any:
+    async def _execute_with_metrics(
+        self, operation: Callable[..., Awaitable[_T]], *args: Any, **kwargs: Any
+    ) -> _T:
         """带指标统计的操作执行"""
         if not self._enable_metrics:
             return await operation(*args, **kwargs)
@@ -845,35 +862,6 @@ class RedisClient(CacheInterface):
         )
 
         cancel = asyncio.Event()
-
-        async def _auto_extend_task():
-            # 无 timeout 或非正值时不进行续租
-            if not timeout or timeout <= 0:
-                return
-            base_interval = (
-                renew_interval if renew_interval is not None else max(1.0, timeout * float(ratio))
-            )
-            try:
-                while not cancel.is_set():
-                    # 计算带抖动的间隔，避免续租尖峰
-                    j = (
-                        1.0 + random.uniform(-float(jitter_ratio), float(jitter_ratio))
-                        if jitter_ratio
-                        else 1.0
-                    )
-                    interval = max(0.5, base_interval * j)
-                    try:
-                        await asyncio.wait_for(cancel.wait(), timeout=interval)
-                        break  # cancel set
-                    except asyncio.TimeoutError:
-                        pass
-                    try:
-                        await lock.extend(timeout)
-                    except Exception as e:
-                        logger.warning(f"锁续租失败 [{lock_key}]: {e}")
-            except asyncio.CancelledError:
-                pass
-
         task: Optional[asyncio.Task] = None
 
         try:
@@ -881,20 +869,69 @@ class RedisClient(CacheInterface):
             if not acquired:
                 raise TimeoutError(f"获取锁失败: {lock_key}")
             if enable_auto_renew:
-                task = asyncio.create_task(_auto_extend_task())
+                task = asyncio.create_task(
+                    self._auto_extend_lock(
+                        lock, lock_key, timeout, renew_interval, ratio, jitter_ratio, cancel
+                    )
+                )
             yield lock
         finally:
             cancel.set()
-            if task is not None:
-                task.cancel()
+            await self._stop_lock_renewal(task)
+            await self._release_lock(lock, lock_key)
+
+    @staticmethod
+    async def _auto_extend_lock(
+        lock: Lock,
+        lock_key: str,
+        timeout: int,
+        renew_interval: Optional[float],
+        ratio: float,
+        jitter_ratio: float,
+        cancel: asyncio.Event,
+    ) -> None:
+        """自动续租循环：每隔（带抖动的）间隔 extend 一次，直到 cancel 置位或任务被取消。"""
+        # 无 timeout 或非正值时不进行续租
+        if not timeout or timeout <= 0:
+            return
+        base_interval = (
+            renew_interval if renew_interval is not None else max(1.0, timeout * float(ratio))
+        )
+        with suppress(asyncio.CancelledError):
+            while not cancel.is_set():
+                # 计算带抖动的间隔，避免续租尖峰（伪随机只用于错峰，非安全用途）
+                j = (
+                    1.0 + random.uniform(-float(jitter_ratio), float(jitter_ratio))  # nosec B311
+                    if jitter_ratio
+                    else 1.0
+                )
+                interval = max(0.5, base_interval * j)
                 try:
-                    await task
-                except Exception:
+                    await asyncio.wait_for(cancel.wait(), timeout=interval)
+                    break  # cancel set
+                except asyncio.TimeoutError:
                     pass
-            try:
-                await lock.release()
-            except Exception as e:
-                logger.error(f"释放锁失败 [{lock_key}]: {e}")
+                try:
+                    await lock.extend(timeout)
+                except Exception as e:
+                    logger.warning(f"锁续租失败 [{lock_key}]: {e}")
+
+    @staticmethod
+    async def _stop_lock_renewal(task: Optional[asyncio.Task]) -> None:
+        """取消续租任务并等它结束；任务内的普通异常被吞掉，CancelledError 不在此列。"""
+        if task is None:
+            return
+        task.cancel()
+        with suppress(Exception):
+            await task
+
+    @staticmethod
+    async def _release_lock(lock: Lock, lock_key: str) -> None:
+        """释放锁；失败只记日志，不上抛。"""
+        try:
+            await lock.release()
+        except Exception as e:
+            logger.error(f"释放锁失败 [{lock_key}]: {e}")
 
     @asynccontextmanager
     async def pipeline(self, transaction: bool = True):
@@ -1064,7 +1101,7 @@ class CachePatterns:
         2. 保证数据一致性
         """
         # 写入数据源
-        success = await write_func(value)
+        success: bool = await write_func(value)
 
         if success:
             # 写入缓存

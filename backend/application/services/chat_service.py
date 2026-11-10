@@ -223,9 +223,7 @@ class ChatApplicationService:
                 log_event="llm_stream_finalize_cleanup_failed",
             )
             return [
-                _sse_event(
-                    "error", {"message": "An error occurred while saving the response."}
-                ),
+                _sse_event("error", {"message": "An error occurred while saving the response."}),
                 _sse_event("done", {}),
             ]
         return [
@@ -372,7 +370,8 @@ class ChatApplicationService:
             await self._fail_run_safely(
                 started.run_id, str(exc), log_event="llm_generate_fail_cleanup_failed"
             )
-            raise LLMProviderException(str(exc))
+            # 上游报错原文已记日志和 run 记录；不放进响应 message，避免把上游内部信息返回给调用方
+            raise LLMProviderException()
 
         # Phase 3: persist assistant message and complete run
         # 与流式路径同纪律：phase-3 失败必须把 run 收敛到终态再抛

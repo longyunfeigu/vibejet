@@ -2,15 +2,16 @@
 
 import hashlib
 import mimetypes
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, AsyncIterator
-import time
+from typing import AsyncIterator, Optional
 
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from core.logging_config import get_logger
+
 from .base import AdvancedStorageProvider, StorageProvider
 from .exceptions import TransientError, ValidationError
 from .models import UploadResult
@@ -115,7 +116,7 @@ def calculate_etag(data: bytes, algorithm: str = "md5") -> str:
         Hex digest string
     """
     if algorithm == "md5":
-        hasher = hashlib.md5()
+        hasher = hashlib.md5(usedforsecurity=False)
     elif algorithm == "sha256":
         hasher = hashlib.sha256()
     else:
@@ -136,7 +137,7 @@ async def calculate_etag_stream(stream: AsyncIterator[bytes], algorithm: str = "
         Hex digest string
     """
     if algorithm == "md5":
-        hasher = hashlib.md5()
+        hasher = hashlib.md5(usedforsecurity=False)
     elif algorithm == "sha256":
         hasher = hashlib.sha256()
     else:
@@ -219,7 +220,7 @@ class LoggingMiddleware(StorageMiddleware):
 
     async def on_error(self, error: Exception, operation: str, **kwargs) -> None:
         """Log storage errors."""
-        logger.error(f"Storage operation failed", operation=operation, error=str(error), **kwargs)
+        logger.error("Storage operation failed", operation=operation, error=str(error), **kwargs)
 
 
 class ValidationMiddleware(StorageMiddleware):
@@ -250,9 +251,8 @@ class ValidationMiddleware(StorageMiddleware):
             raise ValidationError(f"File too large: {len(file)} > {self.max_size}")
 
         # Check content type
-        if self.allowed_types and content_type:
-            if content_type not in self.allowed_types:
-                raise ValidationError(f"Content type not allowed: {content_type}")
+        if self.allowed_types and content_type and content_type not in self.allowed_types:
+            raise ValidationError(f"Content type not allowed: {content_type}")
 
         return file, key, metadata, content_type
 
@@ -304,8 +304,7 @@ class MiddlewareStorage(StorageProvider):
                     file, key, metadata, content_type
                 )
             except Exception as e:
-                for mw in self.middlewares:
-                    await mw.on_error(e, "before_upload", key=key)
+                await self._notify_error(e, "before_upload", key)
                 raise
 
         # Perform upload
@@ -323,8 +322,7 @@ class MiddlewareStorage(StorageProvider):
             )
 
         except Exception as e:
-            for middleware in self.middlewares:
-                await middleware.on_error(e, "upload", key=key)
+            await self._notify_error(e, "upload", key)
             raise
 
         # Process after middleware
@@ -332,11 +330,15 @@ class MiddlewareStorage(StorageProvider):
             try:
                 result = await middleware.after_upload(result, file, key)
             except Exception as e:
-                for mw in self.middlewares:
-                    await mw.on_error(e, "after_upload", key=key)
+                await self._notify_error(e, "after_upload", key)
                 raise
 
         return result
+
+    async def _notify_error(self, error: Exception, operation: str, key: str) -> None:
+        """Run every middleware's on_error hook in order; a failing hook stops the chain."""
+        for middleware in self.middlewares:
+            await middleware.on_error(error, operation, key=key)
 
     # Delegate other methods to underlying provider
     async def download(self, key: str) -> bytes:

@@ -1,0 +1,23 @@
+用例编号,需求/缺陷编号,模块,功能点,场景标题,用例类型,优先级,执行方式,前置条件,测试数据,测试步骤,预期结果,后置清理,BDD 标签,负责人,备注
+AUTH-LGN-001,2026-11-09-feature-import-voice-agent-delivery,auth,登录,未登录访问首页会被带到登录页,冒烟,P0,自动化测试,未登录,无,"1. 清掉本地会话
+2. 打开首页 /","1. 地址变为 /login
+2. 有「用户名或邮箱」「密码」两个输入框和「登录」按钮",无,@AUTH-LGN-001 @smoke,edy,
+AUTH-LGN-002,2026-11-09-feature-import-voice-agent-delivery,auth,登录,测试账号登录后进入首页并看到问候语,回归,P0,自动化测试,测试账号 e2e-fixture-user-a 已存在（全局前置自动注册）,环境配置里的测试账号,"1. 清掉本地会话
+2. 打开 /login
+3. 输入测试账号和密码
+4. 点「登录」","1. 首页标题为「你好，<用户名>」
+2. 同一会话 GET /api/v1/auth/me 返回 200，data.username 为测试账号",无,@AUTH-LGN-002 @regression,edy,
+AUTH-LGN-003,2026-11-09-feature-import-voice-agent-delivery,auth,登录,密码错误时留在登录页并提示错误,负向,P1,自动化测试,测试账号存在,错误密码 wrong-password-e2e,"1. 清掉本地会话
+2. 打开 /login
+3. 输入测试账号和错误密码
+4. 点「登录」","1. 仍在 /login
+2. 弹出错误提示「Invalid username or password」
+3. 本地没有保存会话",无,@AUTH-LGN-003 @negative,edy,提示文案来自后端 auth.password.invalid 的英文译文（backend/locales/en/LC_MESSAGES/messages.po）
+AUTH-LGN-004,2026-11-09-feature-import-voice-agent-delivery,auth,登录,空表单提交显示两个必填提示,负向,P2,自动化测试,未登录,无,"1. 清掉本地会话
+2. 打开 /login
+3. 不填任何内容直接点「登录」","1. 显示「请输入用户名或邮箱」和「请输入密码」
+2. 仍在 /login",无,@AUTH-LGN-004 @negative,edy,
+AUTH-LGN-005,2026-11-09-feature-import-voice-agent-delivery,auth,登录,退出后回到登录页，首页需要重新登录,回归,P1,自动化测试,已登录,无,"1. 打开首页
+2. 点顶栏「退出」
+3. 再次打开首页","1. 点「退出」后到 /login
+2. 再次打开首页仍被带到 /login",无,@AUTH-LGN-005 @regression,edy,

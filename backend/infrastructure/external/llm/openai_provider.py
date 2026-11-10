@@ -138,9 +138,7 @@ class OpenAIProvider:
             # OpenAI 要求展开成紧跟 assistant tool_calls 的 role="tool" 消息
             for tr in tool_results:
                 content = f"[tool error] {tr.content}" if tr.is_error else tr.content
-                result.append(
-                    {"role": "tool", "tool_call_id": tr.tool_use_id, "content": content}
-                )
+                result.append({"role": "tool", "tool_call_id": tr.tool_use_id, "content": content})
             if tool_calls:
                 # 无文本时 content 必须是 None：部分兼容端点拒绝空字符串 + tool_calls 组合
                 msg: dict = {

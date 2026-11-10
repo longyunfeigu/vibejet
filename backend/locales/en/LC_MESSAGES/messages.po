@@ -2,7 +2,16 @@
 # Copyright (C) 2025
 # This file is distributed under the same license as the project.
 msgid ""
-msgstr ""\n"Project-Id-Version: vibejet 1.0\n"\n"POT-Creation-Date: 2025-10-08 00:00+0000\n"\n"PO-Revision-Date: 2025-10-08 00:00+0000\n"\n"Last-Translator: Developer <dev@example.com>\n"\n"Language-Team: English\n"\n"Language: en\n"\n"MIME-Version: 1.0\n"\n"Content-Type: text/plain; charset=UTF-8\n"\n"Content-Transfer-Encoding: 8bit\n"
+msgstr ""
+"Project-Id-Version: vibejet 1.0\n"
+"POT-Creation-Date: 2025-10-08 00:00+0000\n"
+"PO-Revision-Date: 2025-10-08 00:00+0000\n"
+"Last-Translator: Developer <dev@example.com>\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 
 # Generic
 msgid "ok"
@@ -225,3 +234,38 @@ msgstr "Document re-queued for parsing"
 
 msgid "document.delete.soft.success"
 msgstr "Document soft-deleted"
+
+# Auth / conversation / agent config / run / LLM / idempotency
+
+msgid "auth.required"
+msgstr "Authentication required"
+
+msgid "auth.token.invalid"
+msgstr "Invalid or expired token"
+
+msgid "conversation.not_found"
+msgstr "Conversation not found"
+
+msgid "conversation.archived"
+msgstr "Conversation is archived"
+
+msgid "run.not_found"
+msgstr "Run not found"
+
+msgid "agent_config.not_found"
+msgstr "Agent config not found"
+
+msgid "agent_config.name.exists"
+msgstr "Agent config name '{name}' already exists"
+
+msgid "llm.provider.error"
+msgstr "LLM provider error"
+
+msgid "llm.timeout"
+msgstr "LLM request timed out"
+
+msgid "idempotency.key.reused"
+msgstr "Idempotency-Key reused with different request"
+
+msgid "idempotency.in_progress"
+msgstr "Request with this Idempotency-Key is in progress"

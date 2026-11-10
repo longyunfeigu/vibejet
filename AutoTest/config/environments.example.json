@@ -1,0 +1,11 @@
+{
+  "default": "local",
+  "environments": {
+    "local": {
+      "base_url": "http://localhost:5173",
+      "username": "e2e-fixture-user-a",
+      "email": "e2e-fixture-user-a@example.com",
+      "password": "at-least-8-characters"
+    }
+  }
+}

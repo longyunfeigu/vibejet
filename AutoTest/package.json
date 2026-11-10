@@ -1,0 +1,27 @@
+{
+  "name": "vibejet-autotest",
+  "private": true,
+  "scripts": {
+    "bdd:gen": "npx bddgen test --config config/playwright.config.ts",
+    "test:all:local": "HEADLESS=true ./core/runner/run-bdd.sh all local",
+    "test:smoke:local": "HEADLESS=true ./core/runner/run-bdd.sh smoke local",
+    "test:auth:local": "HEADLESS=true ./core/runner/run-bdd.sh auth local",
+    "test:home:local": "HEADLESS=true ./core/runner/run-bdd.sh home local",
+    "typecheck": "tsc --noEmit --project config/tsconfig.json",
+    "lint:bdd": "npx tsx core/runner/lint-bdd.ts",
+    "lint:release-check": "npx tsx core/release-check/cli.ts",
+    "test:release-check": "npx tsx --test 'core/release-check/tests/**/*.test.ts'",
+    "coverage": "node core/runner/automation-coverage.mjs",
+    "coverage:check": "node core/runner/automation-coverage.mjs --min 80",
+    "classify": "node core/runner/classify-cases.mjs",
+    "test:runner": "node --test 'tests/runner/**/*.test.mjs'"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "^22.0.0",
+    "playwright-bdd": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "yaml": "2.5.1"
+  }
+}

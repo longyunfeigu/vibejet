@@ -5,7 +5,7 @@
 repos:
   # Python code formatting
   - repo: https://github.com/psf/black
-    rev: 24.3.0
+    rev: 26.10.1
     hooks:
       - id: black
         language_version: python3.11
@@ -118,8 +118,8 @@ repos:
   - repo: local
     hooks:
       - id: validate-po-syntax
-        name: Validate .po files syntax
-        entry: python backend/scripts/validate_po.py
+        name: Validate .po files (syntax + key coverage)
+        entry: bash -c 'cd backend && uv run --no-sync python scripts/validate_po.py'
         language: system
         pass_filenames: false
         stages: [commit]
