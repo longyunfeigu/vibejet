@@ -1,5 +1,5 @@
 # input: 真实 Kafka broker（KAFKA_INTEGRATION_BOOTSTRAP=host:port，未设置则整体 skip）, AiokafkaPublisher/AiokafkaConsumer, aiokafka admin 与原生 producer/consumer 作旁路投递与校验
-# output: aiokafka 驱动端到端集成测试：发布→消费并提交位点、RetryableError 经 retry topic 延迟重投、未到期记录只暂停所在分区（其它分区照常消费）、DLQ（反序列化失败 + NonRetryableError）、转投 DLQ 被 broker 拒收时不越过该记录（它前面已处理的照常提交，退避重试直到成功，其它分区照常消费）、事务里被拒的转投让事务中止（源位点不提交、DLQ 里什么都没有、这条会被重试）并在新事务里重试成功、发布者被拒一条后换新 producer 继续写同一分区、handler 比会话超时还慢也不被踢出组、共用 transactional_id 被隔离的消费者 start() 报错退出、再均衡撤销时冲刷已处理位点、事务性重投、批量提交在消费者重启后不多重投、跨线程 stop()、publish_many 批量发送、幂等 producer 从 broker 拿到 producer id
+# output: aiokafka 驱动端到端集成测试：发布→消费并提交位点、RetryableError 经 retry topic 延迟重投、未到期记录只暂停所在分区（其它分区照常消费）、DLQ（反序列化失败 + NonRetryableError）、转投 DLQ 被 broker 拒收时不越过该记录（它前面已处理的照常提交，退避重试直到成功，其它分区照常消费）、事务里被拒的转投让事务中止（源位点不提交、DLQ 里什么都没有、这条会被重试）并在新事务里重试成功、发布者被拒一条后紧接着的发送就换新 producer 写同一分区、慢 handler 在再均衡中不被别的成员同时处理（rebalance_timeout = max_poll_interval）、handler 永不返回时进程照样能退出、handler 比会话超时还慢也不被踢出组、共用 transactional_id 被隔离的消费者 start() 报错退出、再均衡撤销时冲刷已处理位点、事务性重投、批量提交在消费者重启后不多重投、跨线程 stop()、publish_many 批量发送、幂等 producer 从 broker 拿到 producer id
 # pos: 后端测试 - Kafka 驱动"真的能用"的证据（opt-in，需要 broker）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Opt-in integration tests against a real Kafka broker.
 
@@ -20,9 +20,12 @@ import asyncio
 import json
 import logging
 import os
+import subprocess  # nosec B404 - runs the test's own interpreter
+import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 import pytest
@@ -60,6 +63,37 @@ aiokafka_errors = pytest.importorskip("aiokafka.errors")
 TopicPartition = aiokafka.TopicPartition
 
 RUN_TIMEOUT_S = 60.0
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+# 由 handler 永远不返回的消费者组成的独立进程（改自评审的 stuck_exit 探针）
+STUCK_EXIT_SCRIPT = """
+import threading, time
+from infrastructure.external.messaging.config import ConsumerTuning, KafkaConfig, RetryConfig
+from infrastructure.external.messaging.providers.aiokafka import consumer as consumer_module
+from infrastructure.external.messaging.providers.aiokafka.consumer import AiokafkaConsumer
+from infrastructure.external.messaging.serializers.json import JsonSerializer
+
+consumer_module._STOP_TIMEOUT_S = 2.0
+cfg = KafkaConfig(
+    bootstrap_servers="{bootstrap}",
+    client_id="{group}",
+    consumer=ConsumerTuning(auto_offset_reset="earliest"),
+)
+consumer = AiokafkaConsumer(cfg, RetryConfig(), JsonSerializer())
+consumer.subscribe(["{topic}"], "{group}")
+entered = threading.Event()
+
+
+def handler(env):
+    entered.set()
+    threading.Event().wait()  # never returns
+
+
+threading.Thread(target=consumer.start, args=(handler,), daemon=True).start()
+if not entered.wait(60):
+    raise SystemExit("handler never ran")
+consumer.stop()
+print("main finished at", time.time(), flush=True)
+"""
 RETRY_DELAY_MS = 2_000
 RETRY = RetryConfig(layers=[RetryLayer(suffix="retry.2s", delay_ms=RETRY_DELAY_MS)])
 # 只有退出/撤销时的冲刷会提交：批次大、间隔长
@@ -888,26 +922,110 @@ def test_publisher_rebuilds_its_producer_after_a_rejected_record(prefix: str) ->
     )
     try:
         first = publisher._slot.current
-        publisher.publish(
-            topic, Envelope(payload={"n": "before"})
-        )  # 分区上已有这个 producer 的序号
+        # 分区上先有这个 producer 的序号
+        publisher.publish(topic, Envelope(payload={"n": "before"}))
         with pytest.raises(PublishError) as rejected:
             publisher.publish(topic, Envelope(payload=b"\xff" + os.urandom(2048)))
-        # aiokafka 0.13：被拒之后这个分区的序号对不上，下一条报 OutOfOrderSequenceNumber，借此换 producer
-        with pytest.raises(PublishError) as out_of_order:
-            publisher.publish(topic, Envelope(payload={"n": "after-1"}))
-        result = publisher.publish(topic, Envelope(payload={"n": "after-2"}))
+        # 被拒后 producer 立即标记失效：紧接着的这一条就换新 producer 发出，
+        # 不会再撞上 aiokafka 0.13 对不上的序号（OutOfOrderSequenceNumber）
+        result = publisher.publish(topic, Envelope(payload={"n": "after"}))
         rebuilt = publisher._slot.current
     finally:
         publisher.close()
 
     assert isinstance(rejected.value.__cause__, aiokafka_errors.MessageSizeTooLargeError)
-    assert isinstance(out_of_order.value.__cause__, aiokafka_errors.OutOfOrderSequenceNumber)
     assert rebuilt is not first
     assert warnings.messages == [
-        "producer rebuilt after a sequence error; later sends use a new producer"
+        "producer rebuilt after the broker rejected a batch; later sends use it"
     ]
-    # 同一个 publisher 实例接着往同一分区写成功
+    # 同一个 publisher 实例紧接着往同一分区写成功
     assert (result.partition, result.offset) == (0, 1)
     records = _read_topic(topic, 2)
-    assert [json.loads(r.value) for r in records] == [{"n": "before"}, {"n": "after-2"}]
+    assert [json.loads(r.value) for r in records] == [{"n": "before"}, {"n": "after"}]
+
+
+def test_slow_handler_keeps_its_record_through_a_rebalance(prefix: str) -> None:
+    topic = f"{prefix}-orders"
+    group = f"{prefix}-group"
+    _create_topics(topic)
+    _publish(topic, Envelope(payload={"n": 0}))
+    # 会话 6s，max_poll_interval 60s；只有撤销冲刷和 stop 会提交
+    tuning = ConsumerTuning(
+        auto_offset_reset="earliest",
+        session_timeout_ms=6_000,
+        max_poll_interval_ms=60_000,
+        commit_every_n=100,
+        commit_interval_ms=600_000,
+    )
+    consumer = _new_consumer(prefix, [topic], tuning)
+    timeline: list[str] = []
+    started, finished = threading.Event(), threading.Event()
+
+    def slow(env: Envelope) -> HandleResult:
+        timeline.append("A start")
+        started.set()
+        time.sleep(10.0)  # 比会话超时长；第二个成员在这期间加入组
+        timeline.append("A done")
+        finished.set()
+        return HandleResult.ACK
+
+    thread, errors = _start_in_thread(consumer, slow)
+    assert started.wait(RUN_TIMEOUT_S)
+
+    async def _second_member() -> None:
+        other = aiokafka.AIOKafkaConsumer(
+            bootstrap_servers=BOOTSTRAP,
+            group_id=group,
+            enable_auto_commit=False,
+            auto_offset_reset="earliest",
+        )
+        other.subscribe([topic])
+        await other.start()
+        try:
+            deadline = time.monotonic() + RUN_TIMEOUT_S
+            settled_at: Optional[float] = None
+            while time.monotonic() < deadline and (
+                settled_at is None or time.monotonic() < settled_at
+            ):
+                for records in (await other.getmany(timeout_ms=500)).values():
+                    timeline.extend(f"B got offset {r.offset}" for r in records)
+                if finished.is_set() and settled_at is None:
+                    settled_at = time.monotonic() + 5  # 再均衡完成后再看一会
+        finally:
+            await other.stop()
+
+    asyncio.run(_second_member())
+    committed = _committed(group, topic)
+    consumer.stop()
+    _wait_until_finished(consumer, thread, errors)
+
+    # 再均衡等 A 处理完（rebalance_timeout = max_poll_interval）：A 在撤销时提交了它，
+    # B 从 1 开始，拿不到 0；没有两个成员同时处理同一条
+    assert timeline == ["A start", "A done"]
+    assert committed == 1
+
+
+def test_never_returning_handler_does_not_block_process_exit(prefix: str, tmp_path: Path) -> None:
+    topic = f"{prefix}-orders"
+    _create_topics(topic)
+    _publish(topic, Envelope(payload={"n": 0}))
+    script = tmp_path / "stuck_exit.py"
+    script.write_text(
+        STUCK_EXIT_SCRIPT.format(bootstrap=BOOTSTRAP, topic=topic, group=f"{prefix}-group"),
+        encoding="utf-8",
+    )
+
+    done = subprocess.run(  # nosec B603 - fixed argv, no shell
+        [sys.executable, str(script)],
+        cwd=BACKEND_DIR,
+        env={**os.environ, "PYTHONPATH": str(BACKEND_DIR)},
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    exited_at = time.time()
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    [finished_line] = [ln for ln in done.stdout.splitlines() if ln.startswith("main finished at")]
+    # stop() 等满 2s 后返回、主线程结束；卡死的 handler 在守护线程上，进程随即退出
+    assert exited_at - float(finished_line.split()[-1]) < 5

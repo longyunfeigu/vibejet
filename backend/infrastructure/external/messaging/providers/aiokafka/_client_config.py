@@ -1,5 +1,5 @@
 # input: KafkaConfig（TLS/SASL、ProducerTuning、ConsumerTuning）
-# output: security_kwargs / producer_kwargs / requeue_producer_kwargs / consumer_kwargs / build_ssl_context / aiokafka_acks（映射到 AIOKafkaProducer/AIOKafkaConsumer 的真实参数）
+# output: security_kwargs / producer_kwargs / requeue_producer_kwargs / consumer_kwargs / build_ssl_context / aiokafka_acks（映射到 AIOKafkaProducer/AIOKafkaConsumer 的真实参数；rebalance_timeout_ms 取 max_poll_interval_ms）
 # owner: unknown
 # pos: 基础设施层 - aiokafka 客户端参数映射（发布者与消费者共用的唯一来源）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Map vibejet's KafkaConfig onto aiokafka client parameters.
@@ -105,6 +105,10 @@ def consumer_kwargs(cfg: KafkaConfig, group_id: Optional[str]) -> Dict[str, Any]
         "enable_auto_commit": False,
         "auto_offset_reset": tuning.auto_offset_reset,
         "max_poll_interval_ms": tuning.max_poll_interval_ms,
+        # How long the group waits for a member to rejoin during a rebalance. aiokafka
+        # defaults it to session_timeout_ms, shorter than a slow handler: the partition then
+        # moves while its record is still being handled. Java uses max.poll.interval.ms too.
+        "rebalance_timeout_ms": tuning.max_poll_interval_ms,
         "session_timeout_ms": tuning.session_timeout_ms,
         "fetch_min_bytes": tuning.fetch_min_bytes,
         "fetch_max_bytes": tuning.fetch_max_bytes,

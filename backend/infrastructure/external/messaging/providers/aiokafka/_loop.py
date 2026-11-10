@@ -1,5 +1,5 @@
 # input: 无（标准库 asyncio / threading）
-# output: LoopThread（后台线程里的独立事件循环：start / submit / run_coro / in_loop_thread / stop；事件循环在 start() 时才创建、线程退出时关闭，不可重启）
+# output: LoopThread（后台线程里的独立事件循环：start / submit / run_coro / in_loop_thread / stop；事件循环在 start() 时才创建、线程退出时关闭，不可重启）, HandlerThread（按顺序跑同步调用的单个守护线程，首次使用时启动；卡死的调用不拦进程退出）
 # owner: unknown
 # pos: 基础设施层 - aiokafka 同步外观用的事件循环线程（发布者与消费者共用）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
@@ -7,8 +7,61 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import contextlib
+import functools
+import queue
 import threading
-from typing import Any, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional, Tuple
+
+_Job = Tuple[Callable[[], Any], "concurrent.futures.Future[Any]"]
+
+
+class HandlerThread:
+    """One daemon thread that runs submitted calls in order; it starts on first use.
+
+    Unlike ThreadPoolExecutor workers, which Python joins at interpreter exit, a call that
+    never returns cannot keep the process alive. Submit only from one thread (the loop).
+    """
+
+    def __init__(self, name: str) -> None:
+        self._jobs: queue.SimpleQueue[Optional[_Job]] = queue.SimpleQueue()
+        self._thread = threading.Thread(target=self._work, name=name, daemon=True)
+
+    @property
+    def started(self) -> bool:
+        return self._thread.ident is not None
+
+    def is_current(self) -> bool:
+        return threading.current_thread() is self._thread
+
+    def submit(self, fn: Callable[..., Any], *args: Any) -> concurrent.futures.Future[Any]:
+        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        self._jobs.put((functools.partial(fn, *args), future))
+        if not self.started:
+            self._thread.start()
+        return future
+
+    def shutdown(self) -> None:
+        """Let the thread end once the calls already submitted have run."""
+        if self.started:
+            self._jobs.put(None)
+
+    def _work(self) -> None:
+        while True:
+            job = self._jobs.get()
+            if job is None:
+                return
+            call, future = job
+            if future.set_running_or_notify_cancel():
+                _run_into(call, future)
+
+
+def _run_into(call: Callable[[], Any], future: concurrent.futures.Future[Any]) -> None:
+    try:
+        result = call()
+    except BaseException as exc:  # noqa: B036 - handed to the awaiting future, as executors do
+        future.set_exception(exc)
+    else:
+        future.set_result(result)
 
 
 class LoopThread:
