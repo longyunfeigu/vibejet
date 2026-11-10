@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator, Optional
 
-from anthropic import AsyncAnthropic
+from anthropic import APIError, APIStatusError, AsyncAnthropic
 
 from application.ports.llm import (
     LLMChunk,
@@ -34,8 +34,15 @@ from application.ports.llm import (
 )
 from infrastructure.external.llm._shared import (
     STRUCTURED_OUTPUT_TOOL_NAME,
+    UpstreamResponseError,
+    is_sdk_upstream_failure,
     parse_tool_arguments,
 )
+
+
+def is_upstream_failure(exc: BaseException) -> bool:
+    """熔断失败口径（见 _shared.is_sdk_upstream_failure）。"""
+    return is_sdk_upstream_failure(exc, api_error=APIError, status_error=APIStatusError)
 
 
 def _block_to_dict(block: TextBlock | ToolUseBlock | ToolResultBlock) -> dict:
@@ -174,12 +181,14 @@ class AnthropicProvider:
                 tool_choice=tool_choice,
             )
         )
-        content = "".join(
-            block.text for block in response.content if getattr(block, "type", "") == "text"
-        )
+        # 空列表是合法完成（模型可以什么都不输出），缺字段才是无效响应体
+        blocks = getattr(response, "content", None)
+        if blocks is None:
+            raise UpstreamResponseError("LLM upstream returned a 2xx response without content")
+        content = "".join(block.text for block in blocks if getattr(block, "type", "") == "text")
         tool_calls = [
             ToolCall(id=block.id, name=block.name, arguments=dict(block.input or {}))
-            for block in response.content
+            for block in blocks
             if getattr(block, "type", "") == "tool_use"
         ]
         finish_reason = response.stop_reason

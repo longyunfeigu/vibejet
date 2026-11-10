@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from typing import Any, AsyncIterator, Optional
 
-from openai import AsyncOpenAI
+from openai import APIError, APIStatusError, AsyncOpenAI
 
 from application.ports.llm import (
     LLMChunk,
@@ -34,8 +34,15 @@ from application.ports.llm import (
 )
 from infrastructure.external.llm._shared import (
     STRUCTURED_OUTPUT_TOOL_NAME,
+    UpstreamResponseError,
+    is_sdk_upstream_failure,
     parse_tool_arguments,
 )
+
+
+def is_upstream_failure(exc: BaseException) -> bool:
+    """熔断失败口径（见 _shared.is_sdk_upstream_failure）。"""
+    return is_sdk_upstream_failure(exc, api_error=APIError, status_error=APIStatusError)
 
 
 def _normalize_finish_reason(finish_reason: Optional[str]) -> Optional[str]:
@@ -221,7 +228,10 @@ class OpenAIProvider:
             ),
             stream=False,
         )
-        choice = response.choices[0]
+        choices = getattr(response, "choices", None)
+        if not choices:
+            raise UpstreamResponseError("LLM upstream returned a 2xx response without choices")
+        choice = choices[0]
         usage = response.usage
         tool_calls = [
             ToolCall(

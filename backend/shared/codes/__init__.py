@@ -1,10 +1,12 @@
 """
 Shared business codes used across layers (Domain/Core/API).
 
-This package exposes BusinessCode at `shared.codes`.
+This package exposes BusinessCode and its per-transport status table at `shared.codes`.
 """
 
 from enum import IntEnum
+from http import HTTPStatus
+from typing import NamedTuple
 
 
 class BusinessCode(IntEnum):
@@ -55,4 +57,79 @@ class BusinessCode(IntEnum):
     DOCUMENT_ALREADY_PROCESSING = 60022
 
 
-__all__ = ["BusinessCode"]
+class TransportStatus(NamedTuple):
+    """A business code's status on each transport."""
+
+    http: HTTPStatus
+    # grpc.StatusCode 成员名：shared 不能依赖可选的 grpc extra，由 gRPC 层按名解析
+    grpc: str
+
+
+# 业务码 → 传输层状态的唯一登记处（借鉴 Kratos errors：错误在定义处声明一次状态码）。
+# HTTP 处理器与 gRPC 拦截器都从这里取；新增错误码必须在此登记，
+# tests/test_error_status_mapping.py 对漏登记直接失败。SUCCESS 不是错误、不登记：
+# 误用 BusinessException(code=SUCCESS) 时走兜底 400，而不是渲染成 200 错误体或 gRPC abort(OK)
+TRANSPORT_STATUS: dict[BusinessCode, TransportStatus] = {
+    BusinessCode.PARAM_ERROR: TransportStatus(HTTPStatus.BAD_REQUEST, "INVALID_ARGUMENT"),
+    BusinessCode.PARAM_MISSING: TransportStatus(HTTPStatus.BAD_REQUEST, "INVALID_ARGUMENT"),
+    BusinessCode.PARAM_TYPE_ERROR: TransportStatus(HTTPStatus.BAD_REQUEST, "INVALID_ARGUMENT"),
+    BusinessCode.PARAM_VALIDATION_ERROR: TransportStatus(
+        HTTPStatus.UNPROCESSABLE_ENTITY, "INVALID_ARGUMENT"
+    ),
+    # 状态前置条件不满足（已归档/未就绪/处理中/已完成）= 400 + FAILED_PRECONDITION，
+    # 即 google.rpc.Code 的规范映射
+    BusinessCode.BUSINESS_ERROR: TransportStatus(HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"),
+    BusinessCode.CONVERSATION_ARCHIVED: TransportStatus(
+        HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
+    ),
+    BusinessCode.RUN_ALREADY_COMPLETED: TransportStatus(
+        HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
+    ),
+    BusinessCode.DOCUMENT_NOT_READY: TransportStatus(HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"),
+    BusinessCode.DOCUMENT_ALREADY_PROCESSING: TransportStatus(
+        HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
+    ),
+    # 越权访问伪装为 404（Epic-1 D1）：not-found 类业务码必须真渲染 404，
+    # 否则"真不存在=400 / 越权=404"反而泄露存在性
+    BusinessCode.NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.USER_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.CONVERSATION_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.RUN_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.AGENT_CONFIG_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.DOCUMENT_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
+    BusinessCode.USER_ALREADY_EXISTS: TransportStatus(HTTPStatus.CONFLICT, "ALREADY_EXISTS"),
+    BusinessCode.AGENT_CONFIG_NAME_EXISTS: TransportStatus(HTTPStatus.CONFLICT, "ALREADY_EXISTS"),
+    BusinessCode.PASSWORD_ERROR: TransportStatus(HTTPStatus.UNAUTHORIZED, "UNAUTHENTICATED"),
+    BusinessCode.UNAUTHORIZED: TransportStatus(HTTPStatus.UNAUTHORIZED, "UNAUTHENTICATED"),
+    BusinessCode.PERMISSION_ERROR: TransportStatus(HTTPStatus.FORBIDDEN, "PERMISSION_DENIED"),
+    BusinessCode.FORBIDDEN: TransportStatus(HTTPStatus.FORBIDDEN, "PERMISSION_DENIED"),
+    BusinessCode.RATE_LIMIT_ERROR: TransportStatus(
+        HTTPStatus.TOO_MANY_REQUESTS, "RESOURCE_EXHAUSTED"
+    ),
+    BusinessCode.TOO_MANY_REQUESTS: TransportStatus(
+        HTTPStatus.TOO_MANY_REQUESTS, "RESOURCE_EXHAUSTED"
+    ),
+    BusinessCode.SYSTEM_ERROR: TransportStatus(HTTPStatus.INTERNAL_SERVER_ERROR, "INTERNAL"),
+    BusinessCode.DATABASE_ERROR: TransportStatus(HTTPStatus.INTERNAL_SERVER_ERROR, "INTERNAL"),
+    BusinessCode.NETWORK_ERROR: TransportStatus(HTTPStatus.INTERNAL_SERVER_ERROR, "UNAVAILABLE"),
+    BusinessCode.SERVICE_UNAVAILABLE: TransportStatus(
+        HTTPStatus.SERVICE_UNAVAILABLE, "UNAVAILABLE"
+    ),
+    # 上游（LLM provider）故障是服务端问题，不能算客户端的 4xx
+    BusinessCode.LLM_PROVIDER_ERROR: TransportStatus(HTTPStatus.BAD_GATEWAY, "UNAVAILABLE"),
+    BusinessCode.LLM_TIMEOUT: TransportStatus(HTTPStatus.GATEWAY_TIMEOUT, "DEADLINE_EXCEEDED"),
+}
+
+# 未进 BusinessCode 的裸 int 码沿用旧默认
+_UNREGISTERED = TransportStatus(HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION")
+
+
+def transport_status(code: int) -> TransportStatus:
+    """Look up the declared transport status of a business code."""
+    try:
+        return TRANSPORT_STATUS[BusinessCode(code)]
+    except (ValueError, KeyError):
+        return _UNREGISTERED
+
+
+__all__ = ["BusinessCode", "TransportStatus", "TRANSPORT_STATUS", "transport_status"]

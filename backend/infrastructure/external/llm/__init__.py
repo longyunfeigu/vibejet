@@ -1,7 +1,7 @@
 # input: core.config.settings.llm（provider/api_key/base_url）, OpenAI/Anthropic SDK
 # output: init_llm_client, shutdown_llm_client, get_llm_client 生命周期函数（provider 路由）
 # owner: unknown
-# pos: 基础设施层 - LLM 客户端生命周期管理与 provider 选择（openai/openrouter/litellm/anthropic）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# pos: 基础设施层 - LLM 客户端生命周期管理与 provider 选择（openai/openrouter/litellm/anthropic，每个 provider 外套熔断）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """LLM client lifecycle management with provider routing.
 
 Supported ``LLM__PROVIDER`` values:
@@ -13,6 +13,7 @@ Supported ``LLM__PROVIDER`` values:
 - ``anthropic``   Anthropic 原生 SDK（需要安装 extra：``uv sync --extra anthropic``）
 
 OpenAI 兼容的三个 provider 共用 OpenAIProvider，只是默认 base_url 不同。
+每个 provider 外套 CircuitBreakingLLM（见 circuit_breaking.py），上游持续故障时本地快速失败。
 """
 
 from __future__ import annotations
@@ -22,6 +23,9 @@ from typing import Optional
 from application.ports.llm import LLMPort
 from core.config import settings
 from core.logging_config import get_logger
+from infrastructure.external.circuit_breaker import SREBreaker
+
+from .circuit_breaking import CircuitBreakingLLM
 
 logger = get_logger(__name__)
 
@@ -43,35 +47,43 @@ def _build_client(llm_cfg) -> LLMPort:
                 "LLM__PROVIDER=litellm requires LLM__BASE_URL pointing to the LiteLLM proxy "
                 "(e.g. http://localhost:4000)"
             )
-        from .openai_provider import OpenAIProvider
+        from .openai_provider import OpenAIProvider, is_upstream_failure
 
-        return OpenAIProvider(
-            api_key=llm_cfg.api_key,
-            base_url=base_url,
-            default_model=llm_cfg.default_model,
-            default_temperature=llm_cfg.temperature,
-            default_max_tokens=llm_cfg.max_tokens,
-            timeout=llm_cfg.timeout,
-            max_retries=llm_cfg.max_retries,
+        return CircuitBreakingLLM(
+            OpenAIProvider(
+                api_key=llm_cfg.api_key,
+                base_url=base_url,
+                default_model=llm_cfg.default_model,
+                default_temperature=llm_cfg.temperature,
+                default_max_tokens=llm_cfg.max_tokens,
+                timeout=llm_cfg.timeout,
+                max_retries=llm_cfg.max_retries,
+            ),
+            SREBreaker(f"llm:{provider}"),
+            is_upstream_failure,
         )
 
     if provider == "anthropic":
         try:
-            from .anthropic_provider import AnthropicProvider
+            from .anthropic_provider import AnthropicProvider, is_upstream_failure
         except ImportError as exc:
             raise ImportError(
                 "anthropic SDK not installed. Run `uv sync --extra anthropic` "
                 "(or `pip install vibejet[anthropic]`)."
             ) from exc
 
-        return AnthropicProvider(
-            api_key=llm_cfg.api_key,
-            base_url=llm_cfg.base_url,
-            default_model=llm_cfg.default_model,
-            default_temperature=llm_cfg.temperature,
-            default_max_tokens=llm_cfg.max_tokens,
-            timeout=llm_cfg.timeout,
-            max_retries=llm_cfg.max_retries,
+        return CircuitBreakingLLM(
+            AnthropicProvider(
+                api_key=llm_cfg.api_key,
+                base_url=llm_cfg.base_url,
+                default_model=llm_cfg.default_model,
+                default_temperature=llm_cfg.temperature,
+                default_max_tokens=llm_cfg.max_tokens,
+                timeout=llm_cfg.timeout,
+                max_retries=llm_cfg.max_retries,
+            ),
+            SREBreaker(f"llm:{provider}"),
+            is_upstream_failure,
         )
 
     raise ValueError(
@@ -122,8 +134,9 @@ async def shutdown_llm_client() -> None:
         return
 
     try:
-        # OpenAI/Anthropic SDK 内部都是 httpx client；存在 close 则关闭
-        client = getattr(_llm_client, "_client", None)
+        # OpenAI/Anthropic SDK 内部都是 httpx client；存在 close 则关闭（先剥掉熔断外壳）
+        provider_client = getattr(_llm_client, "inner", _llm_client)
+        client = getattr(provider_client, "_client", None)
         if client is not None and hasattr(client, "close"):
             await client.close()
         logger.info("llm_client_shutdown")

@@ -11,7 +11,7 @@ import uuid
 from starlette import status as http_status
 
 from .response import error_response
-from shared.codes import BusinessCode
+from shared.codes import BusinessCode, transport_status
 from core.logging_config import get_logger
 from domain.common.exceptions import BusinessException
 from core.i18n import t, get_locale
@@ -43,38 +43,6 @@ def register_exception_handlers(app: FastAPI):
     # logger
     logger = get_logger(__name__)
 
-    def _business_code_to_http_status(code: int) -> int:
-        """根据业务码映射HTTP状态码（默认400）。"""
-        mapping = {
-            BusinessCode.PARAM_ERROR: http_status.HTTP_400_BAD_REQUEST,
-            BusinessCode.PARAM_MISSING: http_status.HTTP_400_BAD_REQUEST,
-            BusinessCode.PARAM_TYPE_ERROR: http_status.HTTP_400_BAD_REQUEST,
-            BusinessCode.PARAM_VALIDATION_ERROR: http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-            BusinessCode.BUSINESS_ERROR: http_status.HTTP_400_BAD_REQUEST,
-            BusinessCode.USER_NOT_FOUND: http_status.HTTP_404_NOT_FOUND,
-            BusinessCode.NOT_FOUND: http_status.HTTP_404_NOT_FOUND,
-            # 越权访问伪装为 404（Epic-1 D1）：not-found 类业务码必须真渲染 404，
-            # 否则"真不存在=400 / 越权=404"反而泄露存在性
-            BusinessCode.CONVERSATION_NOT_FOUND: http_status.HTTP_404_NOT_FOUND,
-            BusinessCode.DOCUMENT_NOT_FOUND: http_status.HTTP_404_NOT_FOUND,
-            BusinessCode.USER_ALREADY_EXISTS: http_status.HTTP_409_CONFLICT,
-            BusinessCode.PASSWORD_ERROR: http_status.HTTP_401_UNAUTHORIZED,
-            BusinessCode.PERMISSION_ERROR: http_status.HTTP_403_FORBIDDEN,
-            BusinessCode.UNAUTHORIZED: http_status.HTTP_401_UNAUTHORIZED,
-            BusinessCode.FORBIDDEN: http_status.HTTP_403_FORBIDDEN,
-            BusinessCode.SYSTEM_ERROR: http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            BusinessCode.DATABASE_ERROR: http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            BusinessCode.NETWORK_ERROR: http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            BusinessCode.SERVICE_UNAVAILABLE: http_status.HTTP_503_SERVICE_UNAVAILABLE,
-            BusinessCode.RATE_LIMIT_ERROR: http_status.HTTP_429_TOO_MANY_REQUESTS,
-            BusinessCode.TOO_MANY_REQUESTS: http_status.HTTP_429_TOO_MANY_REQUESTS,
-        }
-        try:
-            bc = BusinessCode(code)
-            return mapping.get(bc, http_status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return http_status.HTTP_400_BAD_REQUEST
-
     @app.exception_handler(BusinessException)
     async def business_exception_handler(request: Request, exc: BusinessException):
         """处理业务异常"""
@@ -96,7 +64,7 @@ def register_exception_handlers(app: FastAPI):
             locale=locale,
             message_key=getattr(exc, "message_key", None),
         )
-        status_code = _business_code_to_http_status(exc.code)
+        status_code = int(transport_status(exc.code).http)
         # 对于401可选地返回WWW-Authenticate，但仅对需要的场景添加
         headers = (
             {"WWW-Authenticate": "Bearer"}
