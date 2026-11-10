@@ -50,8 +50,8 @@ description: Turn a fuzzy product idea into a structured PRD using EARS syntax, 
 
 | 模式 | 何时使用 | 行为 |
 |------|----------|------|
-| `create` | 默认模式；没有现成 PRD，或用户明确要新建 PRD | 跑完整 Phase 0-4，写入 `docs/project/requirements.md` |
-| `review` | 用户要求审查、评估、找问题、检查已有 PRD | 读取指定 PRD 或 `docs/project/requirements.md`，只输出问题和改进建议；除非用户明确要求，不改文件 |
+| `create` | 默认模式；没有现成 PRD，或用户明确要新建 PRD | 跑完整 Phase 0-4，写入 `docs/product/requirements.md` |
+| `review` | 用户要求审查、评估、找问题、检查已有 PRD | 读取指定 PRD 或 `docs/product/requirements.md`，只输出问题和改进建议；除非用户明确要求，不改文件 |
 | `update` | 用户要求修改、补充、追加、重构已有 PRD | 读取现有 PRD，在原文件上更新；保留已有决策、编号和明确非目标 |
 
 模式选择规则：
@@ -165,7 +165,7 @@ description: Turn a fuzzy product idea into a structured PRD using EARS syntax, 
 
 PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进入 Phase 3 写 EARS 需求。这是文档落地前最后一次修正 scope 的机会，比 Phase 4 质量门更早、更便宜。
 
-🛑 STOP：未拿到用户对三桶总结的确认或修正前，不写 EARS 需求、不落 `docs/project/requirements.md`。
+🛑 STOP：未拿到用户对三桶总结的确认或修正前，不写 EARS 需求、不落 `docs/product/requirements.md`。
 
 三桶分类：
 
@@ -232,7 +232,7 @@ PRD 骨架完成后，**先 surface 一份三桶总结给用户确认**，再进
 1. **机检（BLOCKING，判定权独立于产出方）**：
 
    ```bash
-   python3 .agents/skills/vj-product-requirements/scripts/validate_prd.py docs/project/requirements.md
+   python3 .agents/skills/vj-product-requirements/scripts/validate_prd.py docs/product/requirements.md
    ```
 
    exit 1 → 修复后重跑；带 ERROR 不得进入语义检查，更不得放行下游。
@@ -274,7 +274,7 @@ Workflow 假设用户配合、调研可行、路径可写。下面是真实会�
 7. Epic Decomposition Notes
 
 默认写入路径：
-- `docs/project/requirements.md`
+- `docs/product/requirements.md`
 
 当 research_mode 为 `light` 或 `deep` 时，还必须包括：
 8. 市场与替代方案
@@ -316,7 +316,7 @@ Workflow 假设用户配合、调研可行、路径可写。下面是真实会�
 - Findings：按严重程度列 PRD 问题、歧义、缺口
 - Missing Decisions：缺失但必须由用户决定的产品问题
 - Handoff Readiness：是否足够交给 `vj-architecture` 和 `vj-epic-story`
-- Suggested Edits：建议修改点；只有用户要求时才落到 `docs/project/requirements.md`
+- Suggested Edits：建议修改点；只有用户要求时才落到 `docs/product/requirements.md`
 
 ## 后置步骤：Codex 审查 + HTML 视图
 
@@ -328,7 +328,7 @@ Workflow 假设用户配合、调研可行、路径可写。下面是真实会�
 **PRD 定稿后（codex-review 采纳完成或被跳过），生成人读 HTML 视图**：
 
 ```bash
-python3 .agents/skills/_shared/scripts/render_doc_html.py docs/project/requirements.md
+python3 .agents/skills/_shared/scripts/render_doc_html.py docs/product/requirements.md
 ```
 
 md/html 分工与派生视图约定按脚本头注释执行，本 skill 不复述。之后每次改动
@@ -380,7 +380,7 @@ md/html 分工与派生视图约定按脚本头注释执行，本 skill 不复�
 ```
 
 ```text
-使用 vj-product-requirements，mode=review，审查 docs/project/requirements.md
+使用 vj-product-requirements，mode=review，审查 docs/product/requirements.md
 ```
 
 ```text

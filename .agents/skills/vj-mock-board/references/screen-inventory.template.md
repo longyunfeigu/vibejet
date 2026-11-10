@@ -10,6 +10,7 @@
 # Screen Inventory — {产品名}
 
 - 来源 PRD: {路径}（版本 {vX.Y}，{PRD 最后更新日期}）
+- 来源 PRD digest: {shasum <PRD> | cut -c1-16 的值}（P0 幂等短路的比对基准）
 - 生成日期: {YYYY-MM-DD}
 - 确认状态: 已确认 | 假设待审批（无人值守时）
 

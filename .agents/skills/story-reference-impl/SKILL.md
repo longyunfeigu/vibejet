@@ -42,7 +42,7 @@ scout）产出，三选一结论（直接用 / 改造 / 自研）在其 Phase 3 
 - 用户特别关注的问题：并发、缓存、事件流、权限、回放、幂等、性能等
 
 如果信息不完整，优先从以下位置补全：
-- `docs/tasks/epics/`
+- `docs/work/epics/`
 - `docs/project/architecture.md`
 - `docs/project/api/conventions.md` + 相关 `docs/project/api/{module}.md`（如存在，且本次涉及接口契约；旧 api_spec.md 仅 fallback）
 - `docs/project/data/overview.md` + 相关 `docs/project/data/{module}.md`（如存在，且本次涉及数据模型 / migration；旧 database_schema.md 仅 fallback）
@@ -238,13 +238,13 @@ Review 重点：
 适合让用户这样触发：
 
 ```text
-使用 story-reference-impl，处理 docs/tasks/epics/epic-003.md#story-3.2
+使用 story-reference-impl，处理 docs/work/epics/epic-003.md#story-3.2
 参考项目是 https://github.com/All-Hands-AI/OpenHands
 我重点关注流式事件传递、断线重连和历史回放
 ```
 
 ```text
-使用 story-reference-impl，处理 docs/tasks/epics/epic-002.md#story-2.4
+使用 story-reference-impl，处理 docs/work/epics/epic-002.md#story-2.4
 我还没确定参考哪个开源项目，先帮我选型
 ```
 

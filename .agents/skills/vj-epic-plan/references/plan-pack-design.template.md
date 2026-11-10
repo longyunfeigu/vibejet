@@ -1,7 +1,6 @@
 ---
 title: "Epic {N} {name} Technical Design"
 type: epic-technical-design
-status: active
 date: YYYY-MM-DD
 epic_id: "{N}"
 ---
@@ -9,7 +8,12 @@ epic_id: "{N}"
 # Epic {N} {name} Technical Design
 
 <!-- 本模板是三区制：叙事区（自由）→ 合同区（刚性）→ 深潜附录（按需）。
-     写法参照金样例 references/design-golden-sample.md。生成正式文档时删除所有模板注释。 -->
+     生成正式文档时删除所有模板注释。
+
+     机检合同速查（plan_lint 硬规则）：
+     · 叙事区（`## 合同区` 之前）每个 h2 小节的第一行非空内容必须是 `> 一句话：…` 导读行
+     · frontmatter 不得含 status（plan 状态唯一源在 README.md）；decisions.md 同理
+     · 所有表格表头后必须紧跟 GFM 分隔行（|---|）；不得残留花括号类模板占位符 -->
 
 <!-- ═══════════════ 叙事区（自由结构，大白话） ═══════════════
 写给懂编程、但未必啃过 DDD/FastAPI 黑话、也没看过本项目代码的同事。
@@ -48,8 +52,9 @@ epic_id: "{N}"
 
 ## 合同区（Contracts）
 
-> 以下为刚性合同块。task 文档的 design anchors **只允许指向本区块与 decisions.md 的 D/ACD**；
-> 叙事区标题可自由变化，不承载锚点。命中才写对应块，未命中整块省略（不留空壳）。
+> 本区承载 delta 摘要、理由与跨层不变量，不复制精确 schema。Story AC 定义可观察行为；
+> approved decisions 定义设计取舍；`docs/project/api|data|ui/` 定义精确合同；task docs 是执行投影。
+> 跨维度冲突必须 STOP 并修正来源。task 的 design anchors 只允许指向本区块；叙事标题不承载锚点。
 
 ### 术语表
 
@@ -62,22 +67,18 @@ epic_id: "{N}"
 
 ### API Delta
 
-<!-- 命中 API delta 时写。端点表 + 关键行为决策表（条件→HTTP→业务态→前端出路）+ 错误语义 +
-     幂等/兼容约定 + "为什么不是别的方案"一句话（引 D-ID）。定稿后同步 docs/project/api/。
-     失败/错误语义也用表格（条件→结果），不写成分号串联的长句。 -->
+<!-- 命中 API delta 时写 reviewer 所需的能力摘要、行为理由、兼容影响与 D-ID；精确路径、字段、
+     schema、错误码和鉴权只写 docs/project/api/。可以保留高风险行为决策表，但不得复制完整 schema。 -->
 
 ### Data Delta
 
-<!-- 命中 schema/persistence delta 时写。表/字段/约束/索引 + 迁移与回滚 + "为什么不是别的方案"。
-     定稿后同步 docs/project/data/。
-     每张表的字段必须用表格（字段|类型|约束|说明），禁止用 · 或分号把字段串成一行；
-     表间关系（1:N、级联）在表格前用一句话说清。合同区的载体规则：可枚举的事实用表格，
-     论证和因果留给叙事区。 -->
+<!-- 命中 persistence delta 时写聚合关系、关键不变量、迁移/回滚策略与 D-ID；精确表字段、类型、
+     constraint 和 index 只写 docs/project/data/，避免 design 与 catalog 双重维护。 -->
 
 ### UI Surface Delta
 
-<!-- 前端 Epic 必写。每个新增/更新 Screen 一份 Screen Contract，字段清单按
-     .agents/skills/_shared/ui-planning-contract.md §6。定稿后同步 docs/project/ui/。 -->
+<!-- 前端 Epic 必写体验结构、状态选择理由与风险；精确 Screen Contract 与 Route 只写
+     docs/project/ui/，字段清单按 .agents/skills/_shared/ui-planning-contract.md §6。 -->
 
 ### Must Hold
 

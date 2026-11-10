@@ -1,7 +1,6 @@
 ---
 title: "Epic {N} {name} Decisions"
 type: epic-decisions
-status: active
 date: YYYY-MM-DD
 epic_id: "{N}"
 ---
@@ -10,11 +9,14 @@ epic_id: "{N}"
 
 本文件是 D-ID / ACD-ID 的唯一真相源。其他 human docs 和 task docs 只引用 ID，不复制完整论证。
 
-## 1. Pending Decisions
+## 1. Open Decisions
 
 | ID | Status | Question | Recommended stance / assumption | Impact | Alternatives / Rejected |
 |----|--------|----------|---------------------------------|--------|--------------------------|
-| D1 | pending / assumed / approved | | | | |
+| D1 | pending-approval / evidence-required | | | | |
+
+`evidence-required` 必须对应至少一个 `Risk class: research-only` 的 task，并在问题中写预注册阈值；
+不得把经验事实写成 reviewer 可直接批准的结论。获批后把完整记录移到 Approved Decisions。
 
 ## 2. AC Deviations
 

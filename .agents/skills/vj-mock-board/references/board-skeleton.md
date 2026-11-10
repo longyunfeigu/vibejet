@@ -52,18 +52,18 @@ subagent 输入的类清单；分区片段内**不得**新增 `<style>` 或内�
   <div class="epic-sub">{来源条目索引，如 E1 R1–R6}</div>
   <div class="board">
 
-    <div class="screen-card" id="s-record">
+    <div class="screen-card" id="s-{screen-slug}">
       <div class="phone"><!-- 屏内容：本屏默认态 UI --></div>
       <div class="screen-meta">{屏名} <span class="state-tag">默认</span></div>
       <div class="note">
-        <b>API:</b> POST /api/v1/meals/recognize（10s 超时 → 服务不可用态）<br>
-        <b>决策:</b> 默认态不出现文本输入框（PRD R3：文本仅兜底）
+        <b>API:</b> {METHOD} /api/v1/{resource}（{超时 → 降级态}）<br>
+        <b>决策:</b> {本屏的关键取舍}（PRD {条目编号}）
       </div>
     </div>
 
-    <div class="screen-card" id="s-record--loading">
+    <div class="screen-card" id="s-{screen-slug}--loading">
       <div class="phone"><!-- 同屏加载态 --></div>
-      <div class="screen-meta">{屏名} <span class="state-tag">识别中</span></div>
+      <div class="screen-meta">{屏名} <span class="state-tag">加载中</span></div>
       <!-- 状态变体卡可无 note；该屏的 note 住默认态卡 -->
     </div>
 

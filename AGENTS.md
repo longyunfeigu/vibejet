@@ -15,11 +15,13 @@ vibejet/
 ├── frontend/          # React + TypeScript 前端 (Vite)
 │   ├── src/           # 前端源码
 │   └── .env           # 前端环境变量 (VITE_API_URL 等)
-├── docs/              # Project facts, reusable references, archives, and task assets
-│   ├── project/       # Current architecture, API conventions, and reusable data contracts
-│   ├── reference/     # ADRs, guides, manuals, research notes
+├── docs/              # Project facts, product intent, references, archives, in-flight work
+│   ├── product/       # Product intent (PRD 等)——与平台事实隔离，不进 project/
+│   ├── project/       # Current architecture, API/data/UI contracts, design tokens
+│   ├── reference/     # ADRs, guides, research notes
+│   ├── solutions/     # Solved problems & decisions knowledge base (vj-compound 写入)
 │   ├── archive/       # Historical / superseded docs, not current baseline
-│   └── tasks/         # Active epics/stories and implementation plans
+│   └── work/          # In-flight delivery: epics/ + plans/ + tasks/ (task packets)
 ├── .agents/skills/    # Repo-local AI workflow skills
 └── docker-compose.yml
 ```
@@ -138,28 +140,20 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 
 ## AI Workflow Entry Points
 
-See `docs/reference/guides/ai-workflow.md` for the repo-level end-to-end workflow and skill selection guide.
-新建或大改 vj 系 skill 时，对照 `.agents/skills/_shared/vj-skill-conventions.md` 的家族约定 checklist。
+默认从 `vj` router 进入，按风险选择 Patch / Story / Epic；详细阶段、UI 双轨、catalog delta、
+验证与收口规则见 `docs/reference/guides/ai-workflow.md`。
 
-Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when they match the task:
-
-- `vj-feature` — 给已有项目追加功能：澄清需求，生成/追加 Epic+Story，可选同步 PRD，路由到实现
-- `vj-design-md-matcher` — 产品/品牌方向轨：`DESIGN.md` 缺失/过期、品牌感不清或要求整体视觉升级时，生成 `docs/project/DESIGN.md` + golden references；不用于日常单屏结构/状态补全
-- `ui-requirement-brief` / `ui-page-goal-structure` / `ui-state-coverage` / `ui-visual-consistency-audit` — 前端设计生产与审查辅助：产品级 brief 喂 `vj-design-md-matcher`；单屏级产出页面体验地图和状态覆盖；稳定合同写入 `docs/project/DESIGN.md` 与 `docs/project/ui/`（按需创建），由 `vj-epic-plan` / `vj-work` 消费
-- `vj-mock-board` — PRD → 单文件 UI mock board：解析 PRD 出 Screen Inventory，按 `DESIGN.md` 双轨 token 生成按 Epic 分区平铺的 mock HTML（含每屏 API/设计决策注记），写代码前看到产品长什么样；缺 `DESIGN.md` 先走 `vj-design-md-matcher`
-- `vj-epic-story` — 从 PRD + 架构全量拆解 Epic/Story，产出可执行验收标准（WHAT）
-- `vj-epic-plan` — Epic 级实现计划：生成 human review pack + task packets，并同步 `docs/project/api|data|ui/` 契约目录（HOW）
-- `vj-work` — Epic 执行器（默认实现入口）：消费 vj-epic-plan 的 task packets，auto 模式按风险自动走 fast/strict，内含 verify / review gate；单 Story 小需求同样由它按单 Unit 执行
-- `story-reference-impl` — Complex Story that needs research against open source or framework implementations
-- `story-verify-fix` — Post-implementation verification, front/back bring-up, integration checks, visual alignment
-- `review` — Pre-landing code review using `docs/reference/guides/review-checklist-python-fastapi.md`
-- `diff-aware-qa` — Second-layer regression QA driven by the current diff
+- Patch：不建 Story/Plan，窄改动 + focused verification。
+- Story：Intent Contract + concise execution plan；普通 bounded change 不建 Epic review pack。
+- Epic/strict：`vj-feature|vj-epic-story -> vj-epic-plan -> vj-plan-review -> vj-work`。
+- 工作流自身变更：跑 `.agents/evals/vj-workflow/`；plan handoff 必过 `plan_lint.py` +
+  `workflow_doctor.py`。
 
 ## Plan 规范
 
 - Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成 review pack 目录
-  `docs/tasks/plans/{date}-epic-{N}-{slug}/`（README / design / decisions）+
-  task packets（`docs/tasks/work/epic-{N}-{slug}/`），由 `vj-work` 消费执行
+  `docs/work/plans/{date}-epic-{N}-{slug}/`（README / design / decisions）+
+  task packets（`docs/work/tasks/epic-{N}-{slug}/`），由 `vj-work` 消费执行
 - 执行策略用 **Execution Policy: fast | strict** 表达（旧 Story 级 Flow A/B/C 模板已废弃删除）
 - **strict 触发条件**（plan 阶段或开发中碰到任一条 → strict，开发中则暂停并升级）：
   改 DB migration/schema、改公共 API 契约、改权限/认证/安全/ownership、引入外部系统或
@@ -167,69 +161,31 @@ Use the repo-local skills (`.agents/skills/`) instead of ad-hoc prompting when t
   UI shell/navigation/design token 级变更、预计大 diff（跨子系统 ≥400 行或总计 ≥1000 行）
 - Simple 档小改动（单文件 <20 行）可不出 review pack 直接实现；但命中 strict 触发条件的
   改动必须走完整 plan 链路
+- Plan status 中 `research-ready` 只开放 `Risk class: research-only` 的证据任务，write scope
+  只能在 `.vj/` 与 `docs/reference/research/`；完成后回到 `awaiting-approval`。生产实现只接受
+  `ready`。质量、延迟、兼容性等经验事实不得靠文档审批，必须先产生可审计证据。
+- Plan 信息按维度分配真相源：Story AC 管可观察行为；approved decisions 管设计取舍；
+  `docs/project/api|data|ui/` 管精确合同；design.md 管 delta 理由和跨层不变量；task docs 只是
+  执行投影。跨维度冲突必须 STOP 修正来源，禁止用线性优先级静默覆盖。
+- plan 阶段新增的 catalog 合同必须标 `planned (Epic N)`；planned 只服务所属 plan，不证明代码
+  已实现。vj-work 全部验证、review 和合同比对通过后才翻 `active`；其他 Epic 只把 active
+  条目当可消费的当前能力。
 
 ## 架构文档策略
 
-| 类型 | 文件 | 维护时机 |
-|------|------|---------|
-| 永久基线 | `docs/project/architecture.md`（1 份 repo 级） | 有架构影响时更新 |
-| 永久基线 | `AGENTS.md`（`CLAUDE.md` 经 `@AGENTS.md` 导入） | 规则变更时更新 |
-| 永久基线 | `docs/project/*.md` | 对应项目事实或设计契约变化时更新 |
-| 历史归档 | `docs/archive/` | 过期/被取代的文档需要保留但不再作为当前基线时 |
-| 执行基线 | `vj-epic-plan` 的 review pack / task 模板（`.agents/skills/vj-epic-plan/references/`） | Plan 结构变更时更新 |
-| 审查基线 | `docs/reference/guides/review-checklist-python-fastapi.md` | review 规则变更时更新 |
-| 执行计划 | `docs/tasks/plans/{date}-epic-{N}-{slug}/`（review pack）+ `docs/tasks/work/epic-{N}-{slug}/`（task packets） | 每次 epic/feature 实现时 |
-| 设计参考 | `docs/reference/research/designs/{epic-id}/{story-id}-{page}.png` | 有 UI 设计稿时 |
-| 按需生成/更新 | `docs/project/api/{module}.md` | 由 `api-design` skill 在公共接口契约变化时增量更新 |
-| 按需生成/更新 | `docs/project/data/{module}.md` | 由 `data-model` skill 在 schema / migration 变化时增量更新 |
-| 按需生成/更新 | `docs/project/requirements.md`（PRD） | 由 `vj-product-requirements` 生成；需求变化时更新 |
-
-重要边界：
-- 当对应 `docs/project/api/{module}.md` 或 `docs/project/data/{module}.md` 不存在时，AI 不能声称"实现违反了这些文档"；
-  只能判断"本次变更是否引入新的 API contract / schema / migration delta，需要补设计说明"
-- 始终可以校验的，只有 repo 硬约束、Story 验收标准和现有代码模式
-- `docs/archive/` 下的文档不是当前 baseline，除非用户明确要求恢复或基于归档资料继续实现
+当前 repo 事实放 `docs/project/`；产品意图（PRD 等）放 `docs/product/`；历史资料放
+`docs/archive/`；执行产物放 `docs/work/`。API/Data/UI 稳定合同分别放
+`docs/project/api|data|ui/`，只在对应 delta 出现时增量更新——合同跟随代码分层归 project/，
+不按 product/platform 拆分。
+完整维护规则见 `docs/reference/guides/ai-workflow.md`，archive 不是当前 baseline。
 
 ## Common Development Patterns
 
-### Adding a New Backend Entity/Aggregate
-
-1. Define entity in `backend/domain/<aggregate>/entity.py`
-2. Define repository interface in `backend/domain/<aggregate>/repository.py`
-3. Create ORM model in `backend/infrastructure/models/<aggregate>.py`
-4. Implement repository in `backend/infrastructure/repositories/<aggregate>_repository.py`
-5. Register the concrete repository in `backend/infrastructure/unit_of_work.py`
-6. In the application service, define a service-local UoW `Protocol` listing only the repositories that service needs
-7. Generate migration: `cd backend && alembic revision --autogenerate -m "add <aggregate>"`
-8. Apply: `cd backend && alembic upgrade head`
-9. Create application service in `backend/application/services/<aggregate>_service.py`
-10. Add API routes in `backend/api/routes/<aggregate>.py`
-11. Register routes in `backend/main.py`
-
-### Adding a Frontend Feature
-
-Stack: Vite 8 + React 19 + TS 6 (strict) + Tailwind v4 + shadcn/ui (Radix) + TanStack Router/Query + RHF + Zod + Vitest. UI 用 Tailwind utility class + shadcn 组件，**不用 MUI**。设计 token 唯一来源 `docs/project/DESIGN.md` → 编译进 `src/index.css` 的 CSS 变量。Full guidelines in `.agents/skills/frontend-dev-guidelines/SKILL.md`.
-
-1. Create `frontend/src/features/<name>/` with subdirs: `api/`, `components/`, `hooks/`, `types/` (and `helpers/` if needed)
-2. Wrap backend endpoint in `api/<name>Api.ts` using `apiClient` from `@/lib/apiClient`
-3. Create `useSuspenseQuery` wrapper in `hooks/use<Name>.ts`
-4. UI component in `components/<Name>Card.tsx`：用 shadcn 组件（`@/components/ui/*`）+ Tailwind class + `cn()`，consumes the hook (no early-return loading; rely on outer `<SuspenseLoader>`)
-5. 需要的 shadcn 组件用 `npx shadcn@latest add <component>` 拉进 `@/components/ui/`（网络抖动时见 SKILL.md 的 curl 兜底）
-6. Register route at `frontend/src/routes/<name>/index.tsx` with `createFileRoute`（需要登录的路由加
-   `beforeLoad` 守卫，参考 `routes/index.tsx`）；`<SuspenseLoader>` 在 feature 组件内包裹数据子组件（参考 `HomePage`）
-7. Run `pnpm dev` once to regenerate `src/routeTree.gen.ts` (tracked file, do not hand-edit)
-
-Reference impl（canonical）: `frontend/src/features/home/`（标准数据流：`useSuspenseQuery` hook +
-`<SuspenseLoader>`）；更完整的 feature 结构（`helpers/`、Zod schema + 测试）参考 `frontend/src/features/auth/`。
-If the task is verification-only, use `story-verify-fix`. If design refs exist, store them under
-`docs/reference/research/designs/{epic-id}/` and reference them from the Story or plan.
-
-### Adding External Service Integration
-
-1. Define port interface in `backend/application/ports/<service>.py`
-2. Implement client in `backend/infrastructure/external/<service>/<provider>.py`
-3. Initialize in `backend/main.py` lifespan
-4. Inject via dependency in API routes
+- Backend 变更先读 `.agents/skills/backend-dev-guidelines/SKILL.md`；DDD/UoW 约束以上文为准。
+- Frontend 变更先读 `.agents/skills/frontend-dev-guidelines/SKILL.md`；canonical 数据流参考
+  `frontend/src/features/home/`，复杂 feature 参考 `frontend/src/features/auth/`。
+- 外部服务：application port -> infrastructure adapter -> composition root injection。
+- 需要 UI/联调验证走 `story-verify-fix` / `web-access`，不在仓库引入另一套浏览器依赖。
 
 ## Development Guidelines
 
@@ -238,7 +194,7 @@ If the task is verification-only, use `story-verify-fix`. If design refs exist, 
 | Size | Criteria | Approach |
 |------|----------|----------|
 | **Simple** | Single file, <20 lines, local impact | Execute directly with minimal explanation |
-| **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `vj-epic-plan`（最小 review pack）+ `vj-work`, or a concise execution plan, then implement |
+| **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `vj` Story track: Intent Contract + concise execution plan, then implement and verify |
 | **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Full `vj-epic-plan` review pack（Execution policy 通常为 strict）+ the appropriate skill workflow |
 
 Complex workflow: RESEARCH → PLAN（`vj-epic-plan`，需要外部参考时先 `story-reference-impl`）→ EXECUTE →
@@ -265,9 +221,10 @@ AI review + 人扫一遍；🟢 DTO/数据搬运/UI 样式 → AI review + 测�
 - 评估维度：维护活跃度、社区、与现有 stack 的契合度、license 可商用；选择自研必须说明为何现有方案不适用
 - 过度工程红线：4+ 底层库拼一个常见场景；>200 行实现一个已被解决的问题；
   没有具体需求的"以后可能需要灵活性"
-- 机器位：epic 命中通用能力时由 `vj-epic-plan` Phase 2 的 external-solutions scout（Agent E）
-  检索 GitHub/生态并评估，Phase 3 收口进 `decisions.md`（直接用 / 改造 / 自研+拒因）；
-  "改造/深度借鉴"路径的实现期研究走 `story-reference-impl`
+- 机器位：`vj-epic-plan` Phase 2 **默认派发** external-solutions scout（Agent E）先检索
+  GitHub/生态并评估（仅纯 CRUD/纯 UI 组合且仓库已有权威实现覆盖时可跳过，跳过须记录
+  判定理由；超时降级由主上下文快查兜底，不豁免检索），Phase 3 收口进 `decisions.md`
+  （直接用 / 改造 / 自研+拒因）；"改造/深度借鉴"路径的实现期研究走 `story-reference-impl`
 
 ### Red Lines
 
@@ -330,42 +287,10 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 
 ## Key References
 
-### Backend
-- REST entrypoint: `backend/main.py`
-- gRPC entrypoint: `backend/grpc_main.py`
-- Config: `backend/core/config.py`
-- Dependency wiring: `backend/api/dependencies.py`
-- UoW port: `backend/application/ports/unit_of_work.py`
-- UoW implementation: `backend/infrastructure/unit_of_work.py`
-- Database: `backend/infrastructure/database.py`
-
-### Frontend
-- Dev entrypoint: `frontend/src/main.tsx`
-- Routes (file-based): `frontend/src/routes/` (e.g. `routes/index.tsx`, `routes/login/index.tsx`)
-- Features: `frontend/src/features/` (each: `api/`, `components/`, `hooks/`, `types/`)
-- shadcn 组件（vendored）: `frontend/src/components/ui/`（`npx shadcn add` 生成，可改）；布局: `frontend/src/components/layout/`
-- 样式工具: `frontend/src/lib/utils.ts` 的 `cn()`（clsx + tailwind-merge）；设计 token: `frontend/src/index.css`（`@theme` + `:root`，源自 `docs/project/DESIGN.md`）
-- Toast: 直接用 `sonner`（`import { toast } from 'sonner'`；`<Toaster/>` 已挂在 `main.tsx`）
-- Reusable infra: `frontend/src/components/SuspenseLoader/`
-- API client: `frontend/src/lib/apiClient.ts` (axios, `baseURL = VITE_API_URL`, `withCredentials`)
-- Auth hook: `frontend/src/hooks/useAuth.ts`（`useSyncExternalStore` 订阅 `@/lib/authStore` 的会话门面，提供 `session`/`isAuthenticated`/`logout`）
-- Path alias: `@/` → `src/`（单一别名，configured in `tsconfig.app.json` + `vite.config.ts` + `vitest.config.ts`）
-- Vite config: `frontend/vite.config.ts` (proxies `/api/*` to `VITE_API_URL`)
-- Guidelines: `.agents/skills/frontend-dev-guidelines/SKILL.md`
-
-### Workflow
-- Plan templates: `.agents/skills/vj-epic-plan/references/`（review pack + task doc 模板）
-- Review checklist: `docs/reference/guides/review-checklist-python-fastapi.md`
-- Verify-fix design: `docs/reference/guides/story-verify-fix-design.md`
-- Skills: `.agents/skills/`
+入口地图见本文件开头的 Project Structure；workflow 见
+`docs/reference/guides/ai-workflow.md`；backend/frontend 细节见对应 repo-local guideline skill。
 
 ## Tooling Note
 
-Do not rely on stale generic tool names in this document. Prefer:
-
-- repo-local skills under `.agents/skills/`
-- shell + `rg` for codebase search
-- targeted tests and verification commands from `backend/`
-- browser-based validation（联调/视觉对齐/前端 E2E）统一走全局 `web-access` skill
-  （story-verify-fix / vj-work / vj-test 均用它；不引入项目内 Playwright 依赖）
-- `diff-aware-qa` for post-implementation regression checks scoped to the current diff
+优先 repo-local skills、shell + `rg`、触碰面的定向测试、`web-access` 浏览器验证和
+`diff-aware-qa` 回归检查。不要依赖文档里过时的通用工具名。

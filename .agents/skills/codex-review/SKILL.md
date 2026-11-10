@@ -199,7 +199,7 @@ Codex 审查完成（N 条建议，X blocking，Y non-blocking）
 ### 手动审查 PRD
 
 ```text
-/codex-review docs/project/requirements.md
+/codex-review docs/product/requirements.md
 ```
 
 ### 审查最近生成的文档

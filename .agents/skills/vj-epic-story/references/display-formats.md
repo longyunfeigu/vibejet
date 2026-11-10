@@ -23,7 +23,7 @@ SKILL.md 各 Phase 的用户交互展示格式集中在此，按需读取。规�
 ➕ CREATE (L 个): 新增
 - Epic 6: 数据分析（来源 PRD R15-R18，新需求）
 
-请审核差异：输入 confirm 接受 / 输入 adjust 调整 / 输入 abandon 放弃
+本表先进入最终批量预览；只有 OBSOLETE / 进行中 Story / 边界分歧会进入唯一 Intent Gate。
 ```
 
 ## §B Phase 2.5 — Epic Quality Gate 体检结果
@@ -48,13 +48,13 @@ Epic 2: 商品目录
 Epic 3: ...
 
 总分: 17/18 (1 个 Epic 有警告)
-输入 continue 接受警告 / 输入 fix 修订 / 输入 rework 回到 Phase 2.1
+动作: 自动按建议重拆并复检；若根因是产品边界选择，加入唯一 Intent Gate。
 ```
 
 ## §C Phase 2.6 Step 4 — Batch Question 大表
 
 ```
-📋 Epic 详情自动填充结果（请一次性补齐 ❓ 和确认 ⚠️）
+📋 Epic 详情自动填充结果（暂存全部 ❓/⚠️，Phase 5 一次裁决）
 
 ═══════════════════════════════════════
 Epic 1: 用户管理
@@ -81,7 +81,7 @@ Epic 2: 商品目录
 ═══════════════════════════════════════
   ...
 
-请按 Epic 编号逐项补齐 ❓ 和回应 ⚠️，或直接输入 confirm 接受所有 ⚠️
+本表不立即提问；确定性项继续拆 Story，真正改变产品行为的项合并进 Phase 5 Intent Gate。
 ```
 
 ## §D Phase 5.2 — 写盘前批量预览
@@ -122,10 +122,10 @@ Epic 2: 商品目录 (P0, 4 Story, 展开模式)
 写盘后改动:
   - 新建 6 个 Epic 文件 (epic-1 平铺, epic-2~6 展开)
   - 新建 25 个 Story 文件
-  - kanban_board.md: Next Epic 11 → 17, Next Story 1 → 26
+  - 编号由 allocate_ids.py 从现有 Epic/Story 文件派生，无额外索引回写
 
-输入 confirm 写盘 / 输入 adjust 修订 / 输入 abandon 放弃
-输入 expand epic-N 展开第 N 个 Epic 的完整 AC 详情
+若存在阻塞未决项：输入 confirm 写盘 / adjust 修订 / abandon 放弃；`expand epic-N` 只展开
+详情，仍属于同一个 gate。若没有阻塞未决项，直接写盘，不显示形式确认。
 ```
 
 ## §E Phase 4 — 模糊 AC 改写示例

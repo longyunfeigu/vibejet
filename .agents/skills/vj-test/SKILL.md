@@ -30,8 +30,8 @@ vj-test               # 取最近执行的 epic（其 _ledger 处于 in-progress
 
 ```yaml
 epic_test_runner:
-  work_dir: docs/tasks/work/epic-{N}-{slug}/                 # 读 task 文档的 AC；写 _test-plan.md / _test-report.md
-  evidence_dir: docs/tasks/work/epic-{N}-{slug}/evidence/    # 前端 E2E 成功截图（如不想入库可 gitignore）
+  work_dir: docs/work/tasks/epic-{N}-{slug}/                 # 读 task 文档的 AC；写 _test-plan.md / _test-report.md
+  evidence_dir: docs/work/tasks/epic-{N}-{slug}/evidence/    # 前端 E2E 成功截图（如不想入库可 gitignore）
   browser_skill: web-access                                  # 前端 E2E 用的真实浏览器 skill
   app_launch: auto                                           # 起 dev server 的方式（auto 探测 pnpm dev / uv run，或填具体命令）
 ```
@@ -46,7 +46,7 @@ epic_test_runner:
 |---------|---------|--------------|
 | 测试 DB / API 客户端缺失 | 后端层降级为人工待办 | 🛑 报告写「后端 DB 测试未覆盖」 |
 | 缓存不可用 | 缓存断言降级为跳过 | 🛑 报告标注「缓存层未覆盖」 |
-| web-access 经 Skill tool 报 not found | 前端 E2E 降级为人工待办 | 🛑 报告写「前端未自动覆盖」（禁止因本地无 skill 文件提前降级） |
+| `invoke_skill` 无法加载 web-access | 前端 E2E 降级为人工待办 | 🛑 报告写「前端未自动覆盖」 |
 | dev server 起不来 | 换 `app_launch` 命令重试 1 次 | 🛑 前端层降级 + 报告写明启动失败原因 |
 | 测试红 = 实现 bug | 改实现重跑（见下方代码改动硬边界） | 🛑 3 轮仍红 → 停下，报告列「未修复项 + 原因」，提示人介入 |
 | 变异自检后测试仍绿 | 标记该测试 INVALID | 🛑 报告写「无效测试，建议删除」，不计入有效覆盖 |
@@ -73,7 +73,7 @@ epic_test_runner:
 | 测试 DB | 尝试建立测试连接 / 建临时库 |
 | API 测试客户端 | 检测 httpx / FastAPI TestClient 可用性 |
 | 缓存 | 若项目使用则检测连接 |
-| 前端驱动 | 通过 `Skill tool` 调用 `web-access`（见下方规则） |
+| 前端驱动 | 通过 runtime capability `invoke_skill` 加载 `web-access` |
 
 > 各基建项缺失时的降级处置统一见上方 [§🛑 安全边界与降级处置](#-安全边界与降级处置)，不在此重复。
 
@@ -83,7 +83,8 @@ epic_test_runner:
 
 **🛑 缺关键基建 → 汇总上报 + 降级**：按 §🛑 安全边界与降级处置 表逐项降级；一律写进报告（如"前端未自动覆盖"/"后端 DB 测试未覆盖"），**不静默跳过**。
 
-> **web-access 探测规则**（重要）：`web-access` 是**全局 skill**，不在项目 `.claude/skills/` 目录下，**不能用文件系统检测**。正确做法：直接通过 `Skill tool` 调用 `web-access`；若 Skill tool 报错"skill not found"才判定不可用并降级。禁止因本地目录没有 skill 文件就提前降级。
+> **web-access 探测规则**：`web-access` 是全局 skill，不能用项目文件路径猜测是否可用。
+> 按 `_shared/runtime-contract.md` 直接使用 `invoke_skill`；调用失败才降级。
 
 ### Phase 2：RBT 规划
 
@@ -96,7 +97,9 @@ epic_test_runner:
 
 - **后端层**（pytest + httpx/TestClient）：断言 API 信封 + DB 行 + 缓存，走真实链路、跨层不 mock。
 - **前端 E2E 层**（用 `web-access` skill 驱动真实浏览器）：走完整用户流程，例如：打开 `/login` → 输入预置账号 → 提交 → 跳首页 → **断言页面显示用户名 X**（显式断言，不只是截图）。
-  - **每条成功流程必须落盘截图**：web-access 截图后，**立即用 `Write` 工具**把图片字节写入 `evidence_dir/{scenario}-ok.png`（`evidence_dir` 需提前 `mkdir -p` 确保存在）。在报告里用相对路径链接该文件。截图仅出现在会话里不算落盘，报告里链接不到文件视为未完成。
+  - **每条成功流程必须落盘截图**：通过 `browser` capability 把截图直接写到
+    `evidence_dir/{scenario}-ok.png`；若 runtime 只返回图片字节，用 `write_file` capability
+    落盘。随后用 `test -s` 验证文件存在且非空，报告使用相对路径链接。
 - 跑到**全绿**，失败走以下修复循环（最多 3 轮）：
 
   ```
@@ -115,7 +118,8 @@ epic_test_runner:
 每个高优先级后端测试**各自派一个 worktree 隔离 subagent 并行执行**——不再串行"改坏→跑→还原"，而是利用 worktree 隔离天然避免代码污染，用完即丢。
 
 **subagent 调度方式**：
-- 用 `Agent` 工具，对每个高优先级测试各派一个 subagent，参数：`isolation: "worktree"` + `run_in_background: true`
+- 按 `_shared/runtime-contract.md` 使用 `spawn_agent` + `isolated_worktree`；每个高优先级测试
+  一个独立任务
 - 主 agent 不等待，所有 subagent 并行运行
 
 **每个 mutation subagent 的任务**：
@@ -154,5 +158,6 @@ epic_test_runner:
 - ⛔ **迁就测试删 AC**：为让测试变绿把 AC 要求的行为删掉/弱化。测出实现 bug 应改实现（见 §🛑 自动改实现代码的硬边界），不是改 AC。
 - ⛔ **静默跳过**：基建缺失就悄悄不测。必须降级 + 报告写明未覆盖项（见 §🛑 安全边界与降级处置）。
 - ⛔ **前端假绿**：把"截了图"当通过。前端必须有显式 UI 断言；前端不做变异自检，报告须注明信任锚点 = 截图 + 断言。
-- ⛔ **截图只在会话**：web-access 截图不落盘。必须 `Write` 到 `evidence_dir`，报告链接不到文件即视为未完成。
+- ⛔ **截图只在会话**：必须通过 `browser` / `write_file` capability 落到 `evidence_dir`，
+  `test -s` 不通过即未完成。
 - ⛔ **越界测试**：刷覆盖率、重复 vj-work 的 per-task 单元测试、测框架/库/DB 内部（详见铁律的 RBT / 不重复原则）。

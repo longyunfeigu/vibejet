@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "suite": "vj-workflow",
+  "cases": [
+    {
+      "id": "router-patch",
+      "revision": 2,
+      "stage": "routing",
+      "prompt": "使用 vj 工作流处理：登录页按钮文案有一个错别字，只改这一处并验证。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Patch；不要修改文件。",
+      "timeout_sec": 300,
+      "assertions": [
+        {
+          "type": "final_regex",
+          "pattern": "^VJ_EVAL_ROUTE:\\s*Patch\\s*$"
+        },
+        {
+          "type": "final_not_contains",
+          "value": "vj-epic-plan"
+        }
+      ]
+    },
+    {
+      "id": "router-story",
+      "revision": 2,
+      "stage": "routing",
+      "prompt": "使用 vj 工作流处理：给现有文件列表增加客户端按文件名筛选，只修改现有 frontend feature 内的输入框、筛选逻辑与测试，不改 API，需求清楚。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Story；不要修改文件。",
+      "timeout_sec": 300,
+      "assertions": [
+        {
+          "type": "final_regex",
+          "pattern": "^VJ_EVAL_ROUTE:\\s*Story\\s*$"
+        }
+      ]
+    },
+    {
+      "id": "router-epic",
+      "revision": 2,
+      "stage": "routing",
+      "prompt": "使用 vj 工作流处理：新增团队空间，包含成员邀请、角色权限、资源归属迁移和新的数据库表。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Epic；不要修改文件。",
+      "timeout_sec": 300,
+      "assertions": [
+        {
+          "type": "final_regex",
+          "pattern": "^VJ_EVAL_ROUTE:\\s*Epic\\s*$"
+        },
+        {
+          "type": "final_contains",
+          "value": "strict"
+        }
+      ]
+    }
+  ]
+}

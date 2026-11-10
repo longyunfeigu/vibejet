@@ -1,16 +1,16 @@
-# UI Routes
+# UI Routes — 路由树与守卫
 
-路由树、角色守卫、导航入口与跨 Epic 占位关系（vj-epic-plan 命中 route delta 时同步）。
+> 路由 / 守卫 / 导航真相源。`planned (Epic N)` 条目为拟议合同，实现验证通过后翻 `active`。
+> 前端为 TanStack Router file-based（`frontend/src/routes/`）。
 
 ## 路由树
 
-| Route | Screen | 守卫 | 导航入口 | 状态 |
-|-------|--------|------|----------|------|
-| `/` | home（既有） | beforeLoad 登录守卫 | AppShell | active |
-| `/login` | login（既有，front-of-house 编辑艺术轨） | 未登录可达 | 直达 | active |
-| `/auth/callback` | OAuth 回调（既有） | - | - | active |
-| `/record` | [screen-meal-record](surfaces.md#screen-meal-record) | beforeLoad 登录守卫（照抄 `routes/index.tsx`） | Epic 1 内直达 URL；首页拍照入口占位归 **Epic 2**（今日总览空态的醒目拍照入口） | planned (Epic 1) |
+| Route | 文件 | 守卫 | 状态 | 说明 |
+|-------|------|------|------|------|
+| `/` | `routes/index.tsx` | 未登录 → redirect `/login`（`beforeLoad`） | active | 占位首页 |
+| `/login` | `routes/login/index.tsx` | 公开 | active | front-of-house 编辑艺术轨（已实现） |
+| `/auth/*` | `routes/auth/` | 公开 | active | OAuth 回调等 |
 
-## 跨 Epic 占位
+## 导航壳
 
-- Epic 2 落地时：首页（`/`）需提供 `/record` 的主入口（含今日无记录空态的醒目拍照引导，PRD Epic 2 R4）；届时更新本表导航入口列。
+- 现状：`AppShell`（`frontend/src/components/layout/AppShell.tsx`）。

@@ -2,6 +2,26 @@
     "version": "1.0",
     "description": "Skill activation triggers for Claude Code. Controls when skills automatically suggest or block actions.",
     "skills": {
+        "vj": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "VJ 工作流控制面：按风险把请求路由到 Patch、Story 或 Epic 交付轨，建立 Intent/Execution Contract 与运行状态，并选择最小可靠流程。",
+            "promptTriggers": {
+                "keywords": [
+                    "用 vj",
+                    "走 vj",
+                    "vj 工作流",
+                    "vibe engineering workflow",
+                    "vibe engineering 工作流"
+                ],
+                "intentPatterns": [
+                    "(用|按|走).*?vj.*?(做|处理|实现|开发|工作流)",
+                    "(选择|判断|路由).*?(Patch|Story|Epic|工作流)",
+                    "vibe engineering.*?(workflow|工作流|实现|开发)"
+                ]
+            }
+        },
         "skill-developer": {
             "type": "domain",
             "enforcement": "suggest",

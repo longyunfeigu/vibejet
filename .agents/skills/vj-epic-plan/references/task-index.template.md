@@ -1,11 +1,19 @@
+<!-- 机检合同速查（plan_lint 硬规则）：
+     · Epic Execution Checklist 用 C-ID/Severity/Applies to/Invariant/Source 五列表：C-ID 唯一、
+       Severity ∈ blocking|advisory、Applies to 写 global 或真实 T-ID、每个 task 必须被 ≥1 条覆盖、
+       Invariant/Source 非空
+     · index 引用的每个 T 编号必须有对应 T 文档文件；孤儿 T 文档报 WARNING
+     · verify.sh：每个 Unit 有 unit_U{n} 函数且接进 ALL_UNITS（漏接 = all 静默漏跑，ERROR）
+     · 表格表头后必须紧跟 GFM 分隔行；不得残留模板占位符 -->
+
 # Epic {N} {name} Task Index
 
-**Human review pack:** `docs/tasks/plans/{date}-epic-{N}-{slug}/README.md`  
-**Design:** `docs/tasks/plans/{date}-epic-{N}-{slug}/design.md`  
-**Decisions:** `docs/tasks/plans/{date}-epic-{N}-{slug}/decisions.md`  
+**Human review pack:** `docs/work/plans/{date}-epic-{N}-{slug}/README.md`  
+**Design:** `docs/work/plans/{date}-epic-{N}-{slug}/design.md`  
+**Decisions:** `docs/work/plans/{date}-epic-{N}-{slug}/decisions.md`  
 **Execution policy:** fast / strict
 
-> This index is the execution entrypoint for `vj-work`. Task docs are execution projections, not truth sources. If a task conflicts with Story AC, catalog, `design.md`, or `decisions.md`, STOP and report.
+> This index is the execution entrypoint for `vj-work`. Task docs are execution projections, not truth sources. Story AC owns observable behavior; approved `decisions.md` entries own design choices; `docs/project/api|data|ui/` owns exact contracts; `design.md` owns delta rationale and cross-layer invariants. A cross-dimension conflict must STOP for source correction; it must not be resolved by silently choosing one document.
 >
 > task done != Unit done. Unit done requires all sibling tasks plus Story AC / Unit Verification.
 >
@@ -21,20 +29,21 @@
 
 ## Epic Execution Checklist
 
-<!-- 10-15 条本 epic 的高优先级硬约束。vj-work 会把本节原样注入每个 subagent prompt——
-     这是执行者不全文读 guideline / DESIGN.md 的前提。每条必须具体、可执行、带 source pointer
-     （plan_lint R14 机检兜底）；无 source pointer 的泛泛规则不得进入。只列本 epic 容易写错且
-     影响质量的约束，不追求完整规范；执行中碰到清单外风险面时按 source pointer 展开原文。 -->
+<!-- 本 epic 的高优先级约束。每条声明 severity、适用 task 与 source；vj-work 只把 global 或命中
+     当前 T-ID 的行注入执行 prompt，orchestrator/reviewer 读完整表。plan_lint R14 校验 task 覆盖。
+     不设固定条数，不把无 source 的泛泛规则塞进来。 -->
 
-1. {约束} — Source: `{path 或 doc#anchor:行号}`
+| C-ID | Severity | Applies to | Invariant | Source |
+|------|----------|------------|-----------|--------|
+| C01 | blocking | T001 | {具体、可执行的约束} | `{path 或 doc#anchor:行号}` |
 
 ## Verification
 
 Unit verification entrypoint (materialized from Story AC `验证:` commands; on conflict the story wins):
 
 ```bash
-bash docs/tasks/work/epic-{N}-{slug}/verify.sh {U-ID}   # one unit
-bash docs/tasks/work/epic-{N}-{slug}/verify.sh all      # whole epic
+bash docs/work/tasks/epic-{N}-{slug}/verify.sh {U-ID}   # one unit
+bash docs/work/tasks/epic-{N}-{slug}/verify.sh all      # whole epic
 ```
 
 ## Unit DAG

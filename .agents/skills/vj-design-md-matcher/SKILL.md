@@ -46,7 +46,7 @@ Prefer inputs in this order:
 
 1. Product-level UI / brand brief, ideally produced by `ui-requirement-brief`.
 2. User-specified PRD or product brief path.
-3. `docs/project/requirements.md`.
+3. `docs/product/requirements.md`.
 4. User's product description in the current conversation.
 
 Optional inputs:
@@ -110,7 +110,7 @@ Default local-cache-first matching:
 
 ```bash
 python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/project/requirements.md \
+  --prd docs/product/requirements.md \
   --limit 8
 ```
 
@@ -118,7 +118,7 @@ Local mirror:
 
 ```bash
 python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/project/requirements.md \
+  --prd docs/product/requirements.md \
   --local /path/to/awesome-design-md \
   --limit 8
 ```
@@ -127,7 +127,7 @@ Offline local-only:
 
 ```bash
 python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/project/requirements.md \
+  --prd docs/product/requirements.md \
   --offline \
   --limit 8
 ```
@@ -266,7 +266,7 @@ Rules for generation:
 
 ```bash
 python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/project/requirements.md \
+  --prd docs/product/requirements.md \
   --json > /tmp/design-md-candidates.json
 ```
 

@@ -8,7 +8,6 @@ This directory contains reusable knowledge that supports development across Stor
 |------|------|---------|
 | ADRs | [adrs/](adrs/) | Durable architecture decision records |
 | Guides | [guides/](guides/) | Workflow, review, and implementation guidance |
-| Manuals | [manuals/](manuals/) | Third-party or tool-specific reference notes |
 | Research | [research/](research/) | Investigation notes and evidence summaries |
 
 ## Guides

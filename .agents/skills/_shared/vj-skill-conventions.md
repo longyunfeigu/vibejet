@@ -31,7 +31,9 @@
 - [ ] 设计 token 数值 → `docs/project/DESIGN.md`
 - [ ] 跨 Epic 稳定契约 → `docs/project/api|data|ui/` catalog（architecture.md 不重复维护
       端点/表级细节）
-- [ ] Epic/Story 编号与状态 → `docs/tasks/kanban_board.md`
+- [ ] Epic/Story 编号 → `vj-epic-story/scripts/allocate_ids.py` 从文件派生；产品状态 →
+      Epic frontmatter（独立 Story 格式有 frontmatter 时同步）；执行状态 →
+      `.vj/runs/*/run-state.json`
 - [ ] 学习飞轮：写端 `vj-compound`（`docs/solutions/`），读端 Agent D 模板
       （`vj-epic-plan/references/research-agents.md`）
 - [ ] 文档 HTML 视图（`.md`=唯一事实源，`.html`=派生、不进 git、永不手编）→
@@ -46,6 +48,19 @@
       （参照 `vj-epic-story/scripts/validate_story.py`、`vj-compound/scripts/validate-frontmatter.py`）
 - [ ] 判定权独立：质量闸的 pass/fail 不得由产出方自评（参照 frontend.md A5/B5）
 - [ ] 图形默认 Mermaid；仅纯文本终端环境降级 ASCII
+
+## archify 出图约定（vj-epic-story journey 图 / vj-epic-plan diagrams 共用）
+
+- [ ] **首轮过检三规则**：①CJK 标签按双宽计——默认宽节点 label ≈ ≤4 个汉字，细节下沉
+      sublabel/tag/cards；②边标签能省则省（信息进 cards），必须的标签先给 labelDx/labelDy
+      避让；③同 lane 内避免 1↔2、3↔4 紧邻列放默认宽节点（workflow 模式列距坑）
+- [ ] 产物必须过 renderer 布局校验 + `check-render-output.mjs`；修碰撞只改源 JSON，
+      不改渲染器
+- [ ] **多图并行**：≥2 张图时每张派一个 subagent 闭环完成（写 JSON → 渲染 → 自修碰撞 →
+      输出机检 → 只回报产物路径），**硬超时 ≈3 分钟**，到点击杀降级主上下文串行——
+      质量由机检判定，与执行者无关，并行不损质量
+- [ ] journey 图的按文件名寻图 / digest sidecar 契约见
+      `_shared/scripts/render_doc_html.py` 的 `journey_embed` docstring
 
 ## 红线
 

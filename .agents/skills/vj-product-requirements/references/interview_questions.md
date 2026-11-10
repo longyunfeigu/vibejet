@@ -15,7 +15,7 @@ Rules:
 
 ### Resume Check
 
-If the user references an existing PRD, or `docs/project/requirements.md` exists:
+If the user references an existing PRD, or `docs/product/requirements.md` exists:
 - Read the file.
 - If mode is `review` or `update`, use it directly.
 - If mode is unclear, ask whether to update the existing PRD or start fresh.

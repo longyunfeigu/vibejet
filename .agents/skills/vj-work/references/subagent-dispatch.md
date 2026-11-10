@@ -8,7 +8,8 @@
 - review pack 目录 path（只按 anchors 回读，不全读）。
 - task doc path + `task-index.md` path。
 - Unit ID / Task ID、task scope（barrier | owner | capability | screen | integration）。
-- **Epic Execution Checklist 原文**（从 task-index 复制注入 prompt，不是只给路径）。
+- **适用 Epic constraints 原文**：只复制 `global` 或 `Applies to` 命中当前 T-ID 的 C-ID 行，
+  并列出注入的 C-ID；不得把完整 Checklist 无差别塞进每个 prompt。
 - write scope：允许修改路径 + Do not modify（照抄 task doc）。
 - 默认读集声明：task doc 全文 + 目标文件 + ≤3 个 pattern files；guideline / DESIGN.md
   全文**不在默认读集**，只按 task doc Read first 的精准指针、或碰到清单外风险面时展开对应小节。
@@ -53,7 +54,8 @@
 
 - **serial-isolation**：依赖型 / 共享文件 / owner task 的 subagent 在 orchestrator 当前
   执行 worktree 内工作（cwd 即该 worktree），**不传 `isolation: worktree`**——否则下游
-  看不到上游已落盘代码。上游返回并（strict 下）commit 后再派下游，下游 prompt 注明
+  看不到上游已落盘代码。上游返回并完成 checkpoint（commit policy 允许时 strict commit）后
+  再派下游，下游 prompt 注明
   "上游 task 已完成、读已落盘状态"。
 - **parallel-isolation**：仅无依赖 + 冲突表写集无交集的同波次 task；各自
   `isolation: worktree`，完成后按 Task DAG merge 回执行分支。
@@ -62,7 +64,7 @@
   （轻量 PNG）或派独立 visual-auditor——不得仅凭小结文字 "passes" 就 commit UI 屏
   （协议见 `ui-execution.md`）。
 - subagent 内部跑 Task Loop（实现 + Verification），return 变更叙事素材；orchestrator 负责
-  append `_ledger.md`（strict 逐 task、fast 收尾统一）、commit（子代理未提交时）、
+  append `_ledger.md`（strict 逐 task、fast 收尾统一）、按 commit policy 决定是否 commit、
   review gate、跨 task / Unit 编排。
 
 ## inline 执行（不派 subagent 的三种例外，须在 ledger 记录原因）

@@ -1,6 +1,6 @@
 ---
 name: vj-work
-description: 消费 vj-epic-plan 产出的 epic 实现计划并落地为已实现、已验证、已记录的代码。用户说"执行这个 plan""做 epic X""跑实现""把计划落地""vj-work"时使用。在 vj-epic-plan 之后使用；单 Story 小需求同样按单 Unit 执行。
+description: 消费 vj-epic-plan 产出的 Epic 实现计划并落地为已实现、已验证、已记录的代码。用户说"执行这个 plan""做 epic X""跑实现""把计划落地""vj-work"时使用。在 vj-epic-plan 之后使用；普通单 Story 走 vj Story track，不触发本 skill。
 ---
 
 # vj-work — Epic 执行器 v3
@@ -25,7 +25,8 @@ triggers）⑤UI 按 Screen 体验闭环交付，不按 Story 碎片堆砌 ⑥or
 
 1. **Task packets 是执行入口**。`task-index.md` + `T{NNN}.md` 即执行包；review pack 的
    design/decisions 只在 anchors、strict trigger、歧义或冲突时按小节回读。不改 review pack
-   正文；唯一允许改动是收尾把 README frontmatter `status: active -> completed`。
+   正文；README 是 plan 状态唯一源。`research-ready` 只允许 research-only task，完成后转
+   `awaiting-approval`；生产执行只走 `awaiting-approval -> ready -> completed|blocked`。
 2. **Verification 是 done signal**。task 定向命令必须实际跑通，未跑通不得标 completed；
    验证分层：task 定向 → Unit 收口 `verify.sh {U-ID}` → Phase 4 Epic 全量，同层不重复跑。
 3. **worktree 隔离**。改代码一律从当前 `HEAD` 开执行 worktree，不在主仓库工作树写业务代码。
@@ -42,7 +43,7 @@ triggers）⑤UI 按 Screen 体验闭环交付，不按 Story 碎片堆砌 ⑥or
    判定权独立于实现者：orchestrator commit 前必须真看截图或派独立 visual-auditor，实现
    subagent 自评 "passes" 不构成过闸（协议见 `references/ui-execution.md`）；
    functional 局部改动走 targeted check，不需独立审计。
-8. **subagent 任务自包含**。显式传 task doc path + Epic Checklist 原文 + write scope +
+8. **subagent 任务自包含**。显式传 task doc path + 适用于当前 T-ID 的 Checklist 行 + write scope +
    Verification + return contract（完整契约见 `references/subagent-dispatch.md`）；
    orchestrator 只 ingest 结构化小结，绝不 Read 子代理 transcript / `.output`
    （UI 截图 artifact 例外——必须看）。
@@ -51,26 +52,31 @@ triggers）⑤UI 按 Screen 体验闭环交付，不按 Story 碎片堆砌 ⑥or
 10. **plan 声明的复用 / 高风险流程 / 禁 fallback 约束是执行合同**。执行期发现必须违背时
     不得自行改口径：切 strict，仍无法满足则 STOP。KISS/YAGNI：只实现 task 要求。
 11. **完成整个 feature**。不留 80% 半成品；blocked 必须说明阻塞点、已试方案、下游影响。
+12. **用户 commit policy 优先**。用户说“不要 commit”时，run state 记
+    `disabled-by-user`，所有 docs-context / per-task / feature commit 都跳过；不得因此跳过
+    ledger、验证、review 或最终状态更新。
 
-冲突真相源优先级：Story AC / 用户决策 > catalog > `decisions.md` approved / `design.md` >
-task packet 投影 > 现有代码模式。task doc 与 `DESIGN.md` 冲突以 `DESIGN.md` 原文为准。
+真相源按维度划分：Story AC 管可观察行为；用户明确批准的 `decisions.md` 管设计取舍；catalog
+管精确 API/Data/UI 合同；`design.md` 管 delta 理由与跨层不变量；task packet 是执行投影。
+跨维度冲突必须 STOP 回到来源修正，不能靠线性优先级静默覆盖。
 
 ## 输入与配置
 
 ```text
-vj-work docs/tasks/plans/2026-06-01-epic-1-.../   # review pack 目录
+vj-work docs/work/plans/2026-06-01-epic-1-.../   # review pack 目录
 vj-work epic-1
 vj-work                                            # 取 plans_dir 下最新 review pack
 ```
 
 ```yaml
 epic_work_executor:
-  plans_dir: docs/tasks/plans/
-  work_dir: docs/tasks/work/epic-{N}-{slug}/
+  plans_dir: docs/work/plans/
+  work_dir: docs/work/tasks/epic-{N}-{slug}/
   worktree_root: .vj/worktrees/
   execution_mode: auto          # auto | fast | strict
   approval_gate: auto           # auto | true | false
   commit_granularity: auto      # auto: fast=feature/wave, strict=per-task
+  commit_policy: auto           # auto | enabled | disabled-by-user
   learnings_skill: vj-compound  # optional post-run prompt
 ```
 
@@ -78,8 +84,8 @@ epic_work_executor:
 
 | Mode | 目标 | 行为 |
 |------|------|------|
-| `fast` | 普通 AI coding 吞吐 | 最小读集、收尾统一记录、feature/wave commit、风险触发 QA/review |
-| `strict` | 高风险交付审计 | 审批门、逐 task ledger + commit、完整 UI QA、完整 review/trace |
+| `fast` | 普通 AI coding 吞吐 | 最小读集、收尾统一记录、风险触发 QA/review；commit 仅在 policy 允许时 |
+| `strict` | 高风险交付审计 | 审批门、逐 task ledger、完整 UI QA、完整 review/trace；commit 仅在 policy 允许时 |
 | `auto`（默认） | 先判 strict triggers | 命中即 strict，否则 fast；执行中命中新 trigger 立即升级 |
 
 Strict triggers（细化自 AGENTS.md「Plan 规范」，冲突以 AGENTS.md 为准）——命中任一即 strict：
@@ -94,19 +100,24 @@ domain event/Celery/外部副作用；app shell/navigation/theme/DESIGN.md 全�
 ## Phase 0：定位与 branch gate
 
 1. 按输入解析 review pack 目录；空参取最新。
-2. Branch gate：只跑 `git branch --show-current` + `git status --short`。非默认分支 → 直接
-   视为 integration base 不询问；默认分支 → STOP 确认。工作区干净 → 从当前 `HEAD` 开执行
-   worktree；有未提交改动 → 本 skill 产物按记录策略处理，用户代码改动 STOP 让用户选
-   commit / stash / 仍以当前 `HEAD` 继续。
-3. 不 checkout 主仓库到其他分支。
+2. Branch gate：只跑 `git branch --show-current` + `git status --short`。非默认分支直接视为
+   integration base；默认分支也不因分支名制造审批，仍在隔离 workspace 执行。有未提交用户
+   改动且无法判断是否应进入执行快照时才 STOP，让用户选择“包含当前快照 / 仅 HEAD / 暂停”；
+   `disabled-by-user` 时不得建议用 commit/stash 绕过该选择。
+3. `commit_policy=disabled-by-user`：从当前获准快照创建 `.vj/` 下单一隔离 working copy，
+   禁用依赖 branch commit 的并行 merge；在隔离区串行或 batch 执行、验证后按文件清单回放
+   到主工作区，回放前校验源文件 digest，冲突即 STOP。不得直接在主工作区写业务代码。
+4. 不 checkout 主仓库到其他分支。
 
 ## Phase 1：装载（不再二次蒸馏）
 
-1. 跑 `python3 .agents/skills/_shared/scripts/plan_lint.py <review-pack-dir>`；exit != 0 →
-   STOP 回 `vj-epic-plan` 修正（lint 不可用时降级为人工核对：T 文档齐全 + Execution note
-   五字段完整）。
+1. 跑 `python3 .agents/skills/_shared/scripts/plan_lint.py <review-pack-dir>`，再跑
+   `python3 .agents/skills/_shared/scripts/workflow_doctor.py plan <review-pack-dir>`。任一 exit != 0
+   → STOP 回 `vj-epic-plan` 修正。doctor 只做语义预检，不执行尚未实现的测试。
 2. 读 `task-index.md`（唯一默认全读文件）：Required gates、**Epic Execution Checklist**、
    Unit/Task DAG、波次 + Batch 列、Execution lanes、共享文件冲突表。
+   为每个 task 从 Checklist 派生 `global` 或 `Applies to` 命中当前 T-ID 的 C-ID 行；不把整表
+   注入每个执行者。结构化表缺失或 task 无覆盖由 plan_lint R14 阻塞。
 3. task docs 已存在 → 直接装载；缺失 → 按 `vj-epic-plan/references/task-doc.template.md`
    （唯一副本）从 design/decisions/task-index + catalog 回退投影生成，写明 Generated from +
    anchors，不重新发明 HOW。执行包字段不完整（Execution note 五字段、UI task 的 Screen
@@ -114,11 +125,22 @@ domain event/Celery/外部副作用；app shell/navigation/theme/DESIGN.md 全�
 4. Mode 判定：只读各 task 的 Execution note / Risk class 与 task-index Required gates，
    不读 task 全文；结果与理由写入 `_ledger.md` Mode Decision（按
    `references/ledger.template.md` 初始化）。
+5. Run state：优先复用调用方传入的 `run-state.json`；没有则用
+   `_shared/scripts/workflow_state.py init` 创建 Epic run（source=review pack、policy=Mode、commit
+   policy=本轮值），并迁移到 `planned`。后续 gate、执行和证据只更新这一份 state。
 
 v2 的 epic-level layer scan 与 `_execution_context.md` 生成已废弃：Epic Checklist 由
 plan-time 产出，orchestrator 不再全文扫读 layer skill。
 
 ## Phase 2：波次计划与集中审批
+
+- **Evidence gate**：README 为 `research-ready` 时，先跑
+  `workflow_doctor.py plan <review-pack-dir> --for-execution --research-only`。只执行
+  `Risk class: research-only` 的 task；write scope 只能在 `.vj/` 与
+  `docs/reference/research/`。完成定向 Verification 后，把 README 改回
+  `awaiting-approval`，提交证据供 reviewer 更新 decisions；本轮到此停止，不进入生产波次。
+- research-only task 缺真实输入、provider 凭据或预注册阈值时 fail closed。不得用 mock、合成
+  真值或提前修改生产 adapter 来让 spike 跑通。
 
 - 波次直接消费 task-index 的 Task DAG / Batch / lanes，不重算；缺 Task DAG 才按
   Files + Depends 回退补算一次。
@@ -132,8 +154,15 @@ plan-time 产出，orchestrator 不再全文扫读 layer skill。
   一并展示）。无人值守且 strict 审批不可达 → fail closed：不执行 strict 面 task，输出阻塞
   报告。批图审批与 strict 执行审批是两个不同 gate：参考图闸的降级路径只适用于非 strict 面
   的 UI task，同屏命中 strict trigger 时 fail closed 优先。
-- Docs-context commit：fast 下执行若依赖未提交的 task docs / `_ledger.md`，自动创建
-  docs-context commit（不问人）；strict 动代码前提交。
+- 需要审批时 run state 先迁移到 `awaiting_approval`，通过后到 `approved`；无需审批从
+  `planned` 直接进入 `running`。已批准的 run 在 Phase 3 前从 `approved` 迁移到 `running`。
+- 审批通过后把 README `status` 改为 `ready`，立即跑
+  `workflow_doctor.py plan <review-pack-dir> --for-execution`；未通过不得进入 Phase 3。已经是
+  `ready` 的 plan 不重复索要相同批准。用户明确禁止 commit 时记录到 run state，跳过下面所有
+  docs-context/per-task/feature commit，不影响验证与 review。
+- Docs-context commit：仅 `commit_policy=enabled` 时，fast 若依赖未提交 task docs /
+  `_ledger.md` 自动创建，strict 动代码前提交；`disabled-by-user` 时不得以“隔离需要”为由
+  创建临时 commit。
 
 ## Phase 3：执行
 
@@ -149,7 +178,7 @@ Unit 是验收边界，task 是执行边界。派发模式按序判定：
 关键：依赖型 / 共享文件 task 绝不各开隔离 worktree（下游看不到上游代码）。派发字段、
 return contract、worktree/ingest 细则见 `references/subagent-dispatch.md`。
 
-**subagent 默认读集（冷读瘦身）**：task doc 全文 + prompt 内注入的 Epic Checklist + 目标
+**subagent 默认读集（冷读瘦身）**：task doc 全文 + prompt 内注入的适用 C-ID 约束 + 目标
 文件 + ≤3 pattern files。guideline / `DESIGN.md` 全文不进默认读集——只按 task doc Read
 first 的精准指针、或执行中碰到清单外风险面时展开对应小节；找不到可靠 source → 切 strict
 或 STOP。
@@ -179,7 +208,8 @@ fast 不逐 task 回写 ledger（收尾统一 append）、不 per-task commit；
 
 - `test-first` 先写失败测试确认红灯再实现；禁 fallback 的 task 先确认真实依赖/权威实现
   可用，不可用 STOP 不写替代实现。
-- 每 task 完成即 append `_ledger.md` 变更叙事 + commit（代码 + ledger）。
+- 每 task 完成即 append `_ledger.md` 变更叙事；`commit_policy=enabled` 时再 commit（代码 +
+  ledger），禁 commit 时保留同等 evidence 但不提交。
 - UI-critical 完整桌面+移动截图；frontend-composition 记录 Screen Contract 覆盖情况。
 
 ### Test policy（task doc Execution note 未明确时按风险判定）
@@ -223,17 +253,23 @@ ledger 记录整理原因。
 
 ## Phase 4：收尾
 
-1. 全量验证（只在此处跑一次）：`bash <work_dir>/verify.sh all`（缺失或与 Story AC 冲突以
+1. 先把 run state 从 `running` 迁移到 `verifying`，再做全量验证（只在此处跑一次）：
+   `bash <work_dir>/verify.sh all`（缺失或与 Story AC 冲突以
    story 为准逐 Unit 手跑并报差异）；前端逐屏 Screen done + 截图证据，确认 cross-screen
    漂移清单清零或记录残留原因；跑项目 lint/typecheck/test（按 backend/frontend 命中面）。
 2. Review gate：fast 仅 strict trigger、敏感面、大 diff 或用户要求时跑 `review` skill；
    strict 跑完整 diff review。blocking findings 必修；non-blocking 记录不阻塞 fast。
 3. Compact trace：`R-ID -> Unit/file/verification`、`Deferred -> resolution`、
    `Scope boundary -> checked`；strict 可展开完整核对。
-4. 记录与提交：fast 一次性 append `_ledger.md`（全部 task 条目 + Final Execution Profile）
-   并创建 feature/wave commit；strict 确认逐 task 记录完整，补 docs-only 收尾提交。
-   翻转 review pack `README.md` status。
-5. 清理 worktree / 临时分支；如有可复用经验提示 `vj-compound` 沉淀。
+4. Catalog activation：全部 Unit verification 与 review gate 通过后，逐项比对本 Epic 的
+   `planned (Epic N)` catalog 与实现；一致才把状态翻为 `active` 并补实际 migration revision。
+   发现合同漂移则 STOP，先修实现或回到 plan/decision 修订，不得直接把漂移后的事实静默写成 active。
+5. 记录与提交：fast 一次性 append `_ledger.md`（全部 task 条目 + Final Execution Profile）；
+   strict 确认逐 task 记录完整。仅 `commit_policy=enabled` 时创建 feature/wave 或 docs-only
+   收尾 commit；`disabled-by-user` 时全部跳过并在 run state 记录。翻转 review pack
+   `README.md` status 为 `completed`；阻塞退出则写 `blocked`。
+6. 必需 evidence 全绿后把 run state 迁移到 `completed`；任何必需检查失败则记录 fail evidence
+   并迁移到 `blocked`。清理 worktree / 临时分支；如有可复用经验提示 `vj-compound` 沉淀。
 
 ## 不做什么
 

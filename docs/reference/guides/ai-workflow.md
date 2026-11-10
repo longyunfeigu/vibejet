@@ -8,29 +8,23 @@
 2. 什么时候需要补 plan / API 契约 / 数据模型说明
 3. 一个需求从想法到收口，完整链路是什么
 
-## 1. 默认主线
+## 1. 默认入口与三条交付轨
 
 ```text
-需求入口:
-  已有项目加功能   -> vj-feature（澄清 + 生成/追加 Epic/Story）
-  从零 / 大需求    -> vj-product-requirements -> vj-architecture -> vj-epic-story
-
-计划与执行:
-  vj-epic-plan（review pack + task packets + catalog sync）
-  -> vj-plan-review（写盘后自动多视角审查）
-  -> vj-work（auto 模式按风险走 fast/strict，内含 verify / review gate）
-
-收口（按需）:
-  vj-test（epic 级跨层 E2E）
-  story-verify-fix（联调 / 视觉对齐验证）
-  review（pre-landing 审查，vj-work strict 模式默认触发）
-  diff-aware-qa（回归影响面 QA）
-  vj-compound（沉淀踩坑与决策）
+vj router
+  Patch -> 复现/断言 -> 窄改动 -> focused verify -> risk-based review
+  Story -> Intent Contract -> 轻量执行计划 -> 实现/验证 -> risk-based review
+  Epic  -> PRD/Architecture（按需）-> Epic/Story -> vj-epic-plan
+        -> vj-plan-review -> vj-work -> E2E/review/QA（按风险）
 ```
 
-单个 Story 的小需求走同一条链：`vj-feature` 把它挂进 Epic，`vj-epic-plan` 产出最小
-review pack，`vj-work` 按单 Unit 执行。不再有独立的 Story 单入口编排
-（旧 run-story / do-story 已移除）。
+默认先用 `vj` 选择最小可靠交付轨。Patch 不建 Story/Plan；普通 Story 可保留 durable Story，
+但不默认生成 Epic review pack；只有命中 AGENTS.md strict trigger、跨 bounded context 或多个
+独立能力时进入完整 Epic 链。
+
+所有轨先建立 Intent Contract（目标/范围/非目标/可观察 done）和 Execution Contract
+（轨道/风险/写面/验证/commit policy）。运行态写 `.vj/runs/*/run-state.json`；用户明确“不要
+commit”时任何轨都不得创建 workflow commit。
 
 ## 2. 按阶段看该用什么
 
@@ -58,17 +52,19 @@ PRD 定稿后想先看产品长什么样，再决定拆解方向：在进入 `vj
 - 需要先把产品目标和技术边界定下来
 - 需要把需求拆成可执行的 Epic / Story
 
-已有项目加单个功能、不想从 PRD 重走一遍时，用 `vj-feature` 作为轻量入口。
+已有项目加单个、需要长期追踪的功能时，用 `vj-feature` 生成 durable Story；需求清楚且不需要
+长期追踪时，`vj` 可直接选择 Story 轨执行。
 
 ### 阶段 B：计划与实现
 
-#### 1. 出计划
+#### 1. Epic 出计划
 
 用 [vj-epic-plan](../../../.agents/skills/vj-epic-plan/SKILL.md)。
 
-- 输入是 `docs/tasks/epics/` 下已拆好的 Epic（含 Story + 可执行 AC）
+- 输入是 `docs/work/epics/` 下已拆好的 Epic（含 Story + 可执行 AC）
 - 输出是 review pack 目录（README / design / decisions）+ task packets + catalog 同步
 - 写盘后自动触发 `vj-plan-review` 做多视角审查
+- handoff 前依次通过 `plan_lint.py`（结构）和 `workflow_doctor.py plan`（命令/路径/运行时语义）
 
 #### 2. 执行
 
@@ -79,6 +75,7 @@ PRD 定稿后想先看产品长什么样，再决定拆解方向：在进入 `vj
   strict trigger 时自动升级
 - worktree 隔离写代码；Unit 的 `Verification` 命令是 done signal
 - 前端按 Screen/Route 整体交付，UI-critical 屏有独立截图审查 gate
+- 开工前 `workflow_doctor.py plan <pack> --for-execution` 必须通过
 
 #### 3. 复杂实现需要外部参考
 
@@ -139,12 +136,19 @@ PRD 定稿后想先看产品长什么样，再决定拆解方向：在进入 `vj
 ## 4. Plan 应该怎么用
 
 Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成，落在
-`docs/tasks/plans/{date}-epic-{N}-{slug}/`（review pack 目录）：
+`docs/work/plans/{date}-epic-{N}-{slug}/`（review pack 目录）：
 
 - `README.md` — reviewer 入口：一屏摘要、Known Conflicts、阅读路径、execution sketch、catalog sync 状态
-- `design.md` — human 技术设计主文档（问题建模、术语场景、架构图、核心流程、Data/API 设计、风险）
-- `decisions.md` — 决策与 AC 偏离的唯一真相源（D/ACD）
-- `docs/tasks/work/epic-{N}-{slug}/` — task packets（`task-index.md` + 每 task 一份执行文档），给 `vj-work` 直接消费
+- `design.md` — human 技术设计主文档（问题建模、架构、delta 摘要、理由、跨层不变量和风险；不复制精确 schema）
+- `decisions.md` — 设计取舍、证据状态与 AC 偏离的唯一真相源（D/ACD）
+- `docs/work/tasks/epic-{N}-{slug}/` — task packets（`task-index.md` + 每 task 一份执行文档），给 `vj-work` 直接消费
+
+信息按维度只有一个来源：Story AC 定义可观察行为；approved decisions 定义取舍；
+`docs/project/api|data|ui/` 定义精确合同；`design.md` 定义 delta 理由与不变量；task docs 是执行投影。
+跨维度冲突必须停止并修正来源，不能靠文档优先级静默覆盖。
+
+Plan status：`research-ready` 只允许执行 `research-only` 证据 task；证据完成后回到
+`awaiting-approval`。只有 blocking 决策全部批准并通过 doctor，才能进入 `ready` 和生产实现。
 
 ### Execution Policy: fast | strict
 
@@ -168,6 +172,10 @@ strict 意味着审批门、逐 task 记录与提交、完整 review / trace。
 - **API Contract Delta**：改接口时在 plan 阶段写清，并同步 `docs/project/api/{module}.md`；全局约定变化才改 `docs/project/api/conventions.md`
 - **Schema / Migration Delta**：改表结构时写清，并同步 `docs/project/data/{module}.md` 与 `docs/project/data/overview.md`
 - **UI Surface Delta**：新增/更新 Screen 时写清，并同步 `docs/project/ui/surfaces.md` / `routes.md`
+
+plan 阶段新增的 catalog 条目标 `planned (Epic N)`：它是该 plan 的精确拟议合同，不是已实现事实。
+只有 vj-work 的 Unit verification、全量 review 和合同比对全部通过后才翻为 `active`；其他 Epic
+默认只能把 active 条目当可消费的现状。
 
 ## 5. 前端设计怎么接入
 

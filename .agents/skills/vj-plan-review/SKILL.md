@@ -1,6 +1,6 @@
 ---
 name: vj-plan-review
-description: 为 vj-epic-plan 产出的 human review pack 做多视角独立审查——按 persona（human-design/一致性/可行性/范围/对抗/依赖并行/UI surface）审 README.md、design.md、decisions.md 与 task-index.md，汇总去重后自主判断采纳，并据采纳意见修正 review pack。在 vj-epic-plan 写盘后自动执行，用户可说"跳过审查"。也可手动 /vj-plan-review [review pack 路径 | epic 编号]。在 vj-epic-plan 之后、vj-work 之前。
+description: 为 vj-epic-plan 产出的 review pack 做风险触发的独立审查。默认审一致性与可行性，按 strict、DAG、UI、范围或人读缺口追加专项 persona，汇总后自主采纳并修正文档。在 vj-epic-plan 之后、vj-work 之前。
 ---
 
 # vj-plan-review — Epic Review Pack 多视角审查
@@ -23,7 +23,7 @@ description: 为 vj-epic-plan 产出的 human review pack 做多视角独立审�
 
 ```
 vj-plan-review                                           # 自动触发(vj-epic-plan写盘后) / 空参取最新 review pack
-vj-plan-review docs/tasks/plans/2026-06-01-epic-1-.../   # 指定 review pack 目录
+vj-plan-review docs/work/plans/2026-06-01-epic-1-.../   # 指定 review pack 目录
 vj-plan-review epic-1                                    # 按 epic 编号定位
 ```
 
@@ -31,9 +31,10 @@ vj-plan-review epic-1                                    # 按 epic 编号定位
 
 ```yaml
 epic_plan_reviewer:
-  plans_dir: docs/tasks/plans/
+  plans_dir: docs/work/plans/
   default: latest                                  # 未指定取最新 review pack 目录（含 README.md + design.md + decisions.md）
-  personas: [human-design, coherence, feasibility, scope, adversarial, dependency, ui-surface]
+  base_personas: [coherence, feasibility]
+  optional_personas: [human-design, scope, adversarial, dependency, ui-surface]
   adopt_mode: auto-with-gate                       # Blocking自主；AC偏离/范围/改epic.md→问用户
   persona_defs: references/personas.md
   dispatch_template: references/subagent-template.md
@@ -51,12 +52,24 @@ epic_plan_reviewer:
    - `epic-{N}`：在 `plans_dir` 下按最新匹配目录定位。
    - 空参：取 `plans_dir` 下最新 review pack 目录。
 3. 读取 `README.md`、`design.md`、`decisions.md`；若 `task-index.md` 已生成，一并读取。
-4. 读 `references/personas.md` 与 `references/subagent-template.md`。
+4. 读 `references/personas.md` 与 `references/subagent-template.md`，根据下表选择本轮视角。
 5. 用户说"跳过审查"→ 直接结束，不派 persona。
 
-### Phase 2：派 persona 审查
+### Phase 2：风险触发 persona
 
-- 对 `personas` 列出的 7 个视角，各派一个**只读 persona**。有平台子代理原语时可并行；无并行能力的平台退化为主线程串行。
+| Persona | 触发 |
+|---------|------|
+| coherence | 始终 |
+| feasibility | 始终 |
+| adversarial | strict，或涉及 auth/权限/迁移/事务/幂等/并发/外部副作用 |
+| dependency | ≥2 task、存在 DAG/并行波次或共享文件 owner |
+| ui-surface | UI Surface Delta、frontend-composition 或路由变化 |
+| scope | Epic 为 draft-unattended、存在 ACD/范围偏离或 Known Conflicts 非空 |
+| human-design | design.md >250 行、用户要求 human review，或 coherence 判断读者无法建立心智模型 |
+
+- 先确定并记录触发的 persona；禁止为了“完整”默认跑满七个。
+- 对选中的视角派**只读 persona**。按 runtime contract 使用 `spawn_agent`；无该能力时主线程
+  分视角执行并保留独立 finding 列表。
 - 每个 persona 的 prompt = `subagent-template.md`，把对应 persona 段填入 `{persona}`、review pack 路径与拼接全文填入 `{review_pack_path}`/`{review_pack_content}`。
 - persona 按输出契约返回 findings：`[序号] [Blocking|Non-blocking] 问题 | 证据(review pack 原文) | 建议修法`。
 - 某 persona 失败/超时 → 用其余 persona 的结果继续，在摘要里记缺哪个视角；不因单个失败阻塞整轮。
@@ -76,7 +89,8 @@ epic_plan_reviewer:
 | **Blocking** | 默认采纳。仅当明显是 persona 误判（未看到完整上下文）时跳过，并记跳过原因。 |
 | **Non-blocking** | 逐条评估：确实提质/防歧义 → 采纳；纯风格 / 与项目约定冲突 → 跳过。 |
 
-**重大项设闸**（`auto-with-gate`）：采纳后的改动若触及 **AC 偏离、范围变化、或需回改 `epic.md`**，**不静默改**——用平台阻塞提问工具（Claude Code：`AskUserQuestion`；无则编号选项）列给用户确认后再落。其余改动直接落。
+**重大项设闸**（`auto-with-gate`）：采纳后的改动若触及 **AC 偏离、范围变化、或需回改
+`epic.md`**，通过 runtime capability `ask_user` 合并成一次决策；其余改动直接落。
 
 - **改 review pack**：把采纳的建议应用到对应文件，每处标注来源注释 `<!-- vj-plan-review: applied [persona/序号] -->`。如果只是补清楚术语、模块理由、流程图、决策表、禁止依赖或 reviewer checklist，直接改 `design.md` / `decisions.md` / `README.md`。
 - **dependency 视角的特殊处理**：若 `task-index.md` 与 `epic.md` 的 `**依赖**:` 行不一致——review pack 抄错 → 直接改 `task-index.md` / README execution sketch 对齐 epic.md；review pack 推导出更优依赖（epic.md 该改）→ 属重大项，走闸给用户，不静默改 epic.md。
@@ -85,7 +99,8 @@ epic_plan_reviewer:
 ### Phase 5：输出摘要
 
 ```
-vj-plan-review 完成（N 条 finding，X Blocking，Y Non-blocking；视角：human-design/coherence/feasibility/scope/adversarial/dependency/ui-surface）
+vj-plan-review 完成（N 条 finding，X Blocking，Y Non-blocking；视角：[本轮实际选择]；
+跳过视角：[未触发及理由]）
 
 ✅ 已采纳（M 条）：
 [1] [Blocking] 问题 → 已修正（§位置）

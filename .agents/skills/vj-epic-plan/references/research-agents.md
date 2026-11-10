@@ -1,6 +1,19 @@
 # vj-epic-plan 研究子代理模板
 
-Phase 2 优先并行派发三个只读研究任务（Agent A/B/C），外加两个条件性任务（Agent D，仅当 `docs/solutions/` 存在且非空时派发；Agent E，仅当 epic 含生态大概率已解决的通用能力时派发）。编排器读取本文件，把 `{epic_context}` 替换为实际内容；Claude Code 可用 `Agent`，Codex 可用 `multi_agent_v1.spawn_agent`（若暴露），无 subagent 能力时在主上下文顺序执行**命中的模板**（A/B/C 必做，D/E 条件命中才做）并标注 `research inline fallback`。待全部完成后统一合并结果。
+**默认编排（2026-07 提速改版）**：确定性信息不派 LLM 代理——先跑
+`python3 .agents/skills/vj-epic-plan/scripts/scout.py --domains <slugs> [--frontend]`
+一次拿到架构基线 / catalog / 复用锚点 / 共享注册点 / 前端锚点 / solutions 候选
+（即下方 Agent A / C / D 的确定性部分），主上下文按清单精读命中文件补语义判断；
+Consumes 由主上下文直读 catalog 生成（Agent B 的职责，真相源不变）。
+**唯一默认派发的 LLM 代理是 Agent E**（默认必派，狭窄跳过条件见其段落），且必须**后台运行 +
+硬 deadline ≈120s**：与后续 Phase 重叠推进，到点未返回即击杀、降级主上下文快查（快查是
+真检索，结论并入上下文小结与 build-vs-buy 收口，不是一句披露了事）并在 README
+Open Questions 披露。历史教训（2026-07-12 epic-1 实测）：三个研究代理挂起 6 分钟以上
+无返回，而内联定向扫描 1 分钟内拿到了全部锚点——白等是本工作流最大的时间黑洞。
+
+下方 A/B/C/D 模板**仅作兜底**（scout 脚本不可用/损坏时），使用时把 `{epic_context}`
+替换为实际内容并标注 `research inline fallback`；任何子代理派发都必须带硬超时，
+超时即击杀走兜底，不追加等待。
 
 `{epic_context}` 格式（由主代理在 Phase 2.0 内联准备）：
 
@@ -18,7 +31,7 @@ Epic ID（设计稿路径用）: {epic-N}
 
 ---
 
-## Agent A — design-context（架构与模块化契约）
+## Agent A — design-context（架构与模块化契约）〔兜底模板：默认由 scout.py 承担〕
 
 ```
 你是一个只读的架构与契约收集者，为 vj-epic-plan Phase 2 收集设计文档上下文。
@@ -70,7 +83,7 @@ Epic ID（设计稿路径用）: {epic-N}
 
 步骤：
 1. 从 epic_context 的"上游依赖 Epic"与本 Epic 业务域，判断可能消费哪些上游能力。若"上游依赖 Epic"为"无"，直接输出"本 Epic 无上游依赖，Consumes 为空"后结束。
-2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`、`docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`。这些文档以「契约状态 / introduced by Epic N」标明出处；`overview.md` 跨模块段 / `conventions.md` / `ui/surfaces.md` 含跨切面不变量（如 R1.x）。
+2. 读 catalog 作为上游契约真相源：`docs/project/api/conventions.md`、相关 `docs/project/api/{module}.md`、`docs/project/data/overview.md`、相关 `docs/project/data/{module}.md`、`docs/project/ui/surfaces.md`、`docs/project/ui/routes.md`。只把 `active` 条目当已实现上游能力；`planned (Epic N)` 只属于该 Epic 的拟议合同，除非本 Epic 显式依赖且上游 plan 已获准，否则列为缺失/阻塞，不得当现状消费。
 3. 从 catalog 挑出**本 Epic 会依赖的契约子集**（接口 / 模型 / UI Surface / Route / 鉴权约定 / 跨切面不变量），作为 Consumes。
 4. 兼容回退：仅当某预期契约在 catalog 缺失时，才回退查上游 review pack 的 `README.md` / `design.md`，并标注"catalog 缺失，回退读 review pack 作为诊断线索"；不能把回退结果当长期契约源。
 
@@ -88,7 +101,7 @@ Epic ID（设计稿路径用）: {epic-N}
 
 ---
 
-## Agent C — codebase-scout（代码复用侦察）
+## Agent C — codebase-scout（代码复用侦察）〔兜底模板：默认由 scout.py 承担〕
 
 ```
 你是一个只读的代码侦察员，为 vj-epic-plan Phase 2 找出可复用、需改造、不应重建的代码锚点。
@@ -135,7 +148,7 @@ Epic ID（设计稿路径用）: {epic-N}
 
 ---
 
-## Agent D — vj-learnings-researcher（团队沉淀检索，条件派发）
+## Agent D — vj-learnings-researcher（团队沉淀检索，条件派发）〔候选定位默认由 scout.py 承担，主上下文精读命中正文；本模板仅兜底〕
 
 派发条件：`docs/solutions/` 存在且非空。不满足时不派发，直接在合并结果里记"暂无相关沉淀"。
 
@@ -173,17 +186,24 @@ Epic ID（设计稿路径用）: {epic-N}
 
 ---
 
-## Agent E — external-solutions（生态方案侦察，条件派发）
+## Agent E — external-solutions（生态方案侦察，默认派发；唯一 LLM 研究代理）
 
-派发条件（AGENTS.md「Prefer Existing Solutions Over Reinventing」的机器位）——命中任一：
+**运行纪律**：后台派发、硬 deadline ≈120s、与后续 Phase 重叠推进；到点未返回 → 击杀 →
+主上下文 WebSearch 快查兜底（对候选能力逐个真搜，结论并入上下文小结与 Phase 3
+build-vs-buy 收口；快查也覆盖不到的能力才标"选型推迟到实现期"并指明承接 task）→
+README Open Questions 披露"生态侦察降级"。降级改变的是执行者，不豁免检索本身。
 
-- Story 涉及生态大概率已解决的通用技术能力：文件上传/解析、富文本、图表、diff、markdown
-  渲染、OCR、导入导出、支付、通知、全文搜索、任务调度、状态机、鉴权协议等。
-- 初步估计需自研 >200 行解决一个业界已解决的问题（AGENTS.md 过度工程红线）。
+**默认派发**（AGENTS.md「Prefer Existing Solutions Over Reinventing」的机器位）：每次 epic
+plan 起草方案前都先搜 GitHub/生态有没有可成功复用的现成方案，再谈自研。典型候选能力：
+文件上传/解析、富文本、图表、diff、markdown 渲染、OCR、导入导出、支付、通知、全文搜索、
+任务调度、状态机、鉴权协议等通用能力；预估自研 >200 行解决业界已解决问题的（AGENTS.md
+过度工程红线）必属候选。
 
-不派发：纯 CRUD、纯 UI 组合、或主代理派发前 rg 快查已确认仓库内有权威实现覆盖的能力
+**唯一跳过条件**（须同时满足，否则一律派发；拿不准就派——有硬 deadline 兜底，成本可控）：
+epic 全部能力点为纯 CRUD 或纯 UI 组合，且主代理派发前 rg 快查确认相关能力已被仓库权威
+实现覆盖。跳过必须在 README Open Questions 记一行判定理由（可审计，防静默漏搜）。
 （E 与 A–D 并行派发，不等 Agent C 结论；合并阶段若 E 的建议与 codebase-scout 找到的
-既有实现冲突，以仓库既有实现优先，丢弃该能力的外部候选）。
+既有实现冲突，以仓库既有实现优先，丢弃该能力的外部候选。）
 派发时主代理在 epic_context 后附上候选能力清单（哪些能力点疑似生态已解决）。
 
 ```

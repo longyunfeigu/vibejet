@@ -1,11 +1,13 @@
 # vj-plan-review Persona 定义
 
-7 个审查视角。编排器在 Phase 2 把对应段落注入 `subagent-template.md` 的 `{persona}` 槽，派一个只读 persona。每个 persona **只审自己的视角**，别人的 territory 交给别人，避免重复 finding 让去重背锅。
+这是 7 个可选审查视角的能力目录，不代表每轮全部运行。编排器按 SKILL.md Phase 2 的风险
+触发表选择视角，再把对应段落注入 `subagent-template.md`。每个 persona **只审自己的视角**，
+别人的 territory 交给别人，避免重复 finding。
 
 审查对象是 `vj-epic-plan` 产出的 human review pack：
 
 - `README.md`：reviewer 入口、Known Conflicts、执行策略摘要、catalog touched。
-- `design.md`：三区制——叙事区（自由结构大白话，须回答 5 个必答问题：解决什么/现状/怎么做/最危险处/要拍板什么；每节开头 `> 一句话：` 导读行）+ 合同区（刚性块：术语表/API/Data/UI Delta/Must Hold/Risks/Checklist）+ 深潜附录（按需）。
+- `design.md`：三区制——叙事区（自由结构大白话，须回答 5 个必答问题：解决什么/现状/怎么做/最危险处/要拍板什么；每节开头 `> 一句话：` 导读行）+ 合同区（术语表、API/Data/UI delta 摘要、Must Hold、Risks、Checklist；精确 schema 只在 catalog）+ 深潜附录（按需）。
 - `decisions.md`：D/ACD 唯一真相源，所有设计判断必须有理由和 rejected alternative。
 - `task-index.md`：给 `vj-work` 的 Unit/Task DAG、波次、gates、回滚入口；这是执行入口，不是 human 设计主文档。
 

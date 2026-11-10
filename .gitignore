@@ -169,9 +169,11 @@ logs/*
 *.bak
 
 # 人读 HTML 视图（render_doc_html.py 派生产物，Markdown 为唯一事实源）
-# 注意：docs/ 根与 docs/reference/ 下有手工 HTML（architecture、design refs），不在忽略范围
+# 注意：docs/reference/ 下有手工 HTML（design refs），不在忽略范围
 docs/project/**/*.html
-docs/tasks/**/*.html
-# 例外：archify 旅程图成品随仓库走（源 journey.workflow.json 在仓库内，
-# 但渲染器在仓库外的 archify skill，故成品入库；过期由 journey.source-digest 兜底检查）
-!docs/tasks/**/journey.html
+docs/product/**/*.html
+docs/work/**/*.html
+# 例外：archify 图成品随仓库走（源 *.json 在仓库内，
+# 但渲染器在仓库外的 archify skill，故成品入库；旅程图过期由 journey.source-digest 兜底检查）
+!docs/work/**/journey.html
+!docs/project/vibejet-architecture.html

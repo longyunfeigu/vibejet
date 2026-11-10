@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# input: docs/tasks/epics/ 下的 epic markdown（平铺单文件 / epic 目录含 stories/*.md）路径参数
+# input: docs/work/epics/ 下的 epic markdown（平铺单文件 / epic 目录含 stories/*.md）路径参数
 # output: Story 结构机检报告（stdout）+ exit code（0=全过，1=有 ERROR）
 # pos: vj-epic-story skill 校验脚本 - AC 上限/验证三要素/Assumptions/Feature Bundling/前向依赖机检；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Validate epic/story markdown against vj-epic-story hard rules.
@@ -99,14 +99,21 @@ def split_stories(text: str) -> list[StoryBlock]:
 
 
 def section_of(lines: list[str]) -> list[tuple[str, str]]:
-    """Return (section, line) pairs; section tracks the nearest **Header** / #### header."""
+    """Return (section, line) pairs; section tracks the nearest **Header** / #### header.
+
+    h1–h3 标题（如平铺 epic 文末的 `## 依赖关系` / `## 参考文档`）重置 section，
+    防止其下的普通列表被误判为上一个 Story 的 Assumptions 条目。
+    """
     out: list[tuple[str, str]] = []
     section = ""
     for line in lines:
+        h13 = re.match(r"^#{1,3}\s+", line)
         h4 = re.match(r"^####\s+(.+?)\s*$", line)
         bold = re.match(r"^\*\*(.+?)\*\*（?", line)
         if h4:
             section = h4.group(1)
+        elif h13:
+            section = ""
         elif bold and bold.group(1) in BEHAVIOR_SECTIONS:
             section = bold.group(1)
         out.append((section, line))
@@ -134,8 +141,8 @@ def check_story(block: StoryBlock) -> list[Finding]:
     for section, line in section_of(block.lines):
         if section == "Assumptions":
             has_assumptions_section = True
-            if re.match(r"^\s*-\s*\S", line):
-                assumptions_lines.append(line)
+            if re.match(r"^\s*-\s*\S", line) and not re.fullmatch(r"\s*-{3,}\s*", line):
+                assumptions_lines.append(line)  # 纯 --- 分隔线不是 Assumption 条目
         dep_m = DEP_LINE.match(line.strip())
         if dep_m:
             dep_raw = dep_m.group(1)

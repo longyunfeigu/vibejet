@@ -22,7 +22,7 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
 
 ## 不适用场景
 
-- 已经有 Story 文件，只需要实现 → 用 `vj-epic-plan`（对所属 Epic 出计划）+ `vj-work`（执行）
+- 已经有 Story 文件，只需要实现 → 交给 `vj` 路由；普通 Story 直接执行，strict/Epic 才走 `vj-epic-plan` + `vj-work`
 - 从零启动新项目，需要完整 PRD → 用 `vj-product-requirements`
 - 只是修 bug 或小调整，不需要记录 Story
 - 用户明确要求做架构设计 → 用 `vj-architecture`
@@ -42,8 +42,8 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
 | 判断点 | 条件 A | 条件 B |
 |--------|--------|--------|
 | Epic 归属 | 功能是已有 Epic 的自然延伸 → 追加 | 功能是独立新能力域 → 新建 |
-| PRD 同步 | docs/project/requirements.md 存在 且 新建 Epic → 同步 | docs/project/requirements.md 不存在 或 追加模式 → 跳过 |
-| 路由实现 | 用户要求现在实现 → 接入 vj-epic-plan → vj-work | 用户只要 Story 文件 → 停止 |
+| PRD 同步 | docs/product/requirements.md 存在 且 新建 Epic → 同步 | docs/product/requirements.md 不存在 或 追加模式 → 跳过 |
+| 路由实现 | 用户要求现在实现 → 交给 `vj` 选择 Story/Epic 轨 | 用户只要 Story 文件 → 停止 |
 | 停止升级 | 功能超出单 Epic 规模 → 引导到 vj-architecture | 澄清后仍模糊 → 引导到 vj-product-requirements |
 
 ## 输入
@@ -59,22 +59,21 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
 ### Phase 0: 初始化 (REQUIRED)
 
 1. **加载模板**：读取 `epic-story.template.md` 理解 Epic/Story 输出结构
-2. **定位编号源**：`docs/tasks/kanban_board.md` 是 Epic/Story 编号唯一源（与 `vj-epic-story` 同一规则）。
-   存在 → 从 Tracker Configuration 读取 `Next Epic Number` / `Next Story Number`；
-   不存在 → 从 `vj-epic-story` 目录 copy `kanban_board.template.md` 创建后再取号
-3. **扫描已有 Epic**：读取 `docs/tasks/epics/` 目录，记录已有 Epic 及其 Story 编号上限（用于追加模式判断归属，不作为编号源）
+2. **分配编号**：新 Epic/追加 Story 都调用
+   `.agents/skills/vj-epic-story/scripts/allocate_ids.py`；编号从现有文件派生，不维护全局看板。
+3. **扫描已有 Epic**：读取 `docs/work/epics/` 目录，记录已有 Epic、状态及 Story 编号上限。
 
 ### Phase 1: 理解功能
 
 目标：把模糊的功能想法变成清晰的功能定义。
 
 1. **读取项目现状**（自动，不问用户）：
-   - 读 `docs/tasks/epics/` 了解已有 Epic 和 Story
+   - 读 `docs/work/epics/` 了解已有 Epic 和 Story
    - 读现有代码结构了解技术栈和模块划分
-   - 如果 `docs/project/requirements.md` 存在，读取了解产品上下文
+   - 如果 `docs/product/requirements.md` 存在，读取了解产品上下文
    - 如果 `docs/project/architecture.md` 存在，读取了解架构约束
 
-2. **需求澄清**（对话式，控制在 3-5 个问题）：
+2. **需求澄清**（能推断则不问；需要时一次批量问 1-5 个问题）：
 
    必须搞清楚的：
    - 谁用这个功能？什么场景下用？
@@ -90,7 +89,7 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
    - 涉及 UI 时，产品身份、品牌表达、首屏主任务、空/加载/错误状态是否已有约束？
 
    原则：
-   - 不要一次问超过 5 个问题
+   - 不要一次问超过 5 个问题；不要逐题开新一轮 gate
    - 能从代码和文档推断的不问
    - 用户回答模糊时追问一次，不纠缠
 
@@ -102,7 +101,7 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
    - 产品级 brief 至少包含：产品定位、目标用户、品牌气质、信任点、核心屏型、视觉反模式、front-of-house 要表达的价值。
    - 单屏级 brief 至少包含：页面类型、目标用户、进入场景、主任务、最多 2 个次任务、P0/P1/P2 信息优先级、必须覆盖状态、品牌/视觉约束、明确禁止项。
 
-3. **输出功能摘要**（供用户确认）：
+3. **建立 Intent Contract**：
 
    ```
    功能：[一句话]
@@ -125,25 +124,27 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
    - 全局设计前置：[DESIGN.md 已存在 / 需先跑 vj-design-md-matcher / 不适用]
 
    完成标准：
-   - [ ] Epic/Story 文件已写入 docs/tasks/epics/
-   - [ ] kanban_board.md 已回写（Next 计数递增 + Counters/Story Index 更新）
+   - [ ] Epic/Story 文件已写入 docs/work/epics/
+   - [ ] Epic/Story 编号由 allocate_ids.py 分配且无冲突
    - [ ] 每个核心能力至少被一个 Story 覆盖
    - [ ] [如涉及 UI] UI brief 已进入 Epic 的页面体验地图与前端 AC
-   - [ ] 用户已确认 Story 粒度和 AC
+   - [ ] Story 粒度和 AC 通过硬规则校验；如有产品未决项，已在单一 Intent Gate 解决或标待审批
    - [ ] [如触发] PRD 已同步
    ```
 
-   **[BLOCKING gate]** 用户确认功能摘要后才能进入 Phase 2。如果用户要求调整，修改摘要后重新确认。
+   **单一 Intent Gate**：只有存在会改变可观察行为的未决产品选择时才阻塞确认；需求清楚、
+   实现可逆时直接进入 Phase 2，并在写盘前批量预览中展示这份 contract。不要把“我理解了”
+   变成形式审批。
 
 ### Phase 2: 拆解 Epic + Story
 
 1. **判断归属**：
 
-   - 扫描 `docs/tasks/epics/` 已有的 Epic 文件
+   - 扫描 `docs/work/epics/` 已有的 Epic 文件
    - 判断新功能应该：
      - **追加到已有 Epic** — 功能属于某个已有 Epic 的自然延伸
      - **新建 Epic** — 功能是独立的新能力域
-   - 将判断结果告知用户，用户确认
+   - 有唯一合理归属时直接采用；多个归属都会改变长期产品边界时，合并进单一 Intent Gate
 
 2. **拆 Story**：
 
@@ -155,7 +156,7 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
    - Small：1-2 Sprint 可完成
    - Testable：可测试验证
 
-   每个 Story 拆完后需用户确认粒度。
+   Story 粒度由 INVEST、AC 上限和覆盖校验判定，不逐 Story 向用户索要形式确认。
 
 3. **生成验收标准**：
 
@@ -177,21 +178,16 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
 
    **追加模式**：在已有 Epic 文件末尾的 Story 列表中追加新 Story，更新依赖关系图。
 
-   **新建模式**：使用 `epic-story.template.md` 格式生成新文件，放到 `docs/tasks/epics/`。
+   **新建模式**：使用 `epic-story.template.md` 格式生成新文件，放到 `docs/work/epics/`。
 
    新建时的 `source_documents` 字段：
    - 文档存在 → 填路径
    - 文档不存在 → 不填，不伪造
 
-   编号规则（唯一源 = `docs/tasks/kanban_board.md`，禁止直接扫目录取最大号 +1）：
-   - **新建 Epic**：Epic 号取 kanban 的 `Next Epic Number`；Story 的 Epic 内序号从 X.1 开始，
-     全局 US 号从 `Next Story Number` 起分配
-   - **追加到已有 Epic**：Epic 内序号 = 该 Epic 文件最大 Story 编号 +1（如已有 4.1-4.5，
-     新 Story 从 4.6 开始）；全局 US 号仍从 kanban 的 `Next Story Number` 取
-
-   写盘成功后回写 `kanban_board.md`（与 `vj-epic-story` Phase 5.8 同款）：递增
-   `Next Epic Number` / `Next Story Number`，更新 Epic Story Counters 与 Story Index，
-   刷新顶部 `最后更新` 日期。
+   编号规则：
+   - **新建 Epic**：运行 `allocate_ids.py next-epic`；Story 的 Epic 内序号从 X.1 开始
+   - **追加到已有 Epic**：运行 `allocate_ids.py next-story <epic-number> <epic-path>`
+   - 展开模式新 Story 文件名为 `story-{epic}-{local-seq}-{slug}.md`；既有 `usNNN-*` 兼容读取
 
 5. **覆盖校验**：拆完所有 Story 后，回头对照 Phase 1 功能摘要中的"核心能力"列表，逐条检查是否每个能力都被至少一个 Story 覆盖。发现遗漏则补充 Story，不等用户指出。
 
@@ -200,31 +196,34 @@ description: 给已有项目追加功能。从功能想法出发，通过对话�
    覆盖 AC≤7 / `验证:` 三要素 / Assumptions 三要素 / Feature Bundling / 前向依赖，
    exit 1 则修复后重跑，禁止带 ERROR 进入用户确认。
 
-7. **[BLOCKING gate] 用户确认**：展示生成的 Epic/Story 内容，用户确认后才写入文件。
+7. **批量预览与写盘**：一次展示 Intent Contract、Epic 归属、Story 列表、AC 计数和所有
+   待确认推断。若单一 Intent Gate 已解决且没有新未决选择，直接写盘；否则在这里一次确认后
+   写盘。用户明确要求“只生成文档、先别落盘”时除外。
 
 ### Phase 3: 同步 PRD（条件触发）
 
 触发条件（同时满足）：
-- `docs/project/requirements.md` 存在
+- `docs/product/requirements.md` 存在
 - 新功能是**新建 Epic**（不是追加 Story 到已有 Epic）
 
 不触发时直接跳到 Phase 4。
 
 同步方式：
-1. 读 `docs/project/requirements.md`
+1. 读 `docs/product/requirements.md`
 2. 找到 `## 4. 功能需求` 章节
 3. 在该章节末尾追加一个新的 Epic 子章节，格式与已有条目一致
 4. 只追加，不改动已有内容
 5. 告知用户 PRD 已同步更新
 
-如果 `docs/project/requirements.md` 不存在：
+如果 `docs/product/requirements.md` 不存在：
 - 不创建
 - 不提示用户去创建
 - 直接跳过
 
 ### Phase 4: 路由到实现
 
-询问用户：
+若用户已经要求立即实现，直接交给 `vj` router，不重复询问。只有用户意图未说明是否继续实现
+时，才一次询问：
 
 ```
 Epic/Story 已生成。接下来要：
@@ -233,9 +232,8 @@ Epic/Story 已生成。接下来要：
 - 先不实现，只生成 Story 文件
 ```
 
-如果用户选择实现：
-- 接入 `vj-epic-plan`（对目标 Epic 生成 review pack + task packets；单 Story 的 Epic 会产出最小 pack）
-- plan 定稿后接 `vj-work` 执行；多个 Story 时执行顺序由 plan 的 Task DAG / 波次决定
+如果用户选择实现：交给 `vj` router。无 strict trigger 的单 Story 用轻量执行计划直接实现；
+命中 strict 或 Epic 级范围才接 `vj-epic-plan` → `vj-work`。
 
 ## Story 格式
 
@@ -262,7 +260,7 @@ Epic/Story 已生成。接下来要：
 
 ## 无人值守模式
 
-作为 subagent 运行或用户不可达时，Phase 1 功能摘要确认与 Phase 2 用户确认 gate 不阻塞——
+作为 subagent 运行或用户不可达时，单一 Intent Gate 不阻塞——
 按最合理理解继续，所有待确认项记为"假设待审批 + Confidence: H/M/L"，生成的 Epic/Story
 frontmatter 标 `status: draft-unattended`。**例外**：Phase 2 机检 ERROR 是质量闸，仍硬停。
 Phase 4 路由实现在无人值守下默认不启动（只生成文件），除非调用方明确要求继续。
@@ -274,21 +272,21 @@ Phase 4 路由实现在无人值守下默认不启动（只生成文件），除
 
 - **功能描述过于模糊**：经过 3-5 个问题后仍无法确定核心能力和边界 → 建议用户先用 `vj-product-requirements` 做完整的产品思考
 - **功能规模超出 Epic 级别**：澄清后发现需要多个 Epic + 架构变更 → 建议用户先用 `vj-architecture` 做架构设计
-- **docs/tasks/epics/ 目录不存在且无法创建** → 报告问题，不伪造目录
+- **docs/work/epics/ 目录不存在且无法创建** → 报告问题，不伪造目录
 - **追加模式下已有 Epic 文件格式无法识别** → 新建 Epic 而不是强行追加
 
 ## 与其他 skill 的关系
 
 ```
 vj-feature（本 skill）
-  ├─ 产出 → docs/tasks/epics/ 中的 Epic/Story 文件
-  ├─ 可选 → 同步 docs/project/requirements.md
-  └─ 路由 → vj-epic-plan → vj-work（内含 verify / review gate）→ story-verify-fix / diff-aware-qa（按需）
+  ├─ 产出 → docs/work/epics/ 中的 Epic/Story 文件
+  ├─ 可选 → 同步 docs/product/requirements.md
+  └─ 路由 → vj Story track 或 vj-epic-plan → vj-work → verify/review/QA（按风险）
 ```
 
 - `vj-product-requirements`：从零写 PRD。`vj-feature` 不替代它，只在已有 PRD 时做增量追加
 - `vj-epic-story`：从 PRD 全量拆解。`vj-feature` 不依赖它，但复用其模板和 AC 标准
-- `vj-epic-plan` / `vj-work`：`vj-feature` 生成 Story 后路由到它们做计划与执行
+- `vj`：`vj-feature` 生成 Story 后由它决定轻量 Story 轨还是完整 Epic 轨
 
 ## 触发示例
 

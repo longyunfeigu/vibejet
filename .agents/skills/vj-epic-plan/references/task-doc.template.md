@@ -4,21 +4,37 @@
      人读浏览走 render_doc_html.py 生成的 HTML 视图（task-index 是索引入口，T 文档同样出视图，
      渲染器按文件名 T{NNN}-*.md 判族做人读分层——改动本模板的头部元数据行 / Execution note
      字段名时同步渲染器的 task 族解析）。执行记录（状态、变更叙事、verification 结果）由
-     vj-work 写入 _ledger.md（append-only）——本文档不承载执行记录，重跑时整目录覆盖重写是安全的。 -->
+     vj-work 写入 _ledger.md（append-only）——本文档不承载执行记录，重跑时整目录覆盖重写是安全的。
+
+     机检合同速查（plan_lint 硬规则——照抄即可一次过检，无需读脚本源码）：
+     · Read first：每行恰一个反引号路径且**必须已存在**（http/docs/work 前缀除外）；
+       Write scope 新路径要求父或祖父目录存在；一行多路径只有首个被检查（WARNING）
+     · Execution note 五字段必填：Test policy / Risk class / UI class / System-wide check / Verification
+     · design anchors 只允许指向合同区块（api-delta / data-delta / ui-surface-delta / must-hold /
+       risks / reviewer-checklist / 术语表 / contracts）与 decisions.md 的 D/ACD
+     · 所有表格表头后必须紧跟 GFM 分隔行；生成正式文档时不得残留任何花括号类模板占位符
+
+     瘦身变体（Risk class 为 research-only，或收口/verification-only 类 task）：
+     · 可整段省略：§3 的「关键 API / 集成点」「集成模式」「错误处理」「日志」，§5 Affected
+       Components，§6 Existing Code Impact——无实义就删整段，不留空壳
+     · 必留：头部元数据行、Generated from、Task scope、§1 Context（含 Read first / Write scope）、
+       §2 Implementation Plan、§3 的「方案」+「备选」+ Execution note + Stop conditions、§4 AC、§7 DoD -->
+
 
 # T{NNN} {Task 标题}
 
 **Epic:** [Epic {N} {名称}](../../epics/{epic-file}) · **Unit / Scope:** {U-ID Story 名 或 Screen composition: screen-id 覆盖 U1,U2} · **Depends:** {前置 T-ID 或 无} · **Wave:** {波次}
 
 **Generated from:** Review Pack `{review-pack-path}` · Unit `{U-ID}` · Story `{story-id}` · Design anchors `{design.md#...}` · Decision anchors `{decisions.md#D? / #ACD?}` · Catalog anchors `{docs/project/api|data|ui/...}`
-**Task scope:** 本文档是执行投影，不是新需求层，也不是新的 truth source。若与 Story AC、catalog、`design.md` 或 `decisions.md` anchors 冲突，STOP 并报告。若 Unit 被拆为多个 task，本 task 只代表局部 done，Unit done 仍以所有 sibling tasks 完成 + Story AC / Unit Verification 通过为准。若本 task 是 frontend screen composition，必须列 Covered Units、Screen done、每个 Unit 的 UI AC 回指；Screen done 不自动等于所有 Unit done。
+**Task scope:** 本文档是执行投影，不是新需求层，也不是新的 truth source。Story AC 定义可观察行为；approved decisions 定义设计取舍；catalog 定义精确合同；`design.md` 定义 delta 理由与跨层不变量。跨维度冲突必须 STOP 并回到对应来源修正，不能静默覆盖。若 Unit 被拆为多个 task，本 task 只代表局部 done，Unit done 仍以所有 sibling tasks 完成 + Story AC / Unit Verification 通过为准。若本 task 是 frontend screen composition，必须列 Covered Units、Screen done、每个 Unit 的 UI AC 回指；Screen done 不自动等于所有 Unit done。
 
 ## 1. Context
 ### Source anchors（先看这些，不全文读 review pack）
+- Constraints: `{从 task-index 派生的适用 C-ID 列表；不复制不相关约束}`
 - Review Pack: `{review-pack-path}` `design.md` anchors + `decisions.md` D/ACD anchors
 - Task Index: `task-index.md` wave / sibling / shared-file coordination
 - Catalog: `docs/project/api/...`, `docs/project/data/...`, `docs/project/ui/...`
-- Story AC: `docs/tasks/epics/...`
+- Story AC: `docs/work/epics/...`
 ### 现状
 - 当前存在什么 / 限制是什么（投影自 `design.md` Current Baseline + 前置 task 已交付物）
 ### 目标态
@@ -73,7 +89,7 @@
 - Fallback 约束: {仅当 fallback/mock/简化实现会伪造业务真相或绕过信任边界时写"禁止"，并注明范围；否则"允许降级（不得伪装成功）"或"无"}
 ### Stop conditions
 - 需要改出 write scope 之外的文件，且该文件不是本 task owner。
-- 发现 task packet 与 Story AC / catalog / `design.md` / `decisions.md` anchors 冲突。
+- 发现 task packet 与 Story AC / catalog / approved decisions / `design.md` invariants 跨维度冲突。
 - 发现新的 strict trigger（DB/API/auth/transaction/UI shell 等）但 review pack / task-index 未标记。
 - 需要 mock/fallback/简化实现绕过 `decisions.md` / `design.md` 明确禁止的真实业务路径。
 

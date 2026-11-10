@@ -280,11 +280,11 @@ def load_prd_text(args: argparse.Namespace) -> str:
     if args.query:
         parts.append(args.query)
     if not parts:
-        default_prd = Path("docs/project/requirements.md")
+        default_prd = Path("docs/product/requirements.md")
         if default_prd.exists():
             parts.append(default_prd.read_text(encoding="utf-8", errors="replace"))
     if not parts:
-        raise SystemExit("Provide --prd, --query, or create docs/project/requirements.md")
+        raise SystemExit("Provide --prd, --query, or create docs/product/requirements.md")
     return "\n\n".join(parts)
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# input: vj-product-requirements 产出的 PRD markdown（默认 docs/project/requirements.md）路径参数
+# input: vj-product-requirements 产出的 PRD markdown（默认 docs/product/requirements.md）路径参数
 # output: PRD 结构机检报告（stdout）+ exit code（0=全过，1=有 ERROR）
 # pos: vj-product-requirements skill 校验脚本 - Phase 4 机械检查的真相源（rubric 不复述规则清单）；
 #      一旦我被更新，务必更新我的开头注释以及所属文件夹的 README.md

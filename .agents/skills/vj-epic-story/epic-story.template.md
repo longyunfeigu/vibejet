@@ -2,10 +2,11 @@
 epic_id: "[序号]"
 epic_name: "[名称]"
 status: "draft"  # draft | in_progress | completed | archived
+source_digest: "[shasum <PRD> | cut -c1-16]"  # Phase 1 幂等短路比对基准；PRD 变更后重拆时更新
 priority: "P0"  # P0 (MVP) | P1 (High) | P2 (Medium) | P3 (Low)
 owner: "[负责人]"
 source_documents:
-  prd: "docs/project/requirements.md"
+  prd: "docs/product/requirements.md"
   architecture: "docs/project/architecture.md"
   api_design: "docs/project/api/"
   data_model: "docs/project/data/"
@@ -13,6 +14,16 @@ source_documents:
   # legacy_design_guidelines: "docs/project/design_guidelines.md"  # fallback only
   # ui_designs: "docs/reference/research/designs/epic-[序号]/"  # optional
 ---
+
+<!-- 机检合同速查（validate_story.py 硬规则——照抄即可一次过检，无需读脚本源码）：
+     · 行为 AC（Happy/Edge/Error/Integration 合计）≤7；前端 AC ≤4（超出仅 WARNING）
+     · 每条 AC 行内必须含 `验证: <kind> <target> → <assert>`，kind ∈ pytest|API|DB|Browser，
+       箭头用 → 或 ->，assert 非空
+     · #### Assumptions 必须存在；条目 = "无" 或
+       "[FEASIBILITY|DEPENDENCY|DATA|SCOPE] 描述 — Confidence: H/M/L — 失效影响: ..."（长破折号 —）
+     · Story 标题禁止出现 和 & + , ， 、 等连接符（确为单一原子能力时在标题行尾加
+       bundling-ok 注释豁免，写法见 SKILL.md Phase 3）
+     · 依赖只能指向更小序号：同 Epic X.M（M<N）或更小序号 Epic 的任意 Story -->
 
 # Epic [序号]: [名称]
 
@@ -170,7 +181,7 @@ graph LR
 
 ## 参考文档
 
-- PRD: [docs/project/requirements.md](../../project/requirements.md) §X
+- PRD: [docs/product/requirements.md](../../../product/requirements.md) §X
 - Architecture: [docs/project/architecture.md](../../project/architecture.md) §Y
 - API Design: [docs/project/api/{module}.md](../../project/api/{module}.md) §Z(如适用)
 - Data Model: [docs/project/data/{module}.md](../../project/data/{module}.md) §W(如适用)

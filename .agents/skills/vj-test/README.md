@@ -33,7 +33,7 @@ vj-test epic-1     # 按 epic
 vj-test            # 取最近执行的 epic
 ```
 
-## 产出（都在 `docs/tasks/work/epic-{N}-{slug}/`）
+## 产出（都在 `docs/work/tasks/epic-{N}-{slug}/`）
 
 - `_test-plan.md` — RBT 测试规划（场景 + 层 + 断言 + 优先级）
 - `_test-report.md` — 人可读报告（覆盖/变异结果/截图链接/未覆盖项）

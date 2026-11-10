@@ -59,8 +59,8 @@ vj-product-requirements → vj-mock-board → vj-epic-story → vj-epic-plan →
 ## 输入
 
 ```text
-vj-mock-board                                    # 默认读 docs/project/requirements.md
-vj-mock-board docs/project/requirements.md       # 指定 PRD 路径
+vj-mock-board                                    # 默认读 docs/product/requirements.md
+vj-mock-board docs/product/requirements.md       # 指定 PRD 路径
 vj-mock-board <PRD 路径> --wireframe             # 降级中性线框板（仅兜底场景，见失败表）
 ```
 
@@ -72,12 +72,16 @@ vj-mock-board <PRD 路径> --wireframe             # 降级中性线框板（仅
    `Confidence: L`。
 2. `docs/project/DESIGN.md` 缺失或明显过期（判定口径同 `vj-design-md-matcher` 触发条件）→
    先路由 `vj-design-md-matcher`，产出 DESIGN.md 后回到本流程。
+3. **幂等短路（重跑场景）**：`shasum <PRD> | cut -c1-16` 与既有 `screen-inventory.md` 记录的
+   `来源 PRD digest` 一致，且整板机检（P4 命令）通过 → 不重新生成 P1–P3，直接进 P5
+   验证态并在报告注明"PRD 未变，幂等短路"；digest 不一致 → 正常重跑，仅重生成受
+   PRD delta 影响的分区（其余分区保留），新 digest 随 P1 写回 inventory。
 
 ### P1 Screen Inventory
 
 按 `references/screen-inventory.template.md` 解析 PRD 生成清单表（屏名 / 来源条目 / 屏型 /
 P0 判定 / 状态集 / 设备框 / 锚点 ID），写入产物目录的 `screen-inventory.md`。
-**用户确认 gate**：屏的增删、屏型、P0 判定、设备框由用户拍板；
+**Intent Gate**：屏的增删、屏型、P0 判定、设备框若存在多个合理产品选择，合并成一次确认；
 无人值守 → 按最合理假设继续，逐项标 `⚠️ 推断 + Confidence: H/M/L`，板头标"清单假设待审批"，
 不阻塞、不静默拍板。
 
@@ -107,11 +111,14 @@ exit != 0 → 对应分区回炉重写（不整板重跑）；回炉一次仍 fa
 
 ### P5 收尾
 
-1. 用全局 `web-access` skill 打开板截图自查（富度 / 反 AI-slop：无渐变滥用、无 emoji
-   项目符号堆砌、状态可辨）。
-2. **后置审查钩子**：自动触发 `ui-visual-consistency-audit` 对板做视觉一致性审查并采纳修正；
-   用户可说"跳过审查"。
-3. 报告产物绝对路径 + 浏览器打开方式；提示下游：`vj-epic-story` 拆解时可引用板，
+1. **单次浏览器视觉验收（双审合一）**：用全局 `web-access` skill 打开板、按分区分段截图，
+   对同一批截图跑**合并清单**一次过——①富度/反 AI-slop 自查（无渐变滥用、无 emoji 项目
+   符号堆砌、状态可辨、不空屏）+ ②视觉一致性九维（口径取自 `ui-visual-consistency-audit`：
+   色彩/字体/间距/圆角/阴影/图标/卡片/按钮层级/装饰，逐帧核对"每屏实心 accent ≤1"）。
+   发现必须改项就地修正并重跑 P4 机检。同批截图不做第二遍独立审查——P4 机检才是唯一
+   硬闸（判定权独立），本步是 advisory 视觉验收；用户可说"跳过审查"，或显式要求
+   `ui-visual-consistency-audit` 做深审。
+2. 报告产物绝对路径 + 浏览器打开方式；提示下游：`vj-epic-story` 拆解时可引用板，
    `vj-epic-plan` 可将其登记为 Screen Contract 的 Design source。
 
 ## 失败模式与兜底
@@ -121,7 +128,7 @@ exit != 0 → 对应分区回炉重写（不整板重跑）；回炉一次仍 fa
 | DESIGN.md 缺失且 `vj-design-md-matcher` 跑不了（无网络 / 用户明确拒绝） | 以 `--wireframe` 降级中性灰线框板，板头标"风格待 DESIGN.md 定稿后重染" | 交付线框板并在收尾报告中标注 |
 | 清单屏数 >20 | 提示裁剪（P1 屏减态 / 只画核心 Epic），用户确认 | 无人值守自动裁到核心旅程屏，板头标注裁剪范围 + `⚠️ 推断` |
 | 分区片段机检 fail | 该分区回炉一次 | 主上下文亲自修该分区 |
-| `web-access` 不可用 | 跳过截图自查 | 板头标"未做浏览器视觉验证"，收尾报告注明 |
+| `web-access` 不可用 | 跳过 P5 浏览器视觉验收（机检硬闸不受影响） | 板头标"未做浏览器视觉验证"，收尾报告注明 |
 | PRD 无 Epic 结构（自由格式需求） | 按用户旅程聚类自建分区，标 `⚠️ 推断` | Inventory gate 让用户定分区 |
 | 产物目录不可写 | 先创建目录再写 | 输出板全文到对话，请用户确认落盘路径 |
 

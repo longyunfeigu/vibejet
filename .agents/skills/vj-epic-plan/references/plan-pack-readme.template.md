@@ -1,10 +1,11 @@
 ---
 title: "Epic {N} {name} Review Entry"
 type: epic-review-pack-readme
-status: active
+status: draft  # draft | research-ready | awaiting-approval | ready | completed | blocked
 date: YYYY-MM-DD
 epic_id: "{N}"
-epic_source: docs/tasks/epics/epic-{N}-{slug}/epic.md
+epic_source: docs/work/epics/epic-{N}-{slug}/epic.md
+epic_digest: "{cat epic.md stories/*.md | shasum | cut -c1-16；平铺 epic 只算单文件}"  # Phase 1 续作短路比对基准
 execution_policy: "fast | strict"
 ---
 
@@ -18,7 +19,7 @@ execution_policy: "fast | strict"
 - **本 Epic 不解决的问题**：
 - **设计主文档**：[design.md](design.md)
 - **决策真相源**：[decisions.md](decisions.md)
-- **执行入口**：`docs/tasks/work/epic-{N}-{slug}/task-index.md`
+- **执行入口**：`docs/work/tasks/epic-{N}-{slug}/task-index.md`
 - **catalog touched**：API / Data / UI = yes/no
 - **execution policy**：fast / strict
 
@@ -35,7 +36,7 @@ execution_policy: "fast | strict"
 1. 先看 `Known Conflicts`，确认哪些偏离已经批准，哪些还要问。
 2. 看 [design.md](design.md) 的 Problem Model、Target Architecture（模块小节）、Core Flows、Delta（API/Data/UI）。
 3. 看 [decisions.md](decisions.md) 的 D/ACD，确认范围偏离和 rejected alternatives 是否合理。
-4. 只在需要核对执行编排时看 `docs/tasks/work/epic-{N}-{slug}/task-index.md`。
+4. 只在需要核对执行编排时看 `docs/work/tasks/epic-{N}-{slug}/task-index.md`。
 
 ## 4. Execution Sketch
 
