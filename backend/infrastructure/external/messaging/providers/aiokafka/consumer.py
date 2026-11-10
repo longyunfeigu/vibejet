@@ -1,5 +1,5 @@
 # input: aiokafka（AIOKafkaConsumer/AIOKafkaProducer/TopicPartition/ConsumerRebalanceListener/errors.ProducerFenced，运行期延迟导入）, KafkaConfig/RetryConfig, Serializer, ConsumeMiddleware
-# output: AiokafkaConsumer（订阅 → 拉取 → 反序列化 → 中间件（事件循环上）+ handler（独立 handler 线程，心跳不断）→ 批量提交位点（只提交仍分配给本消费者的分区；撤销时等在途记录处理完再冲刷，停止时冲刷）/ 重试分层 / DLQ；未到期的重投记录只暂停所在分区；重投/DLQ 发送失败时不越过这条：换新的重投 producer、暂停所在分区、回退到它，退避后重新消费；可选事务性重投（等送达后才提交事务）；重投 producer 被隔离或进入致命状态时 start() 抛 RequeueProducerFatalError；跨线程 stop() 冲刷位点、关闭客户端并让 start() 返回；不可重启）
+# output: AiokafkaConsumer（订阅 → 拉取 → 反序列化 → 中间件（事件循环上）+ handler（独立的守护 handler 线程：心跳不断，卡死的 handler 也不拦进程退出）→ 批量提交位点（只提交仍分配给本消费者的分区；撤销时等在途记录处理完再冲刷（rebalance_timeout_ms = max_poll_interval_ms），停止时冲刷）/ 重试分层 / DLQ；未到期的重投记录只暂停所在分区；重投/DLQ 发送失败时不越过这条：换新的重投 producer、暂停所在分区、回退到它，退避后重新消费；可选事务性重投（等送达后才提交事务）；重投 producer 被隔离或进入致命状态时 start() 抛 RequeueProducerFatalError；跨线程 stop() 冲刷位点、关闭客户端并让 start() 返回；不可重启）
 # owner: unknown
 # pos: 基础设施层 - Kafka 消费者（aiokafka 驱动，at-least-once，独立事件循环线程 + handler 线程）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
@@ -9,7 +9,6 @@ import concurrent.futures
 import contextlib
 import contextvars
 import logging
-import threading
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ...base import ConsumeMiddleware, Consumer, Envelope, HandleResult, Serializer
@@ -26,7 +25,7 @@ from ...envelope import (
 from ...exceptions import NonRetryableError, RequeueProducerFatalError, RetryableError
 from ...middlewares.retry import RetryPolicy
 from ._client_config import consumer_kwargs, requeue_producer_kwargs, security_kwargs
-from ._loop import LoopThread
+from ._loop import HandlerThread, LoopThread
 from ._offsets import OffsetTracker, PartitionKey
 
 _ERROR_MSG_MAX_BYTES = 2048
@@ -34,6 +33,7 @@ _RETRY_SEND_FAILED = "retry requeue failed, message will be redelivered"
 _DLQ_SEND_FAILED = "dlq send failed, message will be redelivered"
 _COMMIT_FAILED = "offset commit failed, uncommitted records may be redelivered"
 _STOP_TIMED_OUT = "consumer did not stop in time; offsets may stay uncommitted"
+_OLD_PRODUCER_STUCK = "replaced retry/DLQ producer did not stop within delivery_wait_s; abandoned"
 _RESTART_REFUSED = "AiokafkaConsumer cannot be restarted; create a new one"
 _PRODUCER_FATAL = "the retry/DLQ producer can no longer send ({error!r}), so the consumer stopped"
 _TXN_ID_NOT_UNIQUE = (
@@ -102,7 +102,7 @@ def _requeue_backoff_ms(retry: RetryConfig) -> int:
     retry into a busy loop.
     """
     first_delay = retry.layers[0].delay_ms if retry.layers else 0
-    return max(first_delay, _POLL_TIMEOUT_MS)
+    return int(max(first_delay, _POLL_TIMEOUT_MS))
 
 
 class _RebalanceCallbacks:
@@ -163,12 +163,9 @@ class AiokafkaConsumer(Consumer):
         self._AIOKafkaConsumer = AIOKafkaConsumer
         self._AIOKafkaProducer = AIOKafkaProducer
         self._loop = LoopThread()
-        # Sync handlers run on this one thread (created on first use), so the event loop
-        # keeps sending heartbeats while a handler works
-        self._handler_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="kafka-consumer-handler"
-        )
-        self._handler_thread: Optional[int] = None
+        # Sync handlers run on one daemon thread (started on first use): the event loop keeps
+        # sending heartbeats while a handler works, and a stuck handler cannot block exit
+        self._handlers = HandlerThread("kafka-consumer-handler")
         # Set while no record is in flight; a revoke waits for it
         self._idle = asyncio.Event()
         self._idle.set()
@@ -201,7 +198,7 @@ class AiokafkaConsumer(Consumer):
         finally:
             # nothing else runs on the loop or the handler thread once the consume loop is over
             self._loop.stop()
-            self._handler_pool.shutdown(wait=False)
+            self._handlers.shutdown()
 
     def stop(self) -> None:
         """Stop consuming: flush processed offsets, close the clients, end start().
@@ -222,7 +219,7 @@ class AiokafkaConsumer(Consumer):
 
     def _on_consumer_thread(self) -> bool:
         """The loop or the handler thread: waiting there for start() to end would deadlock."""
-        return self._loop.in_loop_thread() or threading.get_ident() == self._handler_thread
+        return bool(self._loop.in_loop_thread() or self._handlers.is_current())
 
     async def _run(self, handler: Consumer.Handler) -> None:
         # Lazy imports to avoid hard dependency unless this path is used
@@ -304,8 +301,9 @@ class AiokafkaConsumer(Consumer):
         offsets, then drop their local state.
 
         The handler runs off the loop, so a rebalance can start mid-record. Waiting for it
-        (bounded by max_poll_interval_ms, which is also the rebalance timeout) commits that
-        record here instead of handing it to the new owner a second time.
+        commits that record here instead of handing it to the new owner a second time. The
+        group waits for this member up to rebalance_timeout_ms, which consumer_kwargs sets
+        to max_poll_interval_ms; a handler slower than that loses the partition anyway.
         """
         await self._idle.wait()
         keys = _keys(partitions)
@@ -351,7 +349,13 @@ class AiokafkaConsumer(Consumer):
         """
         old = self._producer
         with contextlib.suppress(Exception):
-            await asyncio.wait_for(old.stop(), timeout=self._delivery_wait_s)
+            try:
+                await asyncio.wait_for(old.stop(), timeout=self._delivery_wait_s)
+            except asyncio.TimeoutError:
+                self.log.warning(
+                    _OLD_PRODUCER_STUCK,
+                    extra={"producer": repr(old), "client_id": self._producer_kwargs["client_id"]},
+                )
         self._producer = self._producer_cls(**self._producer_kwargs)
         self._producer_stale = False
         await self._producer.start()
@@ -433,17 +437,9 @@ class AiokafkaConsumer(Consumer):
         stays in the copy.
         """
         context = contextvars.copy_context()
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            self._handler_pool, context.run, self._invoke_on_handler_thread, handler, env
-        )
-
-    def _invoke_on_handler_thread(
-        self, handler: Consumer.Handler, env: Envelope
-    ) -> Tuple[HandleResult, Optional[BaseException]]:
-        # lets stop() called from inside the handler return at once
-        self._handler_thread = threading.get_ident()
-        return _invoke(handler, env)
+        future = self._handlers.submit(context.run, _invoke, handler, env)
+        outcome: Tuple[HandleResult, Optional[BaseException]] = await asyncio.wrap_future(future)
+        return outcome
 
     async def _settle(
         self,

@@ -1,5 +1,5 @@
 # input: AiokafkaPublisher + 真实 AIOKafkaProducer 的离线子类（只跳过联网的 start 与 send，构造期参数与编解码器校验照常生效）
-# output: 发布端测试：ProducerTuning→aiokafka 参数映射（max_batch_size/idempotence/request_timeout_ms/acks 数值化，不传 max_in_flight）、默认 zstd 有编解码器、send_wait_s/delivery_wait_s 超时抛 PublishError、元数据与中间件；publish_many 先全部发出再一起等送达、任一失败或超时抛 PublishError（入队与送达错误都挂在 __cause__）；构造失败不留线程、不留未关闭的 producer；只在 OutOfOrderSequenceNumber/UnknownProducerId 时换新 producer（触发的调用照样抛 PublishError，并发只换一次、只告警一次，旧 producer 借用都结束后才关）
+# output: 发布端测试：ProducerTuning→aiokafka 参数映射（max_batch_size/idempotence/request_timeout_ms/acks 数值化，不传 max_in_flight）、默认 zstd 有编解码器、send_wait_s/delivery_wait_s 超时抛 PublishError、元数据与中间件；publish_many 先全部发出再一起等送达、任一失败或超时抛 PublishError（入队与送达错误都挂在 __cause__）；构造失败不留线程、不留未关闭的 producer；幂等 producer 有一次送达被拒就在下一次发送前换新（被拒的调用照样抛 PublishError，并发只换一次、只告警一次，旧 producer 借用都结束后才关，关不掉时点名告警；不幂等或入队失败不换）；SerializationError 原样抛出、什么都不发
 # pos: 后端测试 - Kafka 发布者与真实 aiokafka 构造契约的对齐验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import pytest
 
 from infrastructure.external.messaging.base import Envelope, PublishResult
 from infrastructure.external.messaging.config import KafkaConfig, ProducerTuning
-from infrastructure.external.messaging.exceptions import PublishError
+from infrastructure.external.messaging.exceptions import PublishError, SerializationError
 from infrastructure.external.messaging.providers.aiokafka._client_config import (
     aiokafka_acks,
     producer_kwargs,
@@ -30,7 +30,8 @@ aiokafka = pytest.importorskip("aiokafka")
 aiokafka_errors = pytest.importorskip("aiokafka.errors")
 
 PUBLISHER_LOGGER = "messaging.aiokafka.publisher"
-PRODUCER_REBUILT = "producer rebuilt after a sequence error; later sends use a new producer"
+PRODUCER_REBUILT = "producer rebuilt after the broker rejected a batch; later sends use it"
+OLD_PRODUCER_STUCK = "replaced producer did not stop within delivery_wait_s; abandoned"
 
 
 def publisher_warnings(caplog: pytest.LogCaptureFixture) -> list[str]:
@@ -60,6 +61,9 @@ class OfflineProducers:
     sent_by: list[Any] = field(default_factory=list)
     stopped: list[Any] = field(default_factory=list)
     used_after_stop: bool = False
+    # start() 的耗时（让并发的重建真的争锁）、依次加到 stop() 上的耗时
+    start_delay_s: float = 0.0
+    stop_delays: deque[float] = field(default_factory=deque)
 
 
 @pytest.fixture
@@ -77,11 +81,14 @@ def producers(monkeypatch: pytest.MonkeyPatch) -> OfflineProducers:
             control.created.append(self)
 
         async def start(self) -> None:
-            return None
+            if control.start_delay_s:
+                await asyncio.sleep(control.start_delay_s)
 
         async def stop(self) -> None:
             control.stopped.append(self)
             await super().stop()
+            if control.stop_delays:
+                await asyncio.sleep(control.stop_delays.popleft())
 
         async def send(
             self,
@@ -258,23 +265,10 @@ def test_publish_gives_up_after_the_configured_wait(
     assert time.monotonic() - started < 2
 
 
-def test_delivery_failure_raises_publish_error_without_rebuilding(
-    producers: OfflineProducers,
-) -> None:
-    producers.mode = "fail_delivery"
-    publisher = AiokafkaPublisher(KafkaConfig(), JsonSerializer())
-    try:
-        with pytest.raises(PublishError, match="Failed to publish record: broker rejected") as exc:
-            publisher.publish("orders", Envelope(payload={"id": 1}))
-    finally:
-        publisher.close()
-
-    assert isinstance(exc.value.__cause__, RuntimeError)
-    assert len(producers.created) == 1  # 只有序号类错误才换 producer
-
-
-@pytest.mark.parametrize("error_name", ["OutOfOrderSequenceNumber", "UnknownProducerId"])
-def test_sequence_error_rebuilds_the_producer_and_still_raises(
+@pytest.mark.parametrize(
+    "error_name", ["MessageSizeTooLargeError", "OutOfOrderSequenceNumber", "UnknownProducerId"]
+)
+def test_rejected_delivery_makes_the_next_send_use_a_new_producer(
     producers: OfflineProducers, caplog: pytest.LogCaptureFixture, error_name: str
 ) -> None:
     caplog.set_level(logging.WARNING, logger=PUBLISHER_LOGGER)
@@ -282,14 +276,14 @@ def test_sequence_error_rebuilds_the_producer_and_still_raises(
     producers.delivery_errors.append(error)
     publisher = AiokafkaPublisher(KafkaConfig(), JsonSerializer())
     try:
-        with pytest.raises(PublishError) as excinfo:
+        with pytest.raises(PublishError, match="Failed to publish record") as excinfo:
             publisher.publish("orders", Envelope(payload={"n": 1}))
         result = publisher.publish("orders", Envelope(payload={"n": 2}))
     finally:
         publisher.close()
 
     first, second = producers.created
-    # 触发的那次照样报错（不偷偷重发）；换了一次 producer，下一条走新的
+    # 被拒的那次照样报错（不偷偷重发）；下一条发送前就换了 producer，直接成功
     assert excinfo.value.__cause__ is error
     assert producers.sent_by == [first, second]
     assert result.offset == 1
@@ -298,14 +292,33 @@ def test_sequence_error_rebuilds_the_producer_and_still_raises(
     assert not producers.used_after_stop
 
 
-def test_concurrent_sequence_errors_share_one_rebuild_and_retire_the_old_producer(
+def test_non_idempotent_producer_is_kept_after_a_rejection(
     producers: OfflineProducers, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.WARNING, logger=PUBLISHER_LOGGER)
-    # 两条并发的发送都卡在同一个 producer 上，一起收到 OutOfOrderSequenceNumber
+    producers.delivery_errors.append(aiokafka_errors.MessageSizeTooLargeError())
+    cfg = KafkaConfig(producer=ProducerTuning(acks="1", enable_idempotence=False))
+    publisher = AiokafkaPublisher(cfg, JsonSerializer())
+    try:
+        with pytest.raises(PublishError):
+            publisher.publish("orders", Envelope(payload={"n": 1}))
+        publisher.publish("orders", Envelope(payload={"n": 2}))
+    finally:
+        publisher.close()
+
+    # 不幂等就没有序号要对齐，不用换
+    assert len(producers.created) == 1
+    assert publisher_warnings(caplog) == []
+
+
+def test_concurrent_sends_after_a_rejection_share_one_rebuild_and_retire_the_old_producer(
+    producers: OfflineProducers, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING, logger=PUBLISHER_LOGGER)
+    # 同一批里的两条一起被拒：producer 被标记失效
     producers.mode = "batch"
     producers.batch_size = 2
-    producers.batch_error = aiokafka_errors.OutOfOrderSequenceNumber()
+    producers.batch_error = aiokafka_errors.MessageSizeTooLargeError()
     cfg = KafkaConfig(producer=ProducerTuning(delivery_wait_s=2.0))
     publisher = AiokafkaPublisher(cfg, JsonSerializer())
     errors: list[BaseException] = []
@@ -316,28 +329,72 @@ def test_concurrent_sequence_errors_share_one_rebuild_and_retire_the_old_produce
         except PublishError as exc:
             errors.append(exc)
 
-    try:
-        callers = [threading.Thread(target=_publish, args=(n,)) for n in range(2)]
+    def _at_once(numbers: range) -> None:
+        callers = [threading.Thread(target=_publish, args=(n,)) for n in numbers]
         for caller in callers:
             caller.start()
         for caller in callers:
             caller.join(timeout=5)
+
+    try:
+        _at_once(range(2))
+        # 新 producer 启动要 50ms：4 个并发发送同时撞上失效的 producer，真的会争锁
         producers.mode = "ok"
-        publisher.publish("orders", Envelope(payload={"n": 2}))
+        producers.start_delay_s = 0.05
+        _at_once(range(2, 6))
     finally:
         publisher.close()
 
     first, second = producers.created
-    # 两个调用各自拿到 PublishError，但只换了一次 producer、只告警一次
+    # 同批的两条以同一个错误失败；之后 4 个并发发送只换了一次 producer、只告警一次
     assert len(errors) == 2
     assert all(
-        isinstance(exc.__cause__, aiokafka_errors.OutOfOrderSequenceNumber) for exc in errors
+        isinstance(exc.__cause__, aiokafka_errors.MessageSizeTooLargeError) for exc in errors
     )
     assert publisher_warnings(caplog) == [PRODUCER_REBUILT]
-    # 旧 producer 等两次借用都结束才关；关了之后没再被用；之后的发送走新的
-    assert producers.sent_by == [first, first, second]
+    assert producers.sent_by == [first, first, second, second, second, second]
+    # 旧 producer 等借用都结束才关；关了之后没再被用
     assert producers.stopped == [first, second]
     assert not producers.used_after_stop
+
+
+def test_slow_stop_of_a_replaced_producer_is_logged_with_its_name(
+    producers: OfflineProducers, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING, logger=PUBLISHER_LOGGER)
+    producers.delivery_errors.append(aiokafka_errors.MessageSizeTooLargeError())
+    producers.stop_delays.append(1.0)  # 被换下来的那个 producer 关得很慢
+    cfg = KafkaConfig(producer=ProducerTuning(delivery_wait_s=0.1))
+    publisher = AiokafkaPublisher(cfg, JsonSerializer())
+    try:
+        with pytest.raises(PublishError):
+            publisher.publish("orders", Envelope(payload={"n": 1}))
+        publisher.publish("orders", Envelope(payload={"n": 2}))
+    finally:
+        publisher.close()
+
+    # 不再悄悄丢下：告警点名是哪个 producer
+    assert publisher_warnings(caplog) == [PRODUCER_REBUILT, OLD_PRODUCER_STUCK]
+    [stuck] = [r for r in caplog.records if r.getMessage() == OLD_PRODUCER_STUCK]
+    assert stuck.__dict__["producer"] == repr(producers.created[0])
+
+
+def test_serialization_error_propagates_unwrapped_and_nothing_is_sent(
+    producers: OfflineProducers,
+) -> None:
+    unencodable = Envelope(payload={"value": object()})
+    publisher = AiokafkaPublisher(KafkaConfig(), JsonSerializer())
+    try:
+        with pytest.raises(SerializationError):
+            publisher.publish("orders", unencodable)
+        with pytest.raises(SerializationError):
+            publisher.publish_many("orders", [Envelope(payload={"n": 1}), unencodable])
+    finally:
+        publisher.close()
+
+    # 重试也编不出来，所以不包成 PublishError；publish_many 在发出任何一条之前就失败
+    assert producers.sent == []
+    assert len(producers.created) == 1
 
 
 class _OrderRecorder:
@@ -426,6 +483,8 @@ def test_publish_many_wraps_an_enqueue_error_as_publish_error(
     assert isinstance(excinfo.value.__cause__, RuntimeError)
     # 第一条已经交给 producer：它可能照样送达，整批重试会重复它（at-least-once）
     assert len(producers.sent) == 2
+    # 入队失败是客户端的错，producer 照常可用，不换
+    assert len(producers.created) == 1
 
 
 def test_failed_constructor_leaves_no_thread_or_open_client() -> None:

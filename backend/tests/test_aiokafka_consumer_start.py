@@ -1,5 +1,5 @@
 # input: AiokafkaConsumer + monkeypatch 进 aiokafka 模块的 fake AIOKafkaConsumer/AIOKafkaProducer（无真实 broker）
-# output: AiokafkaConsumer.start 特征测试：启停与退出（含跨线程 stop()）、建连参数与 TLS、反序列化失败转 DLQ、中间件、重试分层/DLQ、批量提交位点（按条数/按间隔、失败后随下一批重试、只提交仍分配的分区）、延迟重投、再均衡监听（撤销时冲刷位点）、事务性重投、告警日志；把捕获到的构造参数、listener、pause/resume 参数回放给真实 aiokafka 校验契约
+# output: AiokafkaConsumer.start 特征测试：启停与退出（含跨线程 stop()）、建连参数与 TLS、反序列化失败转 DLQ、中间件、重试分层/DLQ、批量提交位点（按条数/按间隔、失败后随下一批重试、只提交仍分配的分区）、延迟重投、再均衡监听（撤销时冲刷位点）、事务性重投、告警日志；rebalance_timeout_ms 跟随 max_poll_interval_ms；handler 跑在守护线程上（卡死也不拦进程退出）；被换下的重投 producer 关不掉时点名告警；把捕获到的构造参数、listener、pause/resume 参数回放给真实 aiokafka 校验契约
 # pos: 后端测试 - Kafka 消费主循环行为锁定；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for ``AiokafkaConsumer.start``.
 
@@ -24,13 +24,16 @@ import concurrent.futures
 import contextvars
 import gc
 import logging
+import os
 import ssl
+import subprocess  # nosec B404 - runs the test's own interpreter
 import sys
 import threading
 import time
 import warnings
 from collections import deque
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterator, Optional
 
@@ -68,6 +71,8 @@ LOGGER_NAME = "messaging.aiokafka.consumer"
 COMMIT_FAILED = "offset commit failed, uncommitted records may be redelivered"
 RETRY_SEND_FAILED = "retry requeue failed, message will be redelivered"
 DLQ_SEND_FAILED = "dlq send failed, message will be redelivered"
+OLD_PRODUCER_STUCK = "replaced retry/DLQ producer did not stop within delivery_wait_s; abandoned"
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 # 第一层重试 50ms：重投发送失败后的退避取它，但不低于一个轮询周期（500ms）
 FAST_RETRY = RetryConfig(layers=[RetryLayer(suffix="retry.fast", delay_ms=50)])
 TEST_SASL_CRED = "unit-test-cred"
@@ -113,6 +118,8 @@ class FakeBroker:
     producer_start_error: Optional[Exception] = None
     consumer_stop_error: Optional[Exception] = None
     producer_stop_error: Optional[Exception] = None
+    # 依次加到 producer.stop() 上的耗时（秒）
+    producer_stop_delays: deque[float] = field(default_factory=deque)
     subscribe_error: Optional[Exception] = None
     txn_commit_error: Optional[Exception] = None
     # 发送故障：send_error 每次都抛；send_errors 按顺序各抛一次
@@ -306,6 +313,8 @@ class FakeProducer:
 
     async def stop(self) -> None:
         self.broker.events.append(("producer.stop",))
+        if self.broker.producer_stop_delays:
+            await asyncio.sleep(self.broker.producer_stop_delays.popleft())
         if self.broker.producer_stop_error is not None:
             raise self.broker.producer_stop_error
 
@@ -539,6 +548,7 @@ def test_start_builds_clients_from_config(
         "enable_auto_commit": False,
         "auto_offset_reset": "earliest",
         "max_poll_interval_ms": 123_000,
+        "rebalance_timeout_ms": 123_000,
         "session_timeout_ms": 20_000,
         "fetch_min_bytes": 2,
         "fetch_max_bytes": 1_024,
@@ -721,6 +731,7 @@ def test_handler_runs_on_its_own_thread_while_the_event_loop_stays_responsive(
     assert len(set(handler_threads)) == 1
     assert handler_threads[0] is not consumer._loop._thread
     assert handler_threads[0].name.startswith("kafka-consumer-handler")
+    assert handler_threads[0].daemon  # 卡死的 handler 不拦进程退出
 
 
 def test_handler_sees_the_context_set_by_before_handle(
@@ -753,6 +764,44 @@ def test_handler_sees_the_context_set_by_before_handle(
     assert seen_after == ["req-7"]
 
 
+def test_rebalance_timeout_follows_max_poll_interval(
+    broker: FakeBroker, make_consumer: Callable[..., AiokafkaConsumer]
+) -> None:
+    cfg = KafkaConfig()
+    cfg.consumer.session_timeout_ms = 6_000
+    cfg.consumer.max_poll_interval_ms = 77_000
+
+    run_until_drained(make_consumer(cfg=cfg), ack)
+
+    # 不传的话 aiokafka 用 session_timeout_ms（6s）：再均衡不等慢 handler，记录被别的成员拿走
+    assert broker.consumer.kwargs["rebalance_timeout_ms"] == 77_000
+
+
+def test_stuck_handler_thread_does_not_block_interpreter_exit() -> None:
+    script = (
+        "import threading, time\n"
+        "from infrastructure.external.messaging.providers.aiokafka._loop import HandlerThread\n"
+        "HandlerThread('kafka-consumer-handler').submit(threading.Event().wait)\n"
+        "time.sleep(0.2)\n"
+        "print('main thread finished', flush=True)\n"
+    )
+    started = time.monotonic()
+
+    # 换成 ThreadPoolExecutor 的话，解释器退出时会 join 这个永远不返回的 worker
+    done = subprocess.run(  # nosec B603 - fixed argv, no shell
+        [sys.executable, "-c", script],
+        cwd=BACKEND_DIR,
+        env={**os.environ, "PYTHONPATH": str(BACKEND_DIR)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert "main thread finished" in done.stdout
+    assert time.monotonic() - started < 10
+
+
 def test_never_started_consumer_leaves_no_event_loop_behind() -> None:
     gc.collect()
     with warnings.catch_warnings(record=True) as caught:
@@ -761,7 +810,7 @@ def test_never_started_consumer_leaves_no_event_loop_behind() -> None:
             consumer = AiokafkaConsumer(KafkaConfig(), RetryConfig(), JsonSerializer())
             # 事件循环在 start() 时才创建，handler 线程第一次用到时才起
             assert consumer._loop._loop is None
-            assert not consumer._handler_pool._threads
+            assert not consumer._handlers.started
         del consumer
         gc.collect()
 
@@ -1789,6 +1838,28 @@ def test_failed_requeue_gets_a_new_producer_before_the_retry(
     assert swap == ["producer.stop", "producer.start"]
     first, second = broker.producers
     assert first.kwargs == second.kwargs
+
+
+def test_slow_stop_of_a_replaced_requeue_producer_is_logged_with_its_name(
+    broker: FakeBroker,
+    make_consumer: Callable[..., AiokafkaConsumer],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING, logger=LOGGER_NAME)
+    broker.send_errors.append(RuntimeError("rejected"))
+    broker.producer_stop_delays.append(1.0)  # 被换下来的那个 producer 关得很慢
+    cfg = KafkaConfig(producer=ProducerTuning(delivery_wait_s=0.1))
+    broker.feed(record(1))
+
+    run_until_drained(
+        make_consumer(cfg=cfg, retry=FAST_RETRY), RecordingHandler(error=RetryableError("x"))
+    )
+
+    # 不再悄悄丢下：告警点名是哪个 producer；重试照常换新 producer 进行
+    [stuck] = [w for w in warnings_from(caplog) if w.getMessage() == OLD_PRODUCER_STUCK]
+    assert stuck.__dict__["producer"] == repr(broker.producers[0])
+    assert stuck.__dict__["client_id"] == "app-messaging.consumer-producer"
+    assert len(broker.producers) == 2
 
 
 def test_acked_record_is_committed_while_the_next_requeue_on_its_partition_fails(
