@@ -9,16 +9,18 @@ REST API客户端基类
 - 超时控制
 """
 
+import contextlib
 import json
-from typing import Dict, Any, Optional, Union, Type, TypeVar
 from dataclasses import dataclass
-from enum import Enum
-import httpx
-from pydantic import BaseModel
-from core.logging_config import get_logger
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
-from httpx_retries import RetryTransport, Retry
+import httpx
+from httpx_retries import Retry, RetryTransport
+from pydantic import BaseModel
+
+from core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -261,7 +263,7 @@ class BaseAPIClient:
 
         # 尝试从响应中提取错误消息
         error_message = f"API request failed with status {status_code}"
-        try:
+        with contextlib.suppress(Exception):
             if response.data and isinstance(response.data, dict):
                 error_message = (
                     response.data.get("message")
@@ -269,8 +271,6 @@ class BaseAPIClient:
                     or response.data.get("detail")
                     or error_message
                 )
-        except Exception:
-            pass
 
         raise error_class(
             message=error_message,
@@ -317,64 +317,27 @@ class BaseAPIClient:
         url = self._build_url(endpoint)
 
         # 合并请求头
-        request_headers = {**self.default_headers}
-        if headers:
-            request_headers.update(headers)
+        request_headers = self._merge_headers(headers)
 
         # 处理JSON数据
-        if json_data:
-            if isinstance(json_data, BaseModel):
-                json_data = json_data.model_dump(exclude_unset=True)
+        if json_data and isinstance(json_data, BaseModel):
+            json_data = json_data.model_dump(exclude_unset=True)
 
         # 记录请求
         self._log_request(method, url, params=params, json=json_data, headers=request_headers)
 
         # 发送请求
-        async def _send_once() -> APIResponse:
-            start_time = datetime.now()
-            client = await self.client
-            response = await client.request(
-                method=method,
-                url=url,
+        try:
+            return await self._send_once(
+                method,
+                url,
                 params=params,
-                json=json_data,
+                json_data=json_data,
                 data=data,
                 headers=request_headers,
                 files=files,
-                **kwargs,
+                extra=kwargs,
             )
-
-            elapsed = (datetime.now() - start_time).total_seconds() * 1000
-
-            content_type = response.headers.get("content-type", "")
-            response_data = None
-
-            if "application/json" in content_type:
-                try:
-                    response_data = response.json()
-                except json.JSONDecodeError:
-                    response_data = None
-
-            api_response = APIResponse(
-                status_code=response.status_code,
-                headers=dict(response.headers),
-                data=response_data,
-                raw_content=response.content,
-                elapsed_ms=elapsed,
-                request_id=response.headers.get("x-request-id"),
-            )
-
-            self._log_response(api_response)
-
-            # Transient retryable responses are handled by httpx-retries transport
-
-            if api_response.is_error:
-                self._handle_error_response(api_response.status_code, api_response)
-
-            return api_response
-
-        try:
-            return await _send_once()
         except APIError:
             # _handle_error_response 抛出的类型化子类（NotFoundError/RateLimitError/...）
             # 必须原样上抛——落进下面的兜底 catch 会被重包成通用 APIError，
@@ -387,6 +350,75 @@ class BaseAPIClient:
         except Exception as exc:
             logger.error(f"Unexpected error during API request: {exc}")
             raise APIError(f"Unexpected error: {exc}") from exc
+
+    def _merge_headers(self, headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+        """默认请求头叠加本次请求头（不改动 default_headers）"""
+        request_headers = {**self.default_headers}
+        if headers:
+            request_headers.update(headers)
+        return request_headers
+
+    async def _send_once(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Optional[Dict[str, Any]],
+        json_data: Any,
+        data: Optional[Dict[str, Any]],
+        headers: Dict[str, str],
+        files: Optional[Dict[str, Any]],
+        extra: Dict[str, Any],
+    ) -> APIResponse:
+        """发送一次请求并封装响应；错误状态码映射为类型化 APIError。
+
+        extra 原样展开给 httpx（与具名参数重名时由 httpx 抛 TypeError）。
+        """
+        start_time = datetime.now()
+        client = await self.client
+        response = await client.request(
+            method=method,
+            url=url,
+            params=params,
+            json=json_data,
+            data=data,
+            headers=headers,
+            files=files,
+            **extra,
+        )
+
+        elapsed = (datetime.now() - start_time).total_seconds() * 1000
+        api_response = self._to_api_response(response, elapsed)
+
+        self._log_response(api_response)
+
+        # Transient retryable responses are handled by httpx-retries transport
+
+        if api_response.is_error:
+            self._handle_error_response(api_response.status_code, api_response)
+
+        return api_response
+
+    @staticmethod
+    def _to_api_response(response: httpx.Response, elapsed_ms: float) -> APIResponse:
+        """封装 httpx 响应：仅 JSON 内容类型解析 data，解析失败记为 None"""
+        content_type = response.headers.get("content-type", "")
+        response_data = None
+
+        if "application/json" in content_type:
+            try:
+                response_data = response.json()
+            except json.JSONDecodeError:
+                response_data = None
+
+        return APIResponse(
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            data=response_data,
+            raw_content=response.content,
+            elapsed_ms=elapsed_ms,
+            request_id=response.headers.get("x-request-id"),
+        )
 
     async def get(self, endpoint: str, **kwargs) -> APIResponse:
         """GET请求"""
@@ -411,9 +443,11 @@ class BaseAPIClient:
     async def get_typed(self, endpoint: str, response_model: Type[T], **kwargs) -> T:
         """发送GET请求并返回类型化响应"""
         response = await self.get(endpoint, **kwargs)
-        return response_model(**response.json())
+        model: T = response_model(**response.json())
+        return model
 
     async def post_typed(self, endpoint: str, response_model: Type[T], **kwargs) -> T:
         """发送POST请求并返回类型化响应"""
         response = await self.post(endpoint, **kwargs)
-        return response_model(**response.json())
+        model: T = response_model(**response.json())
+        return model

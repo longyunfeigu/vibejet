@@ -3,22 +3,25 @@
 # pos: 基础设施层 - S3 存储 provider 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """AWS S3 storage provider implementation."""
 
+import contextlib
 import hashlib
-from typing import AsyncIterator, Optional, Any
-import anyio
 from functools import partial
+from typing import Any, AsyncIterator, NoReturn, Optional
+
+import anyio
 
 from core.logging_config import get_logger
+
 from ..base import AdvancedStorageProvider
 from ..config import StorageConfig
-from ..models import UploadResult, StorageObject, StorageMetadata, PresignedRequest
 from ..exceptions import (
-    StorageError,
+    ConfigurationError,
     NotFoundError,
     PermissionDeniedError,
+    StorageError,
     TransientError,
-    ConfigurationError,
 )
+from ..models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
 
 logger = get_logger(__name__)
 
@@ -52,15 +55,7 @@ class S3Provider(AdvancedStorageProvider):
         """Upload file to S3."""
         try:
             # Prepare upload arguments
-            extra_args = {}
-            if content_type:
-                extra_args["ContentType"] = content_type
-            if metadata:
-                extra_args["Metadata"] = metadata
-            if self.config.s3_acl:
-                extra_args["ACL"] = self.config.s3_acl
-            if self.config.s3_sse:
-                extra_args["ServerSideEncryption"] = self.config.s3_sse
+            extra_args = self._put_object_extra_args(metadata, content_type)
 
             # Upload using thread pool for sync SDK
             response = await anyio.to_thread.run_sync(
@@ -69,17 +64,13 @@ class S3Provider(AdvancedStorageProvider):
                 )
             )
 
-            # Use server returned ETag if available; else fallback to local hash
-            etag = None
-            try:
-                etag = (response or {}).get("ETag", "").strip('"')  # type: ignore[union-attr]
-            except Exception:
-                etag = None
-            if not etag:
-                etag = hashlib.md5(file).hexdigest()
-
             # Build result
-            result = UploadResult(key=key, etag=etag, size=len(file), content_type=content_type)
+            result = UploadResult(
+                key=key,
+                etag=self._etag_or_local_md5(response, file),
+                size=len(file),
+                content_type=content_type,
+            )
 
             # Attach only stable public URL when available (no temporary presigned here)
             if self.config.public_base_url:
@@ -89,11 +80,36 @@ class S3Provider(AdvancedStorageProvider):
                 result.url = f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
             # For private buckets, do not attach presigned URLs to result.url
 
-            logger.info(f"Uploaded to S3", key=key, size=len(file))
+            logger.info("Uploaded to S3", key=key, size=len(file))
             return result
 
         except Exception as e:
             self._handle_exception(e, f"upload {key}")
+
+    def _put_object_extra_args(
+        self, metadata: Optional[dict], content_type: Optional[str]
+    ) -> dict[str, Any]:
+        """Optional put_object arguments; falsy values are left out."""
+        extra_args: dict[str, Any] = {}
+        if content_type:
+            extra_args["ContentType"] = content_type
+        if metadata:
+            extra_args["Metadata"] = metadata
+        if self.config.s3_acl:
+            extra_args["ACL"] = self.config.s3_acl
+        if self.config.s3_sse:
+            extra_args["ServerSideEncryption"] = self.config.s3_sse
+        return extra_args
+
+    @staticmethod
+    def _etag_or_local_md5(response: Any, file: bytes) -> str:
+        """Use server returned ETag if available; else fallback to local hash."""
+        etag: Optional[str]
+        try:
+            etag = (response or {}).get("ETag", "").strip('"')
+        except Exception:
+            etag = None
+        return etag or hashlib.md5(file, usedforsecurity=False).hexdigest()
 
     async def download(self, key: str) -> bytes:
         """Download file from S3."""
@@ -103,15 +119,13 @@ class S3Provider(AdvancedStorageProvider):
             )
             body = response["Body"]
             try:
-                data = await anyio.to_thread.run_sync(body.read)
-                logger.info(f"Downloaded from S3", key=key, size=len(data))
+                data: bytes = await anyio.to_thread.run_sync(body.read)
+                logger.info("Downloaded from S3", key=key, size=len(data))
                 return data
             finally:
                 # Ensure underlying stream is closed even if read fails
-                try:
+                with contextlib.suppress(Exception):
                     await anyio.to_thread.run_sync(body.close)
-                except Exception:
-                    pass
         except Exception as e:
             self._handle_exception(e, f"download {key}")
 
@@ -131,10 +145,8 @@ class S3Provider(AdvancedStorageProvider):
                     yield chunk
             finally:
                 # Ensure underlying stream is closed to free the connection
-                try:
+                with contextlib.suppress(Exception):
                     await anyio.to_thread.run_sync(body.close)
-                except Exception:
-                    pass
 
         except Exception as e:
             self._handle_exception(e, f"stream download {key}")
@@ -145,7 +157,7 @@ class S3Provider(AdvancedStorageProvider):
             await anyio.to_thread.run_sync(
                 partial(self.client.delete_object, Bucket=self.bucket, Key=key)
             )
-            logger.info(f"Deleted from S3", key=key)
+            logger.info("Deleted from S3", key=key)
             return True
         except Exception as e:
             self._handle_exception(e, f"delete {key}")
@@ -304,7 +316,7 @@ class S3Provider(AdvancedStorageProvider):
                     Key=dest_key,
                 )
             )
-            logger.info(f"Copied in S3", source=source_key, dest=dest_key)
+            logger.info("Copied in S3", source=source_key, dest=dest_key)
             return True
         except Exception as e:
             self._handle_exception(e, f"copy {source_key} to {dest_key}")
@@ -332,7 +344,7 @@ class S3Provider(AdvancedStorageProvider):
             logger.info("S3 health check passed")
             return True
         except Exception as e:
-            logger.error(f"S3 health check failed", error=str(e))
+            logger.error("S3 health check failed", error=str(e))
             return False
 
     # Advanced methods
@@ -346,7 +358,8 @@ class S3Provider(AdvancedStorageProvider):
             response = await anyio.to_thread.run_sync(
                 partial(self.client.create_multipart_upload, **args)
             )
-            return response["UploadId"]
+            upload_id: str = response["UploadId"]
+            return upload_id
         except Exception as e:
             self._handle_exception(e, f"start multipart upload {key}")
 
@@ -365,7 +378,8 @@ class S3Provider(AdvancedStorageProvider):
                     Body=data,
                 )
             )
-            return response["ETag"]
+            etag: str = response["ETag"]
+            return etag
         except Exception as e:
             self._handle_exception(e, f"upload part {part_number}")
 
@@ -458,7 +472,7 @@ class S3Provider(AdvancedStorageProvider):
 
         return True
 
-    def _handle_exception(self, e: Exception, operation: str) -> None:
+    def _handle_exception(self, e: Exception, operation: str) -> NoReturn:
         """Map S3 exceptions to storage exceptions."""
         error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
 
