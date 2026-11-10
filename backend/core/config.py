@@ -1,13 +1,13 @@
 # input: 环境变量 / backend/.env（SECRET_KEY 必填且须为强随机值，嵌套键如 DATABASE__URL）
 # output: settings 全局配置对象, Settings 及各分组配置类, MIN_SECRET_KEY_LENGTH
-# pos: 核心配置 - 配置管理与启动期 fail-fast 校验（弱 SECRET_KEY/生产 DEBUG 拒绝启动）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
+# pos: 核心配置 - 配置管理与启动期 fail-fast 校验（弱 SECRET_KEY/生产 DEBUG/aiokafka 以外的 KAFKA__DRIVER 拒绝启动并提示迁移）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 配置文件 - 项目配置管理
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,10 +32,20 @@ class GrpcSettings(BaseModel):
     tls: GrpcTlsSettings = Field(default_factory=GrpcTlsSettings)
 
 
+# confluent-kafka 驱动已删除。KAFKA__DRIVER 字段仍保留：Settings 拒绝未知键，删掉字段会让
+# 已写这一行的 .env 起不来；aiokafka 以外的任何值（包括以前会落到 confluent 的写法）
+# 启动即失败，并给出同一条迁移提示
+_KAFKA_DRIVER_UNSUPPORTED = (
+    "KAFKA__DRIVER={value!r} 不受支持：confluent-kafka 驱动已移除，Kafka 只保留 aiokafka 驱动。"
+    "请改为 KAFKA__DRIVER=aiokafka（或删掉这一行，默认就是 aiokafka），"
+    "并安装 aiokafka extra：uv sync --extra aiokafka"
+)
+
+
 class KafkaSettings(BaseModel):
-    # Provider/driver
+    # Provider/driver（driver 只剩 aiokafka）
     provider: str = Field(default="kafka")
-    driver: str = Field(default="confluent")  # confluent or aiokafka
+    driver: Literal["aiokafka"] = Field(default="aiokafka")
 
     # Core Kafka
     bootstrap_servers: str = Field(default="localhost:9092")
@@ -80,6 +90,14 @@ class KafkaSettings(BaseModel):
     # Retry policy
     retry_layers: Optional[str] = "retry.5s:5000,retry.1m:60000,retry.10m:600000"
     retry_dlq_suffix: str = "dlq"
+
+    @field_validator("driver", mode="before")
+    @classmethod
+    def _reject_unsupported_driver(cls, value: Any) -> Any:
+        # 只接受精确的 "aiokafka"，不新增大小写/空格等变体
+        if value != "aiokafka":
+            raise ValueError(_KAFKA_DRIVER_UNSUPPORTED.format(value=value))
+        return value
 
 
 class RedisSettings(BaseModel):

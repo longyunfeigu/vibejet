@@ -53,7 +53,6 @@ exclude = [
 [[tool.mypy.overrides]]
 module = [
     "celery.*",
-    "confluent_kafka.*",
     "aiokafka.*",
     "oss2.*",
     "boto3.*",
@@ -248,9 +247,9 @@ dependencies = [
 # Object storage providers (loaded lazily by the storage factory)
 s3 = ["boto3>=1.34.34,<2"]
 oss = ["oss2>=2.19.0,<3"]
-# Messaging (two alternative Kafka drivers; pick one)
-kafka = ["confluent-kafka>=2.3,<3"]
-aiokafka = ["aiokafka>=0.10,<1"]
+# Messaging (Kafka via aiokafka; the confluent-kafka driver was removed).
+# [zstd] pulls the codec for the default KAFKA__PRODUCER_COMPRESSION_TYPE=zstd.
+aiokafka = ["aiokafka[zstd]>=0.10,<1"]
 # LLM providers beyond OpenAI-compatible (openrouter/litellm reuse the core openai SDK)
 anthropic = ["anthropic>=0.40,<2"]
 # Async task queue
