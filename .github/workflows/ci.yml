@@ -47,6 +47,7 @@ jobs:
           uv export --no-emit-project --no-dev --all-extras -o /tmp/requirements-audit.txt
           uv run pip-audit -r /tmp/requirements-audit.txt
 
+      # --diff-filter=d：删除的文件不进清单，否则 black 等工具会因路径不存在而直接报错
       - name: Detect changed Python files
         id: changed-py
         shell: bash
@@ -66,7 +67,7 @@ jobs:
             )"
           else
             PY_FILES="$(
-              git -C "${GITHUB_WORKSPACE}" diff --name-only "${BASE_SHA}" HEAD -- 'backend/*.py' \
+              git -C "${GITHUB_WORKSPACE}" diff --name-only --diff-filter=d "${BASE_SHA}" HEAD -- 'backend/*.py' \
                 | sed -e 's|^backend/||' \
                       -e '/^alembic\/versions\//d' \
                       -e '/^grpc_app\/generated\//d'
