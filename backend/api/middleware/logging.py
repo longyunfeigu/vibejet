@@ -10,18 +10,69 @@
 通过 receive/send wrapper 被动捕获请求体和响应状态。
 """
 
-import time
-from typing import Any
-from urllib.parse import unquote, parse_qs
 import json
+import time
+from typing import Any, cast
+from urllib.parse import parse_qs, unquote
 
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from core.logging_config import get_logger
 from core.config import settings
-
+from core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+class _RequestCapture:
+    """单个请求的被动捕获状态，提供包装后的 receive/send。
+
+    - receive：原样透传消息给下游，允许时截取请求体副本（不超过上限）
+    - send：记录响应状态码，并注入 X-Process-Time 响应头
+    """
+
+    def __init__(
+        self,
+        receive: Receive,
+        send: Send,
+        *,
+        start_time: float,
+        capture_body: bool,
+        max_body_bytes: int,
+    ) -> None:
+        self._receive = receive
+        self._send = send
+        self._start_time = start_time
+        self._max_body_bytes = max_body_bytes
+        self._total_captured = 0
+        self.capture_body = capture_body
+        self.body_chunks: list[bytes] = []
+        # 下游没发 http.response.start（例如直接抛异常）时按 500 记录
+        self.status_code = 500
+
+    def elapsed(self) -> float:
+        return time.time() - self._start_time
+
+    async def receive(self) -> Message:
+        message = await self._receive()
+        if message["type"] == "http.request" and self.capture_body:
+            self._capture(message.get("body", b""))
+        return message  # 原样返回，下游正常读取
+
+    def _capture(self, chunk: bytes) -> None:
+        if chunk and self._total_captured < self._max_body_bytes:
+            capture = chunk[: self._max_body_bytes - self._total_captured]
+            self.body_chunks.append(capture)
+            self._total_captured += len(capture)
+
+    async def send(self, message: Message) -> None:
+        if message["type"] == "http.response.start":
+            self.status_code = message.get("status", 500)
+            # 注入 X-Process-Time 响应头（新建消息，不改动下游的原对象）
+            duration = self.elapsed()
+            headers = list(message.get("headers", []))
+            headers.append((b"x-process-time", f"{duration:.3f}".encode()))
+            message = {**message, "headers": headers}
+        await self._send(message)
 
 
 class LoggingMiddleware:
@@ -73,21 +124,17 @@ class LoggingMiddleware:
         self.allow_multipart_body_log: bool = settings.LOG_REQUEST_BODY_ALLOW_MULTIPART
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or scope.get("path", "") in self.SKIP_PATHS:
             await self.app(scope, receive, send)
             return
+        await self._handle_http(scope, receive, send)
 
-        path = scope.get("path", "")
-        if path in self.SKIP_PATHS:
-            await self.app(scope, receive, send)
-            return
-
+    async def _handle_http(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """记录一次 HTTP 请求：开始日志 → 透传给下游 → 完成或失败日志。"""
         start_time = time.time()
 
-        # 从 scope 提取请求信息
+        # 从 scope 提取请求信息并记录请求日志
         request_info = self._build_request_info(scope)
-
-        # 记录请求日志
         logger.info("request_started", **request_info)
 
         # 判断是否需要捕获 body
@@ -95,57 +142,25 @@ class LoggingMiddleware:
         should_log_body = method in ("POST", "PUT", "PATCH") and self._should_log_body_from_scope(
             scope
         )
-
-        # receive wrapper: 透传 body 给下游，同时捕获副本用于日志
-        body_chunks: list[bytes] = []
-        total_captured: int = 0
-
-        async def receive_wrapper() -> dict:
-            nonlocal total_captured
-            message = await receive()
-            if message["type"] == "http.request" and should_log_body:
-                chunk = message.get("body", b"")
-                if chunk and total_captured < self.max_body_log_bytes:
-                    capture = chunk[: self.max_body_log_bytes - total_captured]
-                    body_chunks.append(capture)
-                    total_captured += len(capture)
-            return message  # 原样返回，下游正常读取
-
-        # send wrapper: 捕获状态码 + 注入 X-Process-Time
-        status_code = 500
-
-        async def send_wrapper(message: dict) -> None:
-            nonlocal status_code
-            if message["type"] == "http.response.start":
-                status_code = message.get("status", 500)
-                # 注入 X-Process-Time 响应头
-                duration = time.time() - start_time
-                headers = list(message.get("headers", []))
-                headers.append((b"x-process-time", f"{duration:.3f}".encode()))
-                message = {**message, "headers": headers}
-            await send(message)
+        capture = _RequestCapture(
+            receive,
+            send,
+            start_time=start_time,
+            capture_body=should_log_body,
+            max_body_bytes=self.max_body_log_bytes,
+        )
 
         try:
-            await self.app(scope, receive_wrapper, send_wrapper)
+            await self.app(scope, capture.receive, capture.send)
 
-            duration = time.time() - start_time
-
+            duration = capture.elapsed()
             # body 日志（在请求完成后记录）
-            if body_chunks and should_log_body:
-                body_info = self._parse_and_sanitize_body(scope, b"".join(body_chunks))
-                if body_info is not None:
-                    request_info["body"] = body_info
-
-            self._log_response(status_code, duration, request_info)
+            self._attach_body(scope, request_info, capture)
+            self._log_response(capture.status_code, duration, request_info)
 
         except Exception as exc:
-            duration = time.time() - start_time
-
-            if body_chunks and should_log_body:
-                body_info = self._parse_and_sanitize_body(scope, b"".join(body_chunks))
-                if body_info is not None:
-                    request_info["body"] = body_info
-
+            duration = capture.elapsed()
+            self._attach_body(scope, request_info, capture)
             logger.error(
                 "request_failed",
                 duration=duration,
@@ -155,6 +170,14 @@ class LoggingMiddleware:
                 exc_info=True,
             )
             raise
+
+    def _attach_body(self, scope: Scope, request_info: dict, capture: _RequestCapture) -> None:
+        """把已捕获的请求体（解析并脱敏后）写入请求信息。"""
+        if not (capture.body_chunks and capture.capture_body):
+            return
+        body_info = self._parse_and_sanitize_body(scope, b"".join(capture.body_chunks))
+        if body_info is not None:
+            request_info["body"] = body_info
 
     # ------------------------------------------------------------------
     # 从 scope 提取信息的辅助方法
@@ -166,7 +189,7 @@ class LoggingMiddleware:
         name_lower = name.lower().encode("latin-1")
         for key, value in scope.get("headers", []):
             if key == name_lower:
-                return value.decode("latin-1")
+                return cast(str, value.decode("latin-1"))
         return ""
 
     def _build_request_info(self, scope: Scope) -> dict:

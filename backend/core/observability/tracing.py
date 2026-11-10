@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from core.logging_config import get_logger
 
@@ -75,6 +75,41 @@ def setup_tracing(
     return True
 
 
+def _instrument_fastapi(app: Any) -> None:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app)
+
+
+def _instrument_httpx(_app: Any) -> None:
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
+    HTTPXClientInstrumentor().instrument()
+
+
+def _instrument_redis(_app: Any) -> None:
+    from opentelemetry.instrumentation.redis import RedisInstrumentor
+
+    RedisInstrumentor().instrument()
+
+
+def _instrument_sqlalchemy(_app: Any) -> None:
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
+    from infrastructure.database import engine
+
+    SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
+
+
+# (失败时的日志事件, 装配函数)：按顺序执行，单个失败只记 warning，不影响其余
+_INSTRUMENTATIONS: tuple[tuple[str, Callable[[Any], None]], ...] = (
+    ("fastapi_instrumentation_failed", _instrument_fastapi),
+    ("httpx_instrumentation_failed", _instrument_httpx),
+    ("redis_instrumentation_failed", _instrument_redis),
+    ("sqlalchemy_instrumentation_failed", _instrument_sqlalchemy),
+)
+
+
 def instrument_app(app: Any) -> bool:
     if not HAS_OTEL:
         return False
@@ -82,35 +117,11 @@ def instrument_app(app: Any) -> bool:
     if _instrumented:
         return True
 
-    try:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-        FastAPIInstrumentor.instrument_app(app)
-    except Exception as exc:
-        logger.warning("fastapi_instrumentation_failed", error=str(exc))
-
-    try:
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-
-        HTTPXClientInstrumentor().instrument()
-    except Exception as exc:
-        logger.warning("httpx_instrumentation_failed", error=str(exc))
-
-    try:
-        from opentelemetry.instrumentation.redis import RedisInstrumentor
-
-        RedisInstrumentor().instrument()
-    except Exception as exc:
-        logger.warning("redis_instrumentation_failed", error=str(exc))
-
-    try:
-        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-
-        from infrastructure.database import engine
-
-        SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
-    except Exception as exc:
-        logger.warning("sqlalchemy_instrumentation_failed", error=str(exc))
+    for failure_event, instrument in _INSTRUMENTATIONS:
+        try:
+            instrument(app)
+        except Exception as exc:
+            logger.warning(failure_event, error=str(exc))
 
     _instrumented = True
     return True
