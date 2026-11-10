@@ -1,5 +1,5 @@
 # input: markitdown 库（optional extra "documents"），文件二进制
-# output: MarkitdownParser（本地解析 Office/HTML/txt/数字原生 PDF → Markdown）
+# output: MarkitdownParser（本地解析 Office/HTML/txt/数字原生 PDF → Markdown；同时在跑的转换数有上限）
 # pos: 基础设施层 - 文档解析 provider（markitdown，默认；扫描件显式拒绝）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Local document parsing via Microsoft markitdown.
 
@@ -11,6 +11,7 @@ NOT supported by this provider; switch ``DOCUMENT__PARSER=textin`` instead.
 from __future__ import annotations
 
 import io
+import threading
 from os.path import splitext
 from typing import Optional
 
@@ -23,6 +24,11 @@ logger = get_logger(__name__)
 
 # 低于该字符数视为"未提取到有效文本"（典型场景：扫描件 PDF 没有文本层）
 _MIN_MEANINGFUL_CHARS = 20
+
+# 同时在跑的转换上限（整个进程共用）。超时只放弃等待，被放弃的线程会继续跑完；
+# 名额在线程里占、跑完才还，反复超时也不会让后台转换线程无限堆积
+_MAX_CONCURRENT_CONVERSIONS = 4
+_conversion_slots = threading.BoundedSemaphore(_MAX_CONCURRENT_CONVERSIONS)
 
 
 class MarkitdownParser:
@@ -51,8 +57,9 @@ class MarkitdownParser:
     ) -> ParsedDocument:
         try:
             with anyio.fail_after(self._timeout):
+                # abandon_on_cancel：超时后放弃等待；不加的话线程等待不可取消，fail_after 形同虚设
                 markdown = await anyio.to_thread.run_sync(
-                    self._convert_sync, data, content_type, filename
+                    self._convert_guarded, data, content_type, filename, abandon_on_cancel=True
                 )
         except TimeoutError as exc:
             # 注意：超时只取消等待，工作线程无法被杀死，会继续跑完后被丢弃
@@ -71,6 +78,22 @@ class MarkitdownParser:
                 details={"filename": filename, "content_type": content_type},
             )
         return ParsedDocument(markdown=markdown, metadata={"chars": len(markdown)})
+
+    def _convert_guarded(
+        self, data: bytes, content_type: Optional[str], filename: Optional[str]
+    ) -> str:
+        # 在工作线程里占名额，转换结束才释放；先绑定到局部变量，保证还给借出的那一个
+        slots = _conversion_slots
+        if not slots.acquire(blocking=False):
+            raise DocumentParserError(
+                code="document.parse.busy",
+                message=f"markitdown 同时在跑的转换已达上限（{_MAX_CONCURRENT_CONVERSIONS}），请稍后重试",
+                details={"filename": filename, "content_type": content_type},
+            )
+        try:
+            return self._convert_sync(data, content_type, filename)
+        finally:
+            slots.release()
 
     def _convert_sync(
         self, data: bytes, content_type: Optional[str], filename: Optional[str]
