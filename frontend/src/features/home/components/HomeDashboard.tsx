@@ -1,7 +1,3 @@
-// input: useCurrentUser, AppShell, authStore.clearSession
-// output: HomeDashboard —— 已登录首页总览
-// owner: wanhua.gu
-// pos: home feature - 首页仪表盘内容；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowUpRight, CheckCircle2, Clock3, Rocket, ShieldCheck } from 'lucide-react';
 
@@ -134,7 +130,7 @@ function ReadinessPanel() {
 export function HomeDashboard() {
   const { data: user } = useCurrentUser();
   const navigate = useNavigate();
-  const displayName = user.fullName ?? user.username;
+  const displayName = user.fullName || user.username;
 
   function handleLogout() {
     clearSession();

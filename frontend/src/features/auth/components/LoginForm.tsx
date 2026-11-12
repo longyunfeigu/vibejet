@@ -1,11 +1,8 @@
-// input: useLogin(), loginSchema (RHF + zodResolver)
-// output: LoginForm 组件 —— 编辑排印式表单（下划线输入 + 加宽字距小标签 + 墨绿实心按钮）
-// pos: auth feature - 登录表单 UI；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
-import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -13,25 +10,25 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 
-import { useLogin } from '../hooks/useLogin'
-import { loginSchema, type LoginInput } from '../types'
+import { useLogin } from '../hooks/useLogin';
+import { loginSchema, type LoginInput } from '../types';
 
-const labelClass = 'text-ink-faint text-xs tracking-[0.32em]'
+const labelClass = 'text-ink-faint text-xs tracking-[0.32em]';
 const inputClass =
-  'border-line placeholder:text-ink-ghost focus-visible:border-ink h-11 rounded-none border-0 border-b bg-transparent px-0 text-base shadow-none focus-visible:ring-0 focus-visible:shadow-[0_1px_0_0_var(--ink)]'
+  'border-line placeholder:text-ink-ghost focus-visible:border-ink h-11 rounded-none border-0 border-b bg-transparent px-0 text-base shadow-none focus-visible:ring-0 focus-visible:shadow-[0_1px_0_0_var(--ink)]';
 
 export function LoginForm() {
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: { username: '', password: '' },
-  })
-  const { mutate, isPending } = useLogin()
+  });
+  const { mutate, isPending } = useLogin();
 
   function onSubmit(values: LoginInput) {
-    mutate(values)
+    mutate(values);
   }
 
   return (
@@ -92,5 +89,5 @@ export function LoginForm() {
         </Button>
       </form>
     </Form>
-  )
+  );
 }

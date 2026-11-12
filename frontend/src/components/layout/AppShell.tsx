@@ -1,7 +1,3 @@
-// input: currentUser, onLogout, children
-// output: AppShell —— 已登录区域的应用外壳
-// owner: wanhua.gu
-// pos: 跨域布局组件 - 顶栏/侧栏/内容壳；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import type { ReactNode } from 'react';
 
 import { Bell, LogOut, Sparkles } from 'lucide-react';
@@ -24,7 +20,7 @@ const navItems = [
 ];
 
 function getDisplayName(user: CurrentUser): string {
-  return user.fullName ?? user.username;
+  return user.fullName || user.username;
 }
 
 export function AppShell({ currentUser, children, onLogout }: AppShellProps) {

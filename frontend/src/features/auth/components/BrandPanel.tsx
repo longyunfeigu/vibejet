@@ -1,7 +1,3 @@
-// input: bg-grain 纹理 utility (index.css)
-// output: BrandPanel 组件 —— 登录页右侧画廊式品牌面板（纸色装裱 + CSS 月夜画 + 作品标签）
-// pos: auth feature - 登录页右侧视觉锚(纯装饰，非语义 UI)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-
 export function BrandPanel() {
   return (
     <aside aria-hidden className="relative hidden lg:block lg:w-[54%]">
@@ -21,5 +17,5 @@ export function BrandPanel() {
         <span className="font-display text-ink-ghost italic">no.01 — vibejet studio, 2026</span>
       </p>
     </aside>
-  )
+  );
 }

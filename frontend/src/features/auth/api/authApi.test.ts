@@ -1,17 +1,13 @@
-// input: authApi.fetchMe, apiClient(spy)
-// output: authApi 单元测试(fetchMe 把 AbortSignal 透传给 apiClient)
-// owner: wanhua.gu
-// pos: auth feature - authApi 测试；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-import type { AxiosResponse } from 'axios'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { AxiosResponse } from 'axios';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { apiClient } from '@/lib/apiClient'
+import { apiClient } from '@/lib/apiClient';
 
-import { fetchMe } from './authApi'
+import { fetchMe } from './authApi';
 
 afterEach(() => {
-  vi.restoreAllMocks()
-})
+  vi.restoreAllMocks();
+});
 
 describe('fetchMe', () => {
   it('把 AbortSignal 透传给 apiClient.get', async () => {
@@ -28,11 +24,11 @@ describe('fetchMe', () => {
           is_superuser: false,
         },
       },
-    } as unknown as AxiosResponse)
-    const controller = new AbortController()
+    } as unknown as AxiosResponse);
+    const controller = new AbortController();
 
-    await fetchMe(controller.signal)
+    await fetchMe(controller.signal);
 
-    expect(getSpy).toHaveBeenCalledWith('/auth/me', { signal: controller.signal })
-  })
-})
+    expect(getSpy).toHaveBeenCalledWith('/auth/me', { signal: controller.signal });
+  });
+});

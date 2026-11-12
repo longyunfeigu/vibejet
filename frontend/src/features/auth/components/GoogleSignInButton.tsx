@@ -1,11 +1,8 @@
-// input: useGoogleAuth() hook（授权码流）, shadcn Button
-// output: GoogleSignInButton 组件 —— 白底 hairline 描边 squircle + 官方四色 G logo，点按触发 Google 授权码 popup
-// pos: auth feature - Google 登录按钮(授权码流, 次级样式守 C5)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button';
 
-import { useGoogleAuth } from '../hooks/useGoogleLogin'
+import { useGoogleAuth } from '../hooks/useGoogleLogin';
 
 /** Google 官方四色 “G” 标志（内联 SVG，避免额外依赖/网络资源）。 */
 function GoogleIcon({ className }: { className?: string }) {
@@ -28,11 +25,11 @@ function GoogleIcon({ className }: { className?: string }) {
         d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.44-3.44A11.99 11.99 0 0 0 12 0 12 12 0 0 0 1.28 6.59l4.01 3.1A7.14 7.14 0 0 1 12 4.77z"
       />
     </svg>
-  )
+  );
 }
 
 export function GoogleSignInButton() {
-  const { login, isPending } = useGoogleAuth()
+  const { login, isPending } = useGoogleAuth();
 
   return (
     <Button
@@ -49,5 +46,5 @@ export function GoogleSignInButton() {
       )}
       使用 Google 继续
     </Button>
-  )
+  );
 }

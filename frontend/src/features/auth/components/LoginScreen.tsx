@@ -1,17 +1,14 @@
-// input: LoginForm, BrandPanel, GoogleSignInButton, OAuthRedirectButton, getConfiguredOAuthProviders
-// output: LoginScreen 组件 —— 编辑艺术风分栏登录屏（左纸色衬线排印认证列 / 右画廊式装裱画）
-// pos: auth feature - 登录页整屏布局(front-of-house, 纸/墨/松绿 token 系)；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
-import { getConfiguredOAuthProviders } from '../helpers/oauthProviders'
-import { BrandPanel } from './BrandPanel'
-import { GoogleSignInButton } from './GoogleSignInButton'
-import { LoginForm } from './LoginForm'
-import { OAuthRedirectButton } from './OAuthRedirectButton'
+import { getConfiguredOAuthProviders } from '../helpers/oauthProviders';
+import { BrandPanel } from './BrandPanel';
+import { GoogleSignInButton } from './GoogleSignInButton';
+import { LoginForm } from './LoginForm';
+import { OAuthRedirectButton } from './OAuthRedirectButton';
 
-const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
+const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 export function LoginScreen() {
-  const oauthProviders = getConfiguredOAuthProviders()
-  const socialEnabled = googleEnabled || oauthProviders.length > 0
+  const oauthProviders = getConfiguredOAuthProviders();
+  const socialEnabled = googleEnabled || oauthProviders.length > 0;
 
   return (
     <div className="bg-paper text-ink flex min-h-[100dvh]">
@@ -87,5 +84,5 @@ export function LoginScreen() {
       {/* 右：画廊面板（移动端隐藏） */}
       <BrandPanel />
     </div>
-  )
+  );
 }

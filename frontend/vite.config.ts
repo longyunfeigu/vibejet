@@ -1,7 +1,3 @@
-// input: VITE_API_URL 环境变量, src/ 源码, tsconfig 路径别名
-// output: Vite dev/build 配置（React + Tailwind v4 + TanStack Router 插件, @ 别名, /api 代理）
-// owner: wanhua.gu
-// pos: 前端构建配置 - Vite 入口配置；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import path from 'node:path'
 
 import { tanstackRouter } from '@tanstack/router-plugin/vite'

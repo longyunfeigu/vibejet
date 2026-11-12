@@ -1,7 +1,3 @@
-// input: src/ 下的 ts/tsx 源码
-// output: ESLint flat 配置（js + typescript-eslint + react-hooks + prettier）
-// owner: wanhua.gu
-// pos: 前端 lint 配置 - ESLint 入口；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 import js from '@eslint/js'
 import prettier from 'eslint-config-prettier'
 import reactHooks from 'eslint-plugin-react-hooks'
