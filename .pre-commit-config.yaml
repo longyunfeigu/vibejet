@@ -25,7 +25,7 @@ repos:
       - id: flake8
         args:
           - --max-line-length=100
-          - --extend-ignore=E203,E501,W503
+          - --extend-ignore=E203,E501,W503,B008
           - --exclude=backend/alembic/versions/*,backend/grpc_app/generated/*
           # 与 backend/.flake8 保持一致（pre-commit 从仓库根运行，读不到该文件）：
           # __init__ 豁免 F401；scripts/ 与 alembic/env.py 属 CLI/迁移工具，print 合法，豁免 T20
@@ -58,7 +58,7 @@ repos:
     rev: 1.7.8
     hooks:
       - id: bandit
-        args: [-c, backend/pyproject.toml]
+        args: [-c, backend/pyproject.toml, -s, "B104,B108"]
         additional_dependencies: ["bandit[toml]"]
 
   # General file checks

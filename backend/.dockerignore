@@ -70,7 +70,6 @@ conftest.py
 # Development
 requirements-dev.txt
 .pre-commit-config.yaml
-pyproject.toml
 setup.py
 setup.cfg
 
@@ -94,10 +93,8 @@ logs/
 *.sqlite
 *.sqlite3
 
-# Alembic
-alembic.ini
+# Alembic (alembic.ini + script.py.mako are needed at runtime / for autogenerate)
 alembic/README
-alembic/script.py.mako
 
 # Generated files
 grpc_app/generated/

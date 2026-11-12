@@ -88,7 +88,12 @@ jobs:
           uv run black --check "${PY_FILES[@]}"
           uv run isort --check-only "${PY_FILES[@]}"
           uv run flake8 --max-line-length=100 --extend-ignore=E203,E501,W503,B008 "${PY_FILES[@]}"
-          uv run mypy --explicit-package-bases --follow-imports=skip "${PY_FILES[@]}"
+          # silent：跟随导入做类型推断但只报改动文件的错（skip 会把导入全当 Any，满屏误报）。
+          # tests/ 不跑 mypy：测试里的假对象按结构写，不按严格类型写
+          mapfile -t MYPY_FILES < <(printf '%s\n' "${PY_FILES[@]}" | sed '/^tests\//d')
+          if (( ${#MYPY_FILES[@]} )); then
+            uv run mypy --explicit-package-bases --follow-imports=silent "${MYPY_FILES[@]}"
+          fi
           uv run bandit -c pyproject.toml -s B104,B108 "${PY_FILES[@]}"
 
       - name: Lint skipped
@@ -99,6 +104,45 @@ jobs:
       # 此处不要显式传 test-secret-key 之类的弱值——会被 Settings 校验拒绝导致收集失败
       - name: Test
         run: uv run pytest
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies (locked)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
 
   autotest-checks:
     runs-on: ubuntu-latest

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -14,27 +12,46 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d userdb"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
   app:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        # 可选包镜像（留空走官方源），从 shell 环境透传，见 backend/Dockerfile 顶部
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     container_name: user_api
     ports:
-      - "8000:8000"
+      - "8010:8010"
     environment:
       DATABASE__URL: postgresql+asyncpg://user:password@postgres:5432/userdb
       # 无弱默认：未设置则 compose 直接报错（生成方式：openssl rand -hex 32）
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set (e.g. openssl rand -hex 32)}
       DEBUG: ${DEBUG:-false}
+      # 本地开发栈：启动时把 schema 迁到最新（生产不要开，迁移走独立步骤）
+      AUTO_RUN_MIGRATIONS: "true"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     volumes:
       - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8010 --reload
 
   grpc:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        # grpc extra（grpcio / grpcio-tools / health checking）不在核心依赖里
+        EXTRAS: grpc
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     container_name: user_grpc
     ports:
       - "50051:50051"
@@ -47,11 +64,28 @@ services:
       GRPC__HOST: 0.0.0.0
       GRPC__PORT: 50051
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
     volumes:
       - ./backend:/app
+    # 镜像里的 HEALTHCHECK 探的是 HTTP :8010，对 gRPC 容器不适用；改用 gRPC 标准健康检查
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import grpc, sys;
+          from grpc_health.v1 import health_pb2, health_pb2_grpc;
+          r = health_pb2_grpc.HealthStub(grpc.insecure_channel('localhost:50051')).Check(
+          health_pb2.HealthCheckRequest(), timeout=3);
+          sys.exit(0 if r.status == health_pb2.HealthCheckResponse.SERVING else 1)
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     command: bash -c "bash scripts/gen_protos.sh && python grpc_main.py"
 
 volumes:
