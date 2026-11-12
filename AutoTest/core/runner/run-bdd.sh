@@ -21,8 +21,7 @@ esac
 GREP_ARG=""
 if [ "$MODULE" = "smoke" ]; then GREP_ARG="--grep @smoke"; fi
 
-PROJECT_ARG=""
-if [ -n "$PROJECT" ]; then PROJECT_ARG="--project=$PROJECT"; fi
+PROJECT_ARG="--project=$PROJECT"
 
 export E2E_ENV=$ENV
 
@@ -32,16 +31,13 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT"
 
 echo "[run-bdd.sh] module=$MODULE env=$ENV"
-if [ -n "$PROJECT_ARG" ]; then echo "[run-bdd.sh] project=$PROJECT"; fi
+echo "[run-bdd.sh] project=$PROJECT"
 if [ -n "$GREP_ARG" ]; then echo "[run-bdd.sh] grep=@smoke"; fi
 
 # playwright-bdd does not remove specs for feature files that were deleted on
 # another branch. Clean the generated tree before each compile so branch
 # switches cannot execute stale scenarios.
-GEN_BDD_DIR="$ROOT/core/.gen-bdd"
-if [ "$GEN_BDD_DIR" = "$ROOT/core/.gen-bdd" ]; then
-  rm -rf "$GEN_BDD_DIR"
-fi
+rm -rf "$ROOT/core/.gen-bdd"
 
 npx bddgen test --config config/playwright.config.ts
 BDDGEN_E=$?

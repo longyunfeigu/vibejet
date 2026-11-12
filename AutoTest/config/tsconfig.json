@@ -13,7 +13,6 @@
   "include": [
     "../modules/**/steps/**/*.ts",
     "../modules/**/pages/**/*.ts",
-    "../modules/**/legacy-specs/**/*.ts",
     "../core/runner/**/*.ts",
     "../core/release-check/**/*.ts",
     "../core/helpers/**/*.ts",
@@ -23,7 +22,6 @@
     "./global-setup.ts"
   ],
   "exclude": [
-    ".claude/**",
     "../core/.gen-bdd/**"
   ]
 }

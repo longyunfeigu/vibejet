@@ -40,10 +40,12 @@ const moduleProject = (name: string) => ({
 
 export default defineConfig({
   timeout: 60000,
-  // @slow scenarios call test.setTimeout() in their first Given step to override this.
+  // Scenarios tagged @slow get 3x this timeout via playwright-bdd's built-in @slow tag (test.slow()).
   workers: parseInt(process.env.WORKERS ?? '1'),  // default 1; set WORKERS=N to parallelise
   globalSetup: './global-setup.ts',
-  outputDir: '../report/test-results',
+  // Playwright wipes outputDir on every run — keep it apart from report/test-results/,
+  // where gen-failed-cases-csv.mjs accumulates failed-case CSV history.
+  outputDir: '../report/test-artifacts',
   use: {
     headless: process.env.HEADLESS === 'true',  // default: headed; set HEADLESS=true for headless
     screenshot: 'only-on-failure',

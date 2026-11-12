@@ -133,11 +133,13 @@ AutoTest/
 ## 三、npm 命令速查
 
 ```bash
-# 运行（环境后缀为 config/environments.json 里的环境名）
+# 运行（npm 脚本只预置了 local 环境）
 npm run test:all:local       # 全量
 npm run test:smoke:local     # 仅 @smoke
 npm run test:auth:local      # auth 模块
 npm run test:home:local      # home 模块
+# 其他环境（config/environments.json 里的环境名）直接调脚本；npm 脚本额外设了 HEADLESS=true
+HEADLESS=true ./core/runner/run-bdd.sh <all|smoke|auth|home> <env>
 
 # 检查
 npm run bdd:gen              # 验证步骤匹配，无 "Missing step" 报错

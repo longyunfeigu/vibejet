@@ -10,7 +10,7 @@ A guide is **not** a step-by-step test case and **not** a script: write the why 
 
 ```
 Release-Check/
-  README.md / STANDARD.md / TEMPLATE-feature.md / TEMPLATE-bugfix.md   (+ -cn companions)
+  README.md / STANDARD.md / TEMPLATE-feature.md / TEMPLATE-bugfix.md
   _shared/
     safety.md            how to verify and judge, what may and may not be done
     tools.md             registered tools

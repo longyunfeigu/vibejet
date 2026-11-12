@@ -6,4 +6,4 @@ HOME-DSH-002,2026-11-09-feature-import-voice-agent-delivery,home,首页,后端�
 2. 打开首页
 3. 点「重新登录」","1. 显示「会话已失效」
 2. 本地会话已被清除
-3. 点「重新登录」后到 /login",无,@HOME-DSH-002 @negative,edy,刷新失败时 apiClient 清会话（frontend/src/lib/apiClient.ts），路由错误态渲染 HomeSessionError
+3. 点「重新登录」后到 /login",无,@HOME-DSH-002 @negative,edy,刷新失败时 apiClient 清会话（frontend/src/lib/apiClient.ts），路由错误态渲染 HomeError

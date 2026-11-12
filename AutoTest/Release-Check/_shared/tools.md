@@ -8,6 +8,6 @@ The lint reads the **first column** of this table; a guide's `tools` field may l
 | `api` | Call vibejet REST APIs with a test account's bearer token: `POST /api/v1/auth/login` with body `{"username", "password"}` (`backend/application/dto.py:214`), token at `data.access_token` (`backend/application/dto.py:239`); create and delete test data | read + write | available |
 | `db-readonly` | Run one SQL statement in a read-only transaction (30 s timeout) inside the Postgres container; prints a table | read only | available |
 | `app-logs` | Read the backend's log output for a time window (`docker logs` of the app container, or the dev server's terminal output) | read only | available |
-| `e2e-suite` | Run AutoTest BDD scenarios by module or tag (`npm run test:<module>:<env>` in `AutoTest/`) | read + write test data | available |
+| `e2e-suite` | Run AutoTest BDD scenarios by module or tag (`./core/runner/run-bdd.sh <module|all|smoke> <env>` in `AutoTest/`; `npm run test:<module>:local` is the shortcut for `local`) | read + write test data | available |
 
 `db-readonly` lives in `AutoTest/core/release-check/tools/db-readonly.sh`; usage is in the script header. It knows no environment: `--container` names the database container and `--via "<command prefix>"` runs it on another host.

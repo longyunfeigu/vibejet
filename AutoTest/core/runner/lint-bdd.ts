@@ -5,7 +5,7 @@
  * Check C: Step locator prohibition (no direct page.locator / page.getBy etc. in steps)
  * Check D: Test data naming (e2e- strings must be ASCII only)
  * Check E: Stability rules (no raw waitForTimeout, no bare CSS selector in steps)
- * Check F: TC tag coverage (every Scenario has exactly one valid @TC-* tag)
+ * Check F: Case ID tag coverage (every Scenario has exactly one valid case-ID tag, e.g. @AUTH-LGN-001)
  * Check G: CSV structure (every case row has 16 columns; Execution Type is one of
  *          the canonical Chinese values; vibejet keeps one Chinese case file)
  * Check H: API-first — no page.request.* in steps/pages (report-only during the
@@ -144,7 +144,7 @@ function checkStepLocators(): LocatorResult {
       allStepFiles.push(path.join(stepsDir, f));
     }
   }
-  // Also check common steps — but common.steps.ts is allowed to use page.getByRole via its cross-context detection pattern
+  // Also check the cross-module common steps (findModuleSubdirs skips modules/common).
   const commonStepsPath = path.join(MODULES_DIR, 'common', 'steps', 'common.steps.ts');
   if (fs.existsSync(commonStepsPath)) {
     allStepFiles.push(commonStepsPath);
@@ -153,7 +153,6 @@ function checkStepLocators(): LocatorResult {
   for (const filePath of allStepFiles) {
     const lines = readLines(filePath);
     const fileName = path.basename(filePath);
-    const isCommon = fileName === 'common.steps.ts';
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -165,14 +164,6 @@ function checkStepLocators(): LocatorResult {
       // but still flag anything that isn't part of that known pattern
       for (const pattern of FORBIDDEN_PATTERNS) {
         if (pattern.test(line)) {
-          if (isCommon) {
-            // Allow the well-known cross-context pattern in common.steps.ts
-            // It uses page.getByRole for direct page check, then frameLocator for iframe
-            // We allow these if they're part of a button visibility check
-            if (line.includes('getByRole') || line.includes('frameLocator')) {
-              continue; // standard cross-context pattern, permitted in common steps
-            }
-          }
           violations.push(`${fileName}:${i + 1}: direct ${pattern.source.replace(/\\/g, '')} call — move to POM`);
           break; // one violation per line is enough
         }
@@ -230,18 +221,18 @@ function checkTestDataNaming(): TestDataResult {
   return { passed: violations.length === 0, violations };
 }
 
-// ── Check F: TC tag coverage ──────────────────────────────────────────────────
-// Every Scenario / Scenario Outline in an EN .feature file must have exactly one @TC-* tag.
-// TC tags must match the format @TC-{MODULE}-{FEATURE}-{NNN} (uppercase, digits).
-// No duplicate TC values within a module.
+// ── Check F: Case ID tag coverage ────────────────────────────────────────────
+// Every Scenario / Scenario Outline in an EN .feature file must have exactly one case-ID tag
+// of the form @{MODULE}-{FEATURE}-{NNN} (uppercase, digits), e.g. @AUTH-LGN-001.
+// No duplicate case-ID tags across all modules.
 
 interface TcTagResult {
   passed: boolean;
   violations: string[];
 }
 
-// Format: @{MODULE}-{NNN} where MODULE is 2-5 uppercase letters (matches xlsx Case ID)
-// Format: @{MODULE}-{FEATURE}-{NNN} e.g. @KB-KB1-001, @VA-SHL-001
+// Format: @{MODULE}-{FEATURE}-{NNN}, MODULE 2-5 uppercase letters, matching the CSV 用例编号
+// e.g. @AUTH-LGN-001, @HOME-DSH-002
 const TC_TAG_RE = /^@[A-Z]{2,5}-[A-Z0-9]+-\d{3,4}$/;
 
 function checkTcTagCoverage(): TcTagResult {
@@ -271,26 +262,26 @@ function checkTcTagCoverage(): TcTagResult {
         const tcTags = allTagsStr.match(/@[A-Z]{2,5}-[A-Z0-9]+-\d{3,4}\b/g) ?? [];
 
         if (tcTags.length === 0) {
-          violations.push(`${enFile} line ${i + 1}: missing @TC-* tag`);
+          violations.push(`${enFile} line ${i + 1}: missing case-ID tag (e.g. @AUTH-LGN-001)`);
           continue;
         }
         if (tcTags.length > 1) {
-          violations.push(`${enFile} line ${i + 1}: multiple TC tags: ${tcTags.join(', ')}`);
+          violations.push(`${enFile} line ${i + 1}: multiple case-ID tags: ${tcTags.join(', ')}`);
           continue;
         }
 
         const tc = tcTags[0];
         if (!tc) {
-          violations.push(`${enFile} line ${i + 1}: missing @TC-* tag`);
+          violations.push(`${enFile} line ${i + 1}: missing case-ID tag (e.g. @AUTH-LGN-001)`);
           continue;
         }
         if (!TC_TAG_RE.test(tc)) {
-          violations.push(`${enFile} line ${i + 1}: invalid TC format "${tc}" — expected @TC-MODULE-FEATURE-NNN`);
+          violations.push(`${enFile} line ${i + 1}: invalid case-ID tag "${tc}" — expected @MODULE-FEATURE-NNN`);
         }
 
         const key = tc;
         if (seenTags.has(key)) {
-          violations.push(`${enFile} line ${i + 1}: duplicate TC tag ${tc} (first seen in ${seenTags.get(key)})`);
+          violations.push(`${enFile} line ${i + 1}: duplicate case-ID tag ${tc} (first seen in ${seenTags.get(key)})`);
         } else {
           seenTags.set(key, enFile);
         }
@@ -326,7 +317,7 @@ function checkStability(): { passed: boolean; violations: string[] } {
         }
 
         // Rule 2: no bare CSS class selector in step files (div.xxx, span.xxx)
-        if (/(?<![.w])page\.locator\(\s*['"`][a-z]+(\.[\w-]+)+/.test(line)) {
+        if (/(?<![.\w])page\.locator\(\s*['"`][a-z]+(\.[\w-]+)+/.test(line)) {
           violations.push(`${rel}:${lineNum}: CSS class selector in step — move to POM`);
         }
       });
@@ -367,20 +358,14 @@ function checkStability(): { passed: boolean; violations: string[] } {
 }
 
 // ── Check G: CSV structure & Execution Type ───────────────────────────────
-// Every data row in cases/manual-test-cases-{en,cn}.csv must have exactly 16
-// columns, and the Execution Type column (index 7) must be one of the canonical
-// values. en/cn rows sharing a Case ID must agree on Execution Type. This guards
+// Every data row in cases/manual-test-cases-cn.csv must have exactly 16 columns,
+// and the 执行方式 column (index 7) must be one of the canonical values. This guards
 // against column shifts (串列) and value drift (e.g. 手动测试 / 手工 / 自动化).
 
 const CSV_COLUMN_COUNT = 16;
 const EXEC_COL = 7;
-// Canonical 3-type bilingual vocabulary. English in en CSVs, Chinese in cn CSVs.
+// Canonical 3-type vocabulary for the Chinese case file.
 const EXEC_CN = new Set(['自动化测试', '手工测试-产线高危', '手工测试-故障注入']);
-// Canonical Execution Type → language-neutral key, for en/cn cross-check.
-const EXEC_KEY: Record<string, string> = {
-  Automated: 'auto', 'Manual-Prod-Unsafe': 'manual-prod', 'Manual-Fault-Injection': 'manual-fault',
-  自动化测试: 'auto', '手工测试-产线高危': 'manual-prod', '手工测试-故障注入': 'manual-fault',
-};
 
 /** RFC4180 quote-aware CSV parser (handles embedded commas/newlines, "" escapes, BOM). */
 function parseCsv(content: string): string[][] {
@@ -431,10 +416,9 @@ function isBlankRow(r: string[]): boolean {
 function checkCsvStructure(): { passed: boolean; violations: string[] } {
   const violations: string[] = [];
 
-  function validateFile(filePath: string, allowed: Set<string>): Map<string, string> {
+  function validateFile(filePath: string, allowed: Set<string>): void {
     const rel = path.relative(MODULES_DIR, filePath);
     const rows = parseCsv(fs.readFileSync(filePath, 'utf-8'));
-    const execByCase = new Map<string, string>();
     rows.slice(1).forEach((r, idx) => {
       const lineNo = idx + 2; // header is row 1
       if (isBlankRow(r)) return;
@@ -446,11 +430,8 @@ function checkCsvStructure(): { passed: boolean; violations: string[] } {
       const exec = (r[EXEC_COL] ?? '').trim();
       if (!allowed.has(exec)) {
         violations.push(`${rel}:${lineNo}: ${caseId} Execution Type "${exec}" invalid — must be ${[...allowed].join(' / ')}`);
-      } else {
-        execByCase.set(caseId, EXEC_KEY[exec]);
       }
     });
-    return execByCase;
   }
 
   // vibejet keeps one case file per feature, in Chinese (the source also kept an en companion).
@@ -532,7 +513,7 @@ function main(): void {
   printResult('Step locator',     locatorResult);
   printResult('Test data naming', testDataResult);
   printResult('Stability rules',  stabilityResult);
-  printResult('TC tag coverage',  tcTagResult);
+  printResult('Case ID tag coverage', tcTagResult);
   printResult('CSV structure',    csvStructResult);
   // Check H is report-only during the refactor migration (data-CRUD vs
   // assertion-reads are disambiguated as each module migrates to core/api).

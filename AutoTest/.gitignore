@@ -1,9 +1,5 @@
 # Test reports / run artifacts (generated) — do not commit
 report/
-!llm-bench/report/
-!llm-bench/report/*.py
-test-reports/
-test-reports-*/
 
 # playwright-bdd generated test files
 core/.gen-bdd/
@@ -20,7 +16,6 @@ test-results/
 
 # Screenshots (keep only in reports)
 *.png
-!test-reports/**/*.png
 
 # Logs
 *.log
@@ -49,13 +44,7 @@ Thumbs.db
 
 # Optional: Keep test-cases directory if you want to version control generated tests
 # test-cases/
-package-lock.json
 __pycache__/
 
-# Scenario-import test fixtures, regenerated at runtime by build-scenario-workbook.ts
-modules/ai-simulation/scenario-file-import/cases/test-data/*.xlsx
-
-# vibejet: the root .gitignore ignores lib/ and package-lock.json (Python and pnpm defaults);
-# AutoTest needs both committed: runner libraries, and the lockfile for npm ci
+# vibejet: the root .gitignore ignores lib/ (Python default); AutoTest commits its runner libraries
 !core/runner/lib/
-!package-lock.json

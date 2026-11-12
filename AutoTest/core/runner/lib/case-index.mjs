@@ -3,7 +3,7 @@
  * Shared case index: parse every case CSV and scan .feature tags.
  * Exported buildCaseIndex(root) returns:
  *   { total, automated, cases: [{ caseId, module, title, executionType, notes, automated, csvPath }] }
- * `root` defaults to the AutoTest project root (two levels up from this file's dir).
+ * `root` defaults to the AutoTest project root (three levels up from this file's dir).
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -63,7 +63,11 @@ function walk(dir, predicate, acc = []) {
 export function collectAutomatedIds(modulesDir) {
   const ids = new Set();
   if (!fs.existsSync(modulesDir)) return ids;
-  const featureFiles = walk(modulesDir, (p) => p.endsWith('.feature') && !p.endsWith('.cn.feature'));
+  // Mirror playwright.config.ts: *.cn.feature and *.pending.feature are never run, so they don't count.
+  const featureFiles = walk(
+    modulesDir,
+    (p) => p.endsWith('.feature') && !p.endsWith('.cn.feature') && !p.endsWith('.pending.feature'),
+  );
   for (const f of featureFiles) {
     const txt = fs.readFileSync(f, 'utf8');
     let m;
@@ -94,7 +98,7 @@ export function buildCaseIndex(root = AUTOTEST_ROOT) {
       continue;
     }
     const rel = path.relative(modulesDir, f).split(path.sep);
-    const module = rel[0] === 'voice-agent' ? `${rel[0]}/${rel[1]}` : rel[0];
+    const module = rel[0];
     for (const rec of records.slice(1)) {
       const cols = parseCsvLine(rec);
       const caseId = (cols[idIdx] || '').trim();
