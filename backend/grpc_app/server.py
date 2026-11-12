@@ -1,7 +1,3 @@
-# input: core.config.settings.grpc, grpc_app 拦截器, grpc 健康检查服务
-# output: create_server() gRPC aio server 工厂（含拦截器/TLS/健康检查）
-# owner: wanhua.gu
-# pos: gRPC 服务 - server 骨架装配；业务 service 在此注册；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """gRPC aio server skeleton.
 
 This template ships no business gRPC service. To add one:
@@ -50,13 +46,14 @@ async def create_server() -> grpc.aio.Server:
     # from grpc_app.generated.<pkg> import <svc>_pb2_grpc
     # from grpc_app.services.<svc>_service import <Svc>Service
     # <svc>_pb2_grpc.add_<Svc>ServiceServicer_to_server(<Svc>Service(), server)
-    # health_svc.set("<pkg>.<Svc>Service", health_pb2.HealthCheckResponse.SERVING)
+    # await health_svc.set("<pkg>.<Svc>Service", health_pb2.HealthCheckResponse.SERVING)
     # ---------------------------------------------------------------------
 
-    # Health service
-    health_svc = health.HealthServicer()
+    # Health service：必须用 aio 版——同步版的 Check 返回普通对象，经 aio 拦截器 await 时会抛错，
+    # 导致每次健康检查都被映射成 INTERNAL
+    health_svc = health.aio.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_svc, server)
-    health_svc.set("", health_pb2.HealthCheckResponse.SERVING)
+    await health_svc.set("", health_pb2.HealthCheckResponse.SERVING)
 
     # Bind address
     address = f"{settings.grpc.host}:{settings.grpc.port}"

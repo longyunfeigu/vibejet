@@ -1,6 +1,3 @@
-# input: core.config.Settings / KafkaSettings + monkeypatch 环境变量；messaging config_builder / factory
-# output: Kafka 驱动选择测试（默认 aiokafka；confluent 以及其它任何非 "aiokafka" 的值启动即拒绝，并给出点名该值的迁移提示；builder/factory 只产出 aiokafka 客户端）
-# pos: 后端测试 - Kafka 单驱动（aiokafka）配置链路验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from pathlib import Path

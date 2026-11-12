@@ -1,36 +1,10 @@
-# input: SQLAlchemyDocumentRepository + 内存 SQLite（aiosqlite）
-# output: 文档仓储原子认领（try_mark_parsing）行为测试
-# pos: 后端测试 - 文档仓储条件更新并发语义验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for SQLAlchemyDocumentRepository.try_mark_parsing (atomic claim)."""
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
-
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
-
 from application.utils.time import utcnow
 from domain.document import Document
-from infrastructure.models.document import DocumentModel
 from infrastructure.repositories.document_repository import SQLAlchemyDocumentRepository
-
-
-@asynccontextmanager
-async def _session():
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(DocumentModel.metadata.create_all)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with factory() as s:
-            yield s
-    finally:
-        await engine.dispose()
 
 
 async def _create_doc(repo: SQLAlchemyDocumentRepository, **overrides) -> Document:
@@ -46,8 +20,8 @@ async def _create_doc(repo: SQLAlchemyDocumentRepository, **overrides) -> Docume
     return await repo.create(Document(**defaults))
 
 
-async def test_try_mark_parsing_claims_pending_and_clears_stale_errors() -> None:
-    async with _session() as session:
+async def test_try_mark_parsing_claims_pending_and_clears_stale_errors(sqlite_session) -> None:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(
             repo, status="pending", error_code="old", error_message="old failure"
@@ -61,17 +35,17 @@ async def test_try_mark_parsing_claims_pending_and_clears_stale_errors() -> None
         assert claimed.error_message is None
 
 
-async def test_try_mark_parsing_rejects_failed_without_reset() -> None:
+async def test_try_mark_parsing_rejects_failed_without_reset(sqlite_session) -> None:
     """failed 必须先经 reparse 重置为 pending 才能再次认领。"""
-    async with _session() as session:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo, status="failed", error_code="x", error_message="x")
 
         assert await repo.try_mark_parsing(doc.id) is None
 
 
-async def test_try_mark_parsing_rejects_second_claim() -> None:
-    async with _session() as session:
+async def test_try_mark_parsing_rejects_second_claim(sqlite_session) -> None:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo)
 
@@ -82,31 +56,31 @@ async def test_try_mark_parsing_rejects_second_claim() -> None:
         assert second is None  # 已在 parsing，条件 UPDATE 不命中
 
 
-async def test_try_mark_parsing_rejects_soft_deleted() -> None:
-    async with _session() as session:
+async def test_try_mark_parsing_rejects_soft_deleted(sqlite_session) -> None:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo, deleted_at=utcnow())
 
         assert await repo.try_mark_parsing(doc.id) is None
 
 
-async def test_try_mark_parsing_rejects_missing() -> None:
-    async with _session() as session:
+async def test_try_mark_parsing_rejects_missing(sqlite_session) -> None:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         assert await repo.try_mark_parsing(999) is None
 
 
-async def test_try_mark_parsing_rejects_ready_document() -> None:
+async def test_try_mark_parsing_rejects_ready_document(sqlite_session) -> None:
     """ready 不可直接认领：排队的重复任务在前序完成后必须认领失败（防重复计费）。"""
-    async with _session() as session:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo, status="ready", content_md="# done")
 
         assert await repo.try_mark_parsing(doc.id) is None
 
 
-async def test_update_if_claimed_accepts_current_claim() -> None:
-    async with _session() as session:
+async def test_update_if_claimed_accepts_current_claim(sqlite_session) -> None:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo)
         claimed = await repo.try_mark_parsing(doc.id)
@@ -121,9 +95,9 @@ async def test_update_if_claimed_accepts_current_claim() -> None:
         assert stored.content_md == "# v1"
 
 
-async def test_update_if_claimed_rejects_superseded_claim() -> None:
+async def test_update_if_claimed_rejects_superseded_claim(sqlite_session) -> None:
     """僵尸 worker：stale 恢复 + 新任务重新认领后，旧认领的落盘必须被拒绝。"""
-    async with _session() as session:
+    async with sqlite_session() as session:
         repo = SQLAlchemyDocumentRepository(session)
         doc = await _create_doc(repo)
 

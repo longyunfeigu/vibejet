@@ -1,6 +1,3 @@
-# input: 真实 Kafka broker（KAFKA_INTEGRATION_BOOTSTRAP=host:port，未设置则整体 skip）, AiokafkaPublisher/AiokafkaConsumer, aiokafka admin 与原生 producer/consumer 作旁路投递与校验
-# output: aiokafka 驱动端到端集成测试：发布→消费并提交位点、RetryableError 经 retry topic 延迟重投、未到期记录只暂停所在分区（其它分区照常消费）、DLQ（反序列化失败 + NonRetryableError）、转投 DLQ 被 broker 拒收时不越过该记录（它前面已处理的照常提交，退避重试直到成功，其它分区照常消费）、事务里被拒的转投让事务中止（源位点不提交、DLQ 里什么都没有、这条会被重试）并在新事务里重试成功、发布者被拒一条后紧接着的发送就换新 producer 写同一分区、慢 handler 在再均衡中不被别的成员同时处理（rebalance_timeout = max_poll_interval）、handler 永不返回时进程照样能退出、handler 比会话超时还慢也不被踢出组、共用 transactional_id 被隔离的消费者 start() 报错退出、再均衡撤销时冲刷已处理位点、事务性重投、批量提交在消费者重启后不多重投、跨线程 stop()、publish_many 批量发送、幂等 producer 从 broker 拿到 producer id
-# pos: 后端测试 - Kafka 驱动"真的能用"的证据（opt-in，需要 broker）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Opt-in integration tests against a real Kafka broker.
 
 本地运行（单节点 KRaft broker）::

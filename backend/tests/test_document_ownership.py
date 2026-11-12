@@ -1,13 +1,10 @@
-# input: DocumentApplicationService + 内存 fake 仓储 + documents 路由 test app
-# output: Epic-1 Story 1.4 文档归属验收测试
-# pos: 后端测试 - documents 端点归属闭环验证（列表过滤、越权 404、后台 worker 不受影响）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Document ownership tests (Epic 1, Story 1.4)."""
 
 from __future__ import annotations
 
 import pytest
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_current_user, get_document_service
 from application.dto import UserDTO
@@ -145,7 +142,7 @@ async def test_list_scoped_by_owner_route_level() -> None:
         id=2, username="bob", email="bob@example.com"
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/documents")
         assert resp.status_code == 200
         data = resp.json()["data"]

@@ -1,7 +1,3 @@
-# input: ChatApplicationService 依赖注入
-# output: SSE 流式聊天端点 + 同步聊天端点
-# owner: unknown
-# pos: 表示层路由 - 聊天 API（SSE 流式 + 同步）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Chat routes with SSE streaming support."""
 
 from __future__ import annotations
@@ -30,12 +26,10 @@ async def chat(
     service: ChatApplicationService = Depends(get_chat_service),
 ):
     if payload.stream:
-        # send_message_stream 先 await 完成会话校验（不存在/越权/已归档 → 4xx），
+        # send_message_stream 先 await 完成会话校验（不存在/越权 → 404），
         # 校验通过后才返回 SSE 生成器进入流式响应
         return StreamingResponse(
-            await service.send_message_stream(
-                conversation_id, payload, owner_id=current_user.id
-            ),
+            await service.send_message_stream(conversation_id, payload, owner_id=current_user.id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

@@ -1,7 +1,3 @@
-# input: ASGI scope/receive/send, core.i18n.set_locale
-# output: LocaleMiddleware (纯 ASGI)
-# owner: wanhua.gu
-# pos: 表示层中间件 - 语言/区域解析（纯 ASGI 实现）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 Locale 解析中间件（纯 ASGI 实现）
 
@@ -49,25 +45,28 @@ def _pick_from_accept_language(al: str) -> str:
 
 
 def _normalize(lang: str) -> str:
-    """Map common browser tags to our locales."""
+    """Map common browser tags to our locales; anything unsupported falls back to ``en``.
+
+    Never pass the raw tag through: core.i18n caches one translator per locale string,
+    so client-controlled values would grow that cache without bound.
+    """
     tag = (lang or "en").replace("_", "-").lower()
     if tag in {"zh-cn", "zh-hans", "zh"}:
         return "zh_Hans"
-    if tag in {"en", "en-us", "en-gb"}:
-        return "en"
-    return lang
+    return "en"
 
 
 def _get_header(scope: Scope, name: str) -> str:
     name_lower = name.lower().encode("latin-1")
-    for key, value in scope.get("headers", []):
+    headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+    for key, value in headers:
         if key == name_lower:
             return value.decode("latin-1")
     return ""
 
 
 def _get_query_param(scope: Scope, name: str) -> str:
-    qs = scope.get("query_string", b"")
+    qs: bytes = scope.get("query_string", b"")
     if not qs:
         return ""
     parsed = parse_qs(qs.decode("latin-1"))

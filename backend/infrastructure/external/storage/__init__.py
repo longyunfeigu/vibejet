@@ -1,14 +1,32 @@
 """Storage service entry point and lifecycle management."""
 
-from typing import Optional
 from functools import lru_cache
+from typing import Any, Optional
 
 from core.config import settings
 from core.logging_config import get_logger
+
 from .base import StorageProvider
 from .config import StorageConfig, StorageType
+from .exceptions import (
+    ConfigurationError,
+    NotFoundError,
+    PermissionDeniedError,
+    StorageError,
+    TransientError,
+    ValidationError,
+)
 from .factory import create_provider
-from .utils import LoggingMiddleware, ValidationMiddleware, apply_middleware
+from .models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
+from .utils import (
+    LoggingMiddleware,
+    StorageMiddleware,
+    ValidationMiddleware,
+    apply_middleware,
+    guess_content_type,
+    key_builder,
+    safe_join,
+)
 
 logger = get_logger(__name__)
 
@@ -27,7 +45,7 @@ def get_storage_config() -> StorageConfig:
         Storage configuration instance
     """
     s = settings.storage
-    config_dict = {
+    config_dict: dict[str, Any] = {
         "type": s.type or StorageType.LOCAL,
         "bucket": s.bucket,
         "region": s.region,
@@ -82,7 +100,7 @@ async def init_storage_client() -> None:
         provider = await create_provider(config)
 
         # Apply middleware
-        middlewares = []
+        middlewares: list[StorageMiddleware] = []
 
         # Add logging middleware
         middlewares.append(LoggingMiddleware())
@@ -134,7 +152,7 @@ async def shutdown_storage_client() -> None:
             await aclose()
         logger.info("Storage client shutdown")
     except Exception as e:
-        logger.error(f"Error during storage shutdown", error=str(e))
+        logger.error("Error during storage shutdown", error=str(e))
     finally:
         _storage_client = None
 
@@ -186,15 +204,3 @@ __all__ = [
     "guess_content_type",
     "safe_join",
 ]
-
-# Import models and exceptions for easier access
-from .models import UploadResult, StorageObject, StorageMetadata, PresignedRequest
-from .exceptions import (
-    StorageError,
-    NotFoundError,
-    PermissionDeniedError,
-    TransientError,
-    ConfigurationError,
-    ValidationError,
-)
-from .utils import key_builder, guess_content_type, safe_join

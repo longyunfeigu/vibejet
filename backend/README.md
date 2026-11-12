@@ -26,11 +26,11 @@ api/ → application/ → domain/ ← infrastructure/
 | `alembic/` | 数据库迁移（详见 [`alembic/README.md`](alembic/README.md)） |
 | `locales/` | 国际化翻译（详见 [`locales/README.md`](locales/README.md)） |
 | `tests/` | pytest 测试用例 |
-| `scripts/` | proto 生成、Celery 启动等辅助脚本 |
+| `scripts/` | proto 生成（`gen_protos.sh`）、`.po` 校验（`validate_po.py`） |
 
 ## 入口
 
-- REST: `python main.py` → `http://localhost:8000`（`/docs`、`/redoc`）
+- REST: `python main.py` → `http://localhost:8010`（`/docs`、`/redoc`）
 - gRPC: `python grpc_main.py`
 
 ## 本地开发
@@ -67,9 +67,9 @@ uv run alembic upgrade head
 # Proto 生成
 bash scripts/gen_protos.sh
 
-# i18n
-uv run pybabel extract -F babel.cfg -k _l -o locales/messages.pot .
-uv run pybabel update -i locales/messages.pot -d locales/
+# i18n（.po 手工维护：代码用 t("key") / message_key=，pybabel extract 抽不到，
+# 跑 extract + update 会把全部译文标成 obsolete）
+uv run python scripts/validate_po.py
 uv run pybabel compile -d locales/
 ```
 
@@ -81,7 +81,7 @@ uv run pybabel compile -d locales/
 APP_NAME=vibejet
 DEBUG=false
 ENVIRONMENT=development
-SECRET_KEY=change-me
+SECRET_KEY=<openssl rand -hex 32 output>
 DATABASE__URL=postgresql+asyncpg://user:password@localhost:5432/dbname
 REDIS__URL=redis://localhost:6379/0
 STORAGE__TYPE=local
@@ -90,6 +90,6 @@ STORAGE__TYPE=local
 ## 参考
 
 - 仓库根 [`README.md`](../README.md)：项目总览与基线策略
-- [`docs/project/architecture.md`](../docs/project/architecture.md)：架构详解
+- 根 [`AGENTS.md`](../AGENTS.md#backend-architecture)：架构分层与依赖方向
 - [`docs/reference/guides/review-checklist-python-fastapi.md`](../docs/reference/guides/review-checklist-python-fastapi.md)：评审清单
 - 根 [`CLAUDE.md`](../CLAUDE.md)：分层约束与开发流程

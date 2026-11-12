@@ -1,7 +1,3 @@
-# input: KafkaConfig（TLS/SASL、ProducerTuning、ConsumerTuning）
-# output: security_kwargs / producer_kwargs / requeue_producer_kwargs / consumer_kwargs / build_ssl_context / aiokafka_acks（映射到 AIOKafkaProducer/AIOKafkaConsumer 的真实参数；rebalance_timeout_ms 取 max_poll_interval_ms）
-# owner: unknown
-# pos: 基础设施层 - aiokafka 客户端参数映射（发布者与消费者共用的唯一来源）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Map vibejet's KafkaConfig onto aiokafka client parameters.
 
 Settings with no aiokafka equivalent are not passed: ProducerTuning.max_in_flight and

@@ -1,12 +1,9 @@
-# input: 领域实体 Conversation, Message, Run, AgentConfig
-# output: 4 个 ABC 仓储接口
-# owner: unknown
-# pos: 领域层 - 对话聚合仓储接口定义；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Repository abstractions for conversation aggregate."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 
 from .entity import AgentConfig, Conversation, Message, Run
@@ -20,6 +17,16 @@ class ConversationRepository(ABC):
 
     @abstractmethod
     async def update(self, conversation: Conversation) -> Conversation: ...
+
+    @abstractmethod
+    async def touch_activity(self, conversation_id: int, *, at: datetime) -> None:
+        """只刷新 ``updated_at``（且仅限未软删的行），不回写其他列。
+
+        聊天活跃度刷新走这里而不是整行 ``update``：读-改-写整行会覆盖并发 PATCH 的
+        title/model，或把刚被软删的会话"复活"。行不存在/已软删 → 抛
+        ``ConversationNotFoundException``。
+        """
+        ...
 
     @abstractmethod
     async def get_by_id(

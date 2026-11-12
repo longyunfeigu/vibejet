@@ -1,6 +1,3 @@
-# input: LarkAuthCodeExchanger + monkeypatch 的 httpx.AsyncClient（post=token, get=user_info）
-# output: 飞书/Lark 授权码交换适配器行为测试（成功/无企业邮箱/token拒绝/缺token/user_info拒绝/缺data/缺sub/网络错误/非JSON）
-# pos: 后端测试 - 飞书/Lark 授权码交换适配器验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Behavior tests for LarkAuthCodeExchanger (v2 token exchange + v1 user_info)."""
 
 from __future__ import annotations

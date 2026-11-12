@@ -1,6 +1,3 @@
-# input: httpx
-# output: LazyAsyncClient —— 懒创建、可关闭的共享 httpx.AsyncClient 持有器
-# pos: 基础设施层 - 外部 HTTP 客户端共享持有器（google/lark/textin 复用，杜绝三处复制）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Shared lazy holder for a reusable ``httpx.AsyncClient``.
 
 避免每次外呼新建连接池 + TLS 握手。持有器绑定首次使用时的事件循环：

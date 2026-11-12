@@ -1,7 +1,3 @@
-# input: FileAssetUnitOfWork, StoragePort, FileAsset 领域实体, 配置 settings
-# output: FileAssetApplicationService 文件资产生命周期编排
-# owner: wanhua.gu
-# pos: 应用层服务 - 文件资产生命周期编排（pending/active/deleted、上传/直传/中转、签名URL）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application layer orchestration for file asset lifecycle (application/services)."""
 
 from __future__ import annotations
@@ -10,16 +6,25 @@ from os.path import splitext
 from typing import Any, AsyncIterator, Callable, Optional, Protocol, Tuple
 
 from application.dto import FileAssetDTO, FileAssetSummaryDTO, StorageUploadResponseDTO
-from application.ports.storage import PresignedURL, StorageInfo, StoragePort
+from application.ports.storage import (
+    ObjectMetadata,
+    PresignedURL,
+    StorageInfo,
+    StorageObjectNotFoundError,
+    StoragePort,
+)
 from application.utils.storage import build_storage_key, guess_content_type
 from application.utils.time import utcnow
 from core.config import settings
 from core.logging_config import get_logger
 from domain.common.exceptions import (
+    BusinessException,
     DomainValidationException,
     FileAssetAlreadyDeletedException,
     FileAssetNotFoundException,
+    FileNotUploadedException,
     FileTooLargeException,
+    FileUploadClosedException,
     InvalidFileNameException,
     UnsupportedMimeTypeException,
 )
@@ -55,6 +60,56 @@ def _build_content_disposition(mode: str, filename: Optional[str], *, fallback: 
 
 def _user_id_for_key(user_id: Optional[int]) -> Optional[str]:
     return str(user_id) if user_id is not None else None
+
+
+def _declared_size(size: Any) -> Optional[int]:
+    """客户端声明的大小；0/缺失/非整数视为未声明（与 presign 校验口径一致）。"""
+    if isinstance(size, int) and not isinstance(size, bool) and size > 0:
+        return size
+    return None
+
+
+def _media_type(content_type: Optional[str]) -> Optional[str]:
+    """``text/plain; charset=utf-8`` → ``text/plain``：存储回报的类型可能带参数。"""
+    if not content_type:
+        return None
+    return content_type.split(";", 1)[0].strip().lower() or None
+
+
+def _direct_upload_violation(
+    meta: ObjectMetadata, *, expected_size: Any, fallback_content_type: Optional[str]
+) -> Optional[BusinessException]:
+    """按 presign 同一套策略校验存储里的真实对象；合规返回 None。
+
+    presign 只校验客户端声明的 size/type，真实上传内容由客户端决定，必须在确认时
+    用存储 HEAD 回来的真实值复核，否则声明与实际不符的对象会被直接激活。
+    """
+    actual_size = meta.size
+    presign_max = settings.storage.presign_max_size
+    if presign_max and actual_size > presign_max:
+        return FileTooLargeException(size=actual_size, max_size=presign_max)
+
+    # expected_size=0 与 presign 一致视为"未声明"（presign 对 0 也不做上限校验）
+    declared = _declared_size(expected_size)
+    if declared is not None:
+        if actual_size > declared:
+            return FileTooLargeException(size=actual_size, max_size=declared)
+        if actual_size < declared:
+            return DomainValidationException(
+                "Uploaded size does not match declared size",
+                field="size_bytes",
+                details={"expected_size": declared, "actual_size": actual_size},
+                message_key="validation.failed",
+                format_params={"reason": "uploaded size does not match size_bytes"},
+            )
+
+    allowed_types = settings.storage.presign_content_types
+    actual_type = meta.content_type or fallback_content_type
+    if allowed_types and actual_type:
+        allowed = {_media_type(t) for t in allowed_types}
+        if _media_type(actual_type) not in allowed:
+            return UnsupportedMimeTypeException(actual_type)
+    return None
 
 
 def _limit_stream(
@@ -159,6 +214,34 @@ class FileAssetApplicationService:
         # 三段式（同 chat/document 的既有纪律）：数据库事务不得跨存储网络调用，
         # 否则连接被钉住整个存储往返，并发确认下有池耗尽风险。
         # tx-1：短只读事务完成加载 + 归属校验
+        asset = await self._load_owned_for_confirm(asset_id=asset_id, key=key, owner_id=owner_id)
+
+        # 无事务：存储元数据 HEAD（网络往返）
+        try:
+            meta = await self._storage.get_metadata(asset.key)
+        except StorageObjectNotFoundError as exc:
+            # 客户端在对象落盘前就调了 complete：可重试的状态冲突（409），而非 500
+            raise FileNotUploadedException(asset_id, key=key) from exc
+
+        violation = _direct_upload_violation(
+            meta,
+            expected_size=(asset.metadata or {}).get("expected_size"),
+            fallback_content_type=asset.content_type,
+        )
+        if violation is not None:
+            await self._reject_direct_upload(asset, owner_id=owner_id)
+            raise violation
+
+        public_url = self._storage.public_url(asset.key)
+
+        # tx-2：重新加载并应用元数据（确认幂等；期间被删/易主则同 404）
+        return await self._activate_direct_upload(
+            asset, meta, public_url, asset_id=asset_id, key=key, owner_id=owner_id
+        )
+
+    async def _load_owned_for_confirm(
+        self, *, asset_id: Optional[int], key: Optional[str], owner_id: int
+    ) -> FileAsset:
         async with self._uow_factory(readonly=True) as uow:
             repo = uow.file_asset_repository
             asset: Optional[FileAsset] = None
@@ -171,12 +254,18 @@ class FileAssetApplicationService:
             self._ensure_owned(
                 asset, owner_id, not_found=FileAssetNotFoundException(asset_id, key=key)
             )
+            return asset
 
-        # 无事务：存储元数据 HEAD（网络往返）
-        meta = await self._storage.get_metadata(asset.key)
-        public_url = self._storage.public_url(asset.key)
-
-        # tx-2：重新加载并应用元数据（确认幂等；期间被删/易主则同 404）
+    async def _activate_direct_upload(
+        self,
+        asset: FileAsset,
+        meta: ObjectMetadata,
+        public_url: Optional[str],
+        *,
+        asset_id: Optional[int],
+        key: Optional[str],
+        owner_id: int,
+    ) -> FileAssetDTO:
         async with self._uow_factory() as uow:
             repo = uow.file_asset_repository
             current = await repo.get_by_id(asset.id) if asset.id is not None else None
@@ -194,8 +283,29 @@ class FileAssetApplicationService:
                 metadata=meta.custom_metadata or current.metadata,
             )
             current.mark_active()
-            updated = await repo.update(current)
+            # 激活会清 deleted_at：守卫写，重载与写入之间被并发软删则 404，而不是复活
+            try:
+                updated = await repo.update_if_not_deleted(current)
+            except FileAssetNotFoundException:
+                # 与本方法其他 404 分支同标识构造（D1：不泄露 asset_id）
+                raise FileAssetNotFoundException(asset_id, key=key) from None
             return self._to_dto(updated)
+
+    async def _reject_direct_upload(self, asset: FileAsset, *, owner_id: int) -> None:
+        """不合规直传：best-effort 删存储对象，并把资产软删（不留可被再次确认的 pending）。"""
+        assert self._storage is not None
+        try:
+            await self._storage.delete(asset.key)
+        except Exception as exc:
+            logger.warning("direct_upload_reject_delete_failed", key=asset.key, error=str(exc))
+
+        async with self._uow_factory() as uow:
+            repo = uow.file_asset_repository
+            current = await repo.get_by_id(asset.id) if asset.id is not None else None
+            if current is None or not current.belongs_to(owner_id):
+                return
+            current.mark_deleted()
+            await repo.update(current)
 
     async def generate_access_url_by_info(
         self,
@@ -310,6 +420,7 @@ class FileAssetApplicationService:
                 expires_in=expires_in,
                 method=method,
                 content_type=content_type,
+                content_length=_declared_size(size_bytes),
             )
         except ValueError as exc:
             # Normalize to domain-level validation error for i18n handling
@@ -341,12 +452,17 @@ class FileAssetApplicationService:
     async def generate_upload_presign(
         self,
         *,
-        key: str,
+        asset_id: int,
+        owner_id: int,
         method: str,
-        content_type: Optional[str],
         expires_in: int,
     ) -> PresignedURL:
-        """Generate a presigned request for uploading to an existing key."""
+        """为仍处于 pending 的已有资产重新签发上传链接（幂等重放用）。
+
+        key / content_type / 声明大小一律取库里的资产，而不是客户端缓存的摘要；
+        资产一旦确认（active）或删除就不再签发写链接，否则重放即可覆盖已通过
+        确认期复核的对象。
+        """
         if self._storage is None:
             raise RuntimeError("Storage port not configured for FileAssetApplicationService")
         method = method or "PUT"
@@ -357,11 +473,22 @@ class FileAssetApplicationService:
                 details={"method": method},
                 message_key="storage.method.invalid",
             )
+
+        async with self._uow_factory(readonly=True) as uow:
+            # 含已软删：已删资产要给 409（上传已关闭），而不是 404
+            asset = await uow.file_asset_repository.get_by_id(asset_id, include_deleted=True)
+            if asset is None:
+                raise FileAssetNotFoundException(asset_id)
+            self._ensure_owned(asset, owner_id, not_found=FileAssetNotFoundException(asset_id))
+            if asset.status != "pending":
+                raise FileUploadClosedException(asset_id)
+
         return await self._storage.generate_presigned_url(
-            key=key,
+            key=asset.key,
             expires_in=expires_in,
             method=method,
-            content_type=content_type,
+            content_type=asset.content_type,
+            content_length=_declared_size((asset.metadata or {}).get("expected_size")),
         )
 
     async def relay_upload_stream(
@@ -378,8 +505,14 @@ class FileAssetApplicationService:
         if self._storage is None:
             raise RuntimeError("Storage port not configured for FileAssetApplicationService")
 
+        # 与 presign 同一套长度约束（对齐 file_assets 列宽），否则超长值在落库时才炸成 500
+        if filename and len(filename) > 255:
+            raise InvalidFileNameException(filename, max_len=255)
+
         _, ext = splitext(filename or "")
         ctype = content_type or guess_content_type(filename or "")
+        if ctype and len(ctype) > 100:
+            raise UnsupportedMimeTypeException(ctype)
 
         max_size = settings.storage.max_file_size
         if settings.storage.validation_enabled:
@@ -512,7 +645,9 @@ class FileAssetApplicationService:
             return self._to_dto(updated)
 
     @staticmethod
-    def _ensure_owned(asset: FileAsset, owner_id: int, *, not_found: FileAssetNotFoundException) -> None:
+    def _ensure_owned(
+        asset: FileAsset, owner_id: int, *, not_found: FileAssetNotFoundException
+    ) -> None:
         """越权与不存在同 404（Epic-1 D1）。not_found 必须与调用方的"不存在"分支
         用相同标识（asset_id vs key）构造，否则两种 404 的 details 不同，泄露资产
         存在性与内部 asset_id。"""
@@ -538,7 +673,7 @@ class FileAssetApplicationService:
     async def list_assets(
         self,
         *,
-        owner_id: Optional[int],
+        owner_id: int,
         kind: Optional[str],
         status: Optional[str],
         skip: int,

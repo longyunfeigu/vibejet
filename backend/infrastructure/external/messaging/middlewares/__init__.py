@@ -1,7 +1,7 @@
 from .logging import LoggingMiddleware
 from .metrics import MetricsMiddleware
+from .retry import RetryDecision, RetryPolicy
 from .tracing import TracingMiddleware
-from .retry import RetryPolicy, RetryDecision
 
 __all__ = [
     "LoggingMiddleware",

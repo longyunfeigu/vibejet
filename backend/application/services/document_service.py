@@ -1,6 +1,3 @@
-# input: DocumentUnitOfWork, DocumentParserPort, StoragePort, Document/FileAsset 领域实体
-# output: DocumentApplicationService 文档解析生命周期编排
-# pos: 应用层服务 - 文档建档/异步解析/查询/重解析编排（外部 I/O 在事务外执行）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application layer orchestration for the document parse lifecycle.
 
 ``process_document`` is the async worker entry point. It is transport-agnostic:
@@ -20,17 +17,13 @@ from application.ports.storage import StoragePort
 from application.utils.time import utcnow
 from core.config import settings
 from core.logging_config import get_logger
-from domain.document import (
-    Document,
-    DocumentNotFoundException,
-    DocumentNotReadyException,
-)
-from domain.document.repository import DocumentRepository
 from domain.common.exceptions import (
     DomainValidationException,
     FileAssetNotFoundException,
     FileTooLargeException,
 )
+from domain.document import Document, DocumentNotFoundException, DocumentNotReadyException
+from domain.document.repository import DocumentRepository
 from domain.file_asset.repository import FileAssetRepository
 
 logger = get_logger(__name__)
@@ -207,7 +200,7 @@ class DocumentApplicationService:
     # ── 查询 ────────────────────────────────────────────────────────
 
     @staticmethod
-    async def _get_owned(uow, document_id: int, owner_id: int) -> Document:
+    async def _get_owned(uow: DocumentUnitOfWork, document_id: int, owner_id: int) -> Document:
         """加载文档并断言归属；不存在与越权同样抛 404（不泄露存在性）。"""
         doc = await uow.document_repository.get_by_id(document_id)
         if doc is None or not doc.belongs_to(owner_id):
@@ -219,9 +212,7 @@ class DocumentApplicationService:
             doc = await self._get_owned(uow, document_id, owner_id)
             return DocumentDTO.model_validate(doc)
 
-    async def get_document_content(
-        self, document_id: int, *, owner_id: int
-    ) -> DocumentContentDTO:
+    async def get_document_content(self, document_id: int, *, owner_id: int) -> DocumentContentDTO:
         async with self._uow_factory(readonly=True) as uow:
             # 归属断言先于 NotReady：不向非 owner 泄露解析状态
             doc = await self._get_owned(uow, document_id, owner_id)
@@ -238,7 +229,7 @@ class DocumentApplicationService:
     async def list_documents(
         self,
         *,
-        owner_id: Optional[int] = None,
+        owner_id: int,
         file_asset_id: Optional[int] = None,
         status: Optional[str] = None,
         skip: int = 0,

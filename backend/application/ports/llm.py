@@ -1,7 +1,3 @@
-# input: LLM provider SDKs (OpenAI, Azure, vLLM, Anthropic)
-# output: LLMPort Protocol, LLMMessage/ContentBlock, ToolDefinition/ToolCall, LLMResponse, LLMChunk
-# owner: unknown
-# pos: 应用层端口 - LLM 调用抽象接口（文本 + tool use + 结构化输出）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application-owned LLM port abstraction (hexagonal architecture).
 
 Defines the minimal protocol needed by application use cases so that

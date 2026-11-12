@@ -1,6 +1,3 @@
-# input: GoogleAuthCodeExchanger + monkeypatch 的 httpx.AsyncClient + fake verifier
-# output: 授权码换 token 适配器行为测试（成功/Google拒绝/缺id_token/网络错误）
-# pos: 后端测试 - Google 授权码交换适配器验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Behavior tests for GoogleAuthCodeExchanger (token exchange + id_token verify)."""
 
 from __future__ import annotations

@@ -1,6 +1,3 @@
-# input: AuthApplicationService.login_with_oauth + fake UoW/repo/exchanger/token
-# output: 飞书/Lark 授权码登录编排路径行为测试（已绑/enterprise_email链接/新建合成邮箱/未配置/停用/provider 透传）
-# pos: 后端测试 - 认证应用服务飞书/Lark 授权码登录用例验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Behavior tests for AuthApplicationService.login_with_oauth (Feishu/Lark find/link/create)."""
 
 from __future__ import annotations
@@ -10,11 +7,10 @@ import pytest
 from application.ports.oauth import OAuthIdentity
 from application.services.auth_service import AuthApplicationService
 from application.utils.time import utcnow
-from domain.common.exceptions import UserInactiveException
+from domain.common.exceptions import ServiceUnavailableException, UserInactiveException
 from domain.user.entity import User
-
-# 复用 Google 服务测试里的 fake 实现（同一套 UoW/repo/token 契约）。
-from tests.test_auth_google_service import FakeTokens, FakeUoW, FakeUserRepo
+from shared.codes import BusinessCode
+from tests._auth_fakes import FakeTokens, FakeUoW, FakeUserRepo
 
 
 class FakeOAuthExchanger:
@@ -114,8 +110,11 @@ async def test_not_configured_provider_raises() -> None:
         token_provider=FakeTokens(),
         oauth_exchangers={},
     )
-    with pytest.raises(RuntimeError):
+    # 未配置是服务端能力缺失 → 503 SERVICE_UNAVAILABLE（不是 500）
+    with pytest.raises(ServiceUnavailableException) as exc_info:
         await svc.login_with_oauth("feishu", "code")
+    assert exc_info.value.code == BusinessCode.SERVICE_UNAVAILABLE
+    assert exc_info.value.message_key == "auth.oauth.not_configured"
 
 
 async def test_inactive_user_cannot_login() -> None:

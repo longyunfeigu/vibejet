@@ -1,6 +1,3 @@
-# input: AiokafkaConsumer + monkeypatch 进 aiokafka 模块的 fake AIOKafkaConsumer/AIOKafkaProducer（无真实 broker）
-# output: AiokafkaConsumer.start 特征测试：启停与退出（含跨线程 stop()）、建连参数与 TLS、反序列化失败转 DLQ、中间件、重试分层/DLQ、批量提交位点（按条数/按间隔、失败后随下一批重试、只提交仍分配的分区）、延迟重投、再均衡监听（撤销时冲刷位点）、事务性重投、告警日志；rebalance_timeout_ms 跟随 max_poll_interval_ms；handler 跑在守护线程上（卡死也不拦进程退出）；被换下的重投 producer 关不掉时点名告警；把捕获到的构造参数、listener、pause/resume 参数回放给真实 aiokafka 校验契约
-# pos: 后端测试 - Kafka 消费主循环行为锁定；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for ``AiokafkaConsumer.start``.
 
 这些测试锁定的是当前行为；改行为时要同步改对应断言。

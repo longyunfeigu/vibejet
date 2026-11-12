@@ -1,7 +1,3 @@
-# input: domain.common（BaseEntity、异常），纯业务逻辑
-# output: FileAsset 领域实体（对象存储文件聚合根）
-# owner: unknown
-# pos: 领域层 - 文件资产聚合根（继承 BaseEntity 公共原语，status 驱动软删）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entity representing a stored file asset."""
 
 from __future__ import annotations

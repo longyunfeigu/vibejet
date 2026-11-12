@@ -1,7 +1,3 @@
-# input: 异步工厂（新建并启动一个 producer）, 日志器, 旧 producer 关闭的等待上限, 标准库 asyncio
-# output: ProducerSlot（发布者当前在用的 producer：lease() 借用；mark_stale() 标记失效、replace_stale()/replace(failed) 对同一个失效 producer 只换一次；旧 producer 等最后一次借用结束后才在后台关闭，关不掉就告警；close() 关掉全部）
-# owner: unknown
-# pos: 基础设施层 - aiokafka 发布者的可替换 producer（绕开 aiokafka 0.13 被拒后分区序号再也对不上的问题）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import asyncio

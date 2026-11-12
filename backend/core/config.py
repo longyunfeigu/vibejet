@@ -1,6 +1,3 @@
-# input: 环境变量 / backend/.env（SECRET_KEY 必填且须为强随机值，嵌套键如 DATABASE__URL）
-# output: settings 全局配置对象, Settings 及各分组配置类, MIN_SECRET_KEY_LENGTH
-# pos: 核心配置 - 配置管理与启动期 fail-fast 校验（弱 SECRET_KEY/生产 DEBUG/aiokafka 以外的 KAFKA__DRIVER 拒绝启动并提示迁移）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 配置文件 - 项目配置管理
 """
@@ -270,7 +267,7 @@ class Settings(BaseSettings):
 
     # Server（用于 uvicorn / 部署脚本）
     HOST: str = Field(default="0.0.0.0", validation_alias=AliasChoices("HOST"))  # nosec B104
-    PORT: int = Field(default=8000, validation_alias=AliasChoices("PORT"))
+    PORT: int = Field(default=8010, validation_alias=AliasChoices("PORT"))
     RELOAD: bool = Field(default=False, validation_alias=AliasChoices("RELOAD"))
     WORKERS: int = Field(default=1, validation_alias=AliasChoices("WORKERS"))
 
@@ -344,7 +341,7 @@ class Settings(BaseSettings):
 
     # CORS配置
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
+        default=["http://localhost:3000", "http://localhost:8010"],
         validation_alias=AliasChoices("CORS_ORIGINS"),
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(

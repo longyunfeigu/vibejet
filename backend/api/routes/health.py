@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette import status as http_status
 
+from api.utils.access_token import require_access_token
 from core.config import settings
 from core.observability.health import full_health_check
 
@@ -19,13 +20,7 @@ async def health_live():
 
 @router.get("/health/ready")
 async def health_ready(request: Request):
-    token = settings.health.access_token
-    if token:
-        header = request.headers.get("Authorization") or request.headers.get("X-Access-Token")
-        if header and header.lower().startswith("bearer "):
-            header = header[7:]
-        if header != token:
-            raise HTTPException(status_code=403, detail="Forbidden")
+    require_access_token(request, settings.health.access_token)
     report = await full_health_check()
     payload = (
         report.to_dict() if settings.health.include_details else {"status": report.status.value}

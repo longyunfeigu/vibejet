@@ -1,7 +1,3 @@
-# input: 已处理记录的 (topic, partition, offset)、提交尝试与提交成功的位点
-# output: OffsetTracker（每个分区下一次要提交的位点 + 批量提交时机：commit_every_n / commit_interval_ms，失败后按间隔重试）, PartitionKey
-# owner: unknown
-# pos: 基础设施层 - Kafka 消费位点的批量提交簿记（纯状态，不碰 aiokafka）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import time

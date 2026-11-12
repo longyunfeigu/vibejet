@@ -1,7 +1,3 @@
-# input: pyjwt, SECRET_KEY + AuthSettings（algorithm/TTL）
-# output: JwtTokenProvider 令牌签发与校验实现
-# owner: wanhua.gu
-# pos: 基础设施层 - TokenProvider 端口的 JWT(HS256) 实现，type claim 区分 access/refresh；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """JWT implementation of the TokenProvider port (pyjwt, HS256)."""
 
 from __future__ import annotations
@@ -38,7 +34,8 @@ class JwtTokenProvider:
         self._refresh_ttl = refresh_ttl_seconds
 
     def issue_pair(self, *, subject: str) -> TokenPair:
-        return TokenPair(
+        # bandit B106 误报：token_type="bearer" 是 OAuth 方案名，不是口令
+        return TokenPair(  # nosec B106
             access_token=self._encode(subject, "access", self._access_ttl),
             refresh_token=self._encode(subject, "refresh", self._refresh_ttl),
             token_type="bearer",

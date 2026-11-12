@@ -1,27 +1,32 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 
 from core.observability import health, metrics, tracing
 
 
-def test_metrics_noop_response() -> None:
+def test_metrics_noop_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 强制走「未装 prometheus」分支：CI 装了全部 extras，不打桩就测不到降级路径
+    monkeypatch.setattr(metrics, "HAS_PROMETHEUS", False)
     data, content_type = metrics.get_metrics_response()
-    assert isinstance(data, (bytes, bytearray))
-    assert isinstance(content_type, str)
+    assert data == b""
+    assert content_type == metrics.CONTENT_TYPE
     metrics.collect_db_pool_metrics(None)
     metrics.collect_redis_pool_metrics(None)
 
 
-def test_tracing_noop_does_not_raise() -> None:
+def test_tracing_noop_does_not_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 同上，且避免真实 setup/instrument 把全局 TracerProvider 与 httpx/redis instrument 泄漏给后续测试
+    monkeypatch.setattr(tracing, "HAS_OTEL", False)
     ok = tracing.setup_tracing(
         service_name="test-service",
         exporter="console",
         otlp_endpoint=None,
         sample_rate=1.0,
     )
-    assert ok in (True, False)
-    tracing.instrument_app(FastAPI())
+    assert ok is False
+    assert tracing.instrument_app(FastAPI()) is False
     assert tracing.get_current_trace_id() is None
     tracing.shutdown_tracing()
 

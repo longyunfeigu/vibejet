@@ -1,7 +1,3 @@
-# input: SQLAlchemy AsyncSession, MessageModel ORM
-# output: SQLAlchemyMessageRepository 仓储实现
-# owner: unknown
-# pos: 基础设施层 - 消息仓储 SQLAlchemy 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy-backed repository for messages."""
 
 from __future__ import annotations

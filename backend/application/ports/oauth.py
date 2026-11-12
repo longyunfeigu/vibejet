@@ -1,7 +1,3 @@
-# input: 无外部依赖（纯 Protocol/数据类定义）
-# output: GoogleIdentityVerifier/GoogleAuthCodeExchanger/LarkAuthCodeExchanger 端口, GoogleIdentity/OAuthIdentity 数据类
-# owner: wanhua.gu
-# pos: 应用层端口 - 联合登录身份抽象（Google ID Token 验签/授权码交换 + 飞书/Lark 授权码交换），infrastructure/external/{google,lark} 提供实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """OAuth ports: turning a Google / Feishu / Lark credential or auth code into a trusted identity."""
 
 from __future__ import annotations

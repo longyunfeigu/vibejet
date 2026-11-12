@@ -1,6 +1,6 @@
 ---
 name: ui-visual-consistency-audit
-description: Use after UI draft is created to audit visual consistency: color, typography, spacing, radius, shadow, icon style, card hierarchy, button hierarchy, decoration, and overall refinement.
+description: "Use after UI draft is created to audit visual consistency: color, typography, spacing, radius, shadow, icon style, card hierarchy, button hierarchy, decoration, and overall refinement."
 ---
 
 # UI Visual Consistency Audit Skill

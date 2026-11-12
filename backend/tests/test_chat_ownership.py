@@ -1,6 +1,3 @@
-# input: ChatApplicationService + 内存 fake UoW/仓储/带计数的 fake LLM
-# output: Epic-1 Story 1.2 chat 归属校验与零副作用验收测试
-# pos: 后端测试 - 越权 chat 必须 404 且不落消息/不建 Run/不调 LLM；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Chat ownership tests (Epic 1, Story 1.2).
 
 关键不变量 I3：非 owner 的 chat 请求（stream 与 sync）在任何写库副作用
@@ -32,6 +29,9 @@ class _FakeConversationRepo:
     async def update(self, conversation: Conversation) -> Conversation:
         self._conversation = conversation
         return conversation
+
+    async def touch_activity(self, conversation_id: int, *, at) -> None:
+        return None
 
 
 class _FakeMessageRepo:

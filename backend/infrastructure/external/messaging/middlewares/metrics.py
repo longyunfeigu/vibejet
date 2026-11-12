@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import contextvars
 import time
 from typing import Optional
-import contextvars
 
 from ..base import ConsumeMiddleware, Envelope, HandleResult, PublishMiddleware, PublishResult
-
 
 try:
     from prometheus_client import Counter, Histogram
@@ -46,11 +45,11 @@ class MetricsMiddleware(PublishMiddleware, ConsumeMiddleware):
             "messaging_con_start_ts", default=None
         )
 
-    def before_publish(self, topic: str, env: Envelope) -> Envelope:  # type: ignore[override]
+    def before_publish(self, topic: str, env: Envelope) -> Envelope:
         self._pub_start.set(time.perf_counter())
         return env
 
-    def after_publish(self, topic: str, env: Envelope, result: PublishResult) -> None:  # type: ignore[override]
+    def after_publish(self, topic: str, env: Envelope, result: PublishResult) -> None:
         if self.pub_counter:
             self.pub_counter.labels(topic=topic, result="ok").inc()
         if self.pub_latency:
@@ -59,7 +58,7 @@ class MetricsMiddleware(PublishMiddleware, ConsumeMiddleware):
                 self.pub_latency.observe((time.perf_counter() - ts) * 1000)
                 self._pub_start.set(None)
 
-    def before_handle(self, topic: str, partition: int, offset: int, env: Envelope) -> Envelope:  # type: ignore[override]
+    def before_handle(self, topic: str, partition: int, offset: int, env: Envelope) -> Envelope:
         self._con_start.set(time.perf_counter())
         return env
 
@@ -71,7 +70,7 @@ class MetricsMiddleware(PublishMiddleware, ConsumeMiddleware):
         env: Envelope,
         result: HandleResult,
         exc: Optional[BaseException] = None,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         if self.con_counter:
             label = "error" if exc else result.value.lower()
             self.con_counter.labels(topic=topic, result=label).inc()

@@ -7,9 +7,9 @@
 
 | Route | 文件 | 守卫 | 状态 | 说明 |
 |-------|------|------|------|------|
-| `/` | `routes/index.tsx` | 未登录 → redirect `/login`（`beforeLoad`） | active | 占位首页 |
-| `/login` | `routes/login/index.tsx` | 公开 | active | front-of-house 编辑艺术轨（已实现） |
-| `/auth/*` | `routes/auth/` | 公开 | active | OAuth 回调等 |
+| `/` | `routes/index.tsx` | 未登录 → redirect `/login`（`beforeLoad`） | active | 占位首页；`errorComponent` = `HomeError`（会话失效 → 重新登录；其他失败 → 重试） |
+| `/login` | `routes/login/index.tsx` | 已登录 → redirect `/`（`beforeLoad`） | active | front-of-house 编辑艺术轨（已实现） |
+| `/auth/callback` | `routes/auth/callback.tsx` | 公开 | active | 飞书 / Lark OAuth 回调（`code` + `state`） |
 
 ## 导航壳
 

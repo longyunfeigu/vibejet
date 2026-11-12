@@ -1,7 +1,3 @@
-# input: ASGI scope/receive/send, core.config settings, core.observability.tracing
-# output: RequestIDMiddleware (纯 ASGI), get_request_id, get_client_ip, request_id_var, client_ip_var
-# owner: wanhua.gu
-# pos: 表示层中间件 - 请求追踪 ID 注入与上下文绑定（纯 ASGI 实现）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 Request ID 中间件（纯 ASGI 实现）
 用于生成或透传追踪 ID，并通过 contextvars 传递给日志系统。
@@ -99,7 +95,8 @@ class RequestIDMiddleware:
     def _get_header(scope: Scope, name: str) -> str:
         """从 ASGI scope headers 中获取指定 header 值（大小写不敏感）。"""
         name_lower = name.lower().encode("latin-1")
-        for key, value in scope.get("headers", []):
+        headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+        for key, value in headers:
             if key == name_lower:
                 return value.decode("latin-1")
         return ""
@@ -114,7 +111,7 @@ class RequestIDMiddleware:
         if x_real_ip:
             return x_real_ip
 
-        client = scope.get("client")
+        client: tuple[str, int] | None = scope.get("client")
         if client:
             return client[0]
         return "unknown"

@@ -1,23 +1,25 @@
-# input: parsing providers（markitdown 真实库 / textin httpx mock）
-# output: 文档解析 provider 行为测试
-# pos: 后端测试 - 解析 provider 成功/失败/错误映射验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for document parsing providers."""
 
 from __future__ import annotations
+
+import importlib.util
 
 import httpx
 import pytest
 
 from application.ports.document_parser import DocumentParserError
+from infrastructure.external.parsing.providers.markitdown import MarkitdownParser
+from infrastructure.external.parsing.providers.textin import TextInParser
 
 # ── markitdown provider ─────────────────────────────────────────────
 
-markitdown = pytest.importorskip("markitdown", reason="documents extra not installed")
+# 只有 markitdown 用例需要 documents extra；TextIn 用例只依赖 httpx，不随之跳过
+requires_markitdown = pytest.mark.skipif(
+    importlib.util.find_spec("markitdown") is None, reason="documents extra not installed"
+)
 
-from infrastructure.external.parsing.providers.markitdown import MarkitdownParser  # noqa: E402
-from infrastructure.external.parsing.providers.textin import TextInParser  # noqa: E402
 
-
+@requires_markitdown
 async def test_markitdown_parses_html_to_markdown() -> None:
     parser = MarkitdownParser()
     html = b"<html><body><h1>Title</h1><p>Some meaningful paragraph content.</p></body></html>"
@@ -26,6 +28,7 @@ async def test_markitdown_parses_html_to_markdown() -> None:
     assert result.metadata["chars"] > 0
 
 
+@requires_markitdown
 async def test_markitdown_rejects_empty_extraction() -> None:
     parser = MarkitdownParser()
     with pytest.raises(DocumentParserError) as exc_info:
@@ -133,23 +136,33 @@ async def test_textin_non_dict_json_is_mapped() -> None:
     assert exc_info.value.code == "document.parse.textin_invalid_response"
 
 
+@requires_markitdown
 async def test_markitdown_parse_timeout_is_mapped(monkeypatch: pytest.MonkeyPatch) -> None:
     """转换线程超时必须映射为 document.parse.timeout（线程本身不可取消，仅丢弃等待）。"""
-    import time
+    import threading
 
-    parser = MarkitdownParser(timeout=1)
+    from infrastructure.external.parsing.providers import markitdown as markitdown_module
+
+    # 私有名额 + 结束时放行线程：被放弃的线程不占用进程级 _conversion_slots，也不在后台睡满
+    monkeypatch.setattr(markitdown_module, "_conversion_slots", threading.BoundedSemaphore(1))
+    release = threading.Event()
 
     def slow_convert(data: bytes, ct: str | None, fn: str | None) -> str:
-        time.sleep(5)
+        release.wait(5)
         return ""
 
+    parser = MarkitdownParser(timeout=1)
     monkeypatch.setattr(parser, "_convert_sync", slow_convert)
 
-    with pytest.raises(DocumentParserError) as exc_info:
-        await parser.parse(b"slow", content_type="text/plain", filename="slow.txt")
-    assert exc_info.value.code == "document.parse.timeout"
+    try:
+        with pytest.raises(DocumentParserError) as exc_info:
+            await parser.parse(b"slow", content_type="text/plain", filename="slow.txt")
+        assert exc_info.value.code == "document.parse.timeout"
+    finally:
+        release.set()
 
 
+@requires_markitdown
 async def test_markitdown_abandoned_conversions_are_capped(monkeypatch: pytest.MonkeyPatch) -> None:
     """超时被放弃的转换线程继续占名额：名额满了直接报 busy，线程跑完名额才回来。"""
     import threading

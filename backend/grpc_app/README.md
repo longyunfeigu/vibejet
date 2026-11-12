@@ -9,7 +9,7 @@ gRPC aio server 骨架，模板本身不携带业务 gRPC 服务，只保留可�
 | 文件/目录 | 职责 |
 |-----------|------|
 | `server.py` | `create_server()`：装配拦截器、TLS、健康检查；业务 service 在标注的扩展点注册 |
-| `interceptors/` | request_id / logging / exceptions（业务异常→gRPC status 映射）/ authorization 拦截器 |
+| `interceptors/` | request_id / logging / exceptions（业务异常→gRPC status 映射）拦截器 |
 | `generated/` | `scripts/gen_protos.sh` 生成的 stub 输出目录（git 跟踪生成结果） |
 
 ## 添加业务 service

@@ -1,6 +1,3 @@
-# input: BaseAPIClient + httpx.MockTransport（经真实 httpx-retries RetryTransport 包装）
-# output: BaseAPIClient._request 全分支特征测试（请求构造、响应解析、状态码→异常映射、超时/网络/未知异常包装、重试、debug 日志）
-# pos: 后端测试 - REST API 客户端基类重构护栏；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for BaseAPIClient._request.
 
 重构（降 McCabe 复杂度 + 修 lint）前后必须同绿。客户端仍由 BaseAPIClient.client

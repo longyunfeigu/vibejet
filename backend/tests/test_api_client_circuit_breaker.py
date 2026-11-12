@@ -45,7 +45,6 @@ async def _call_n(api: BaseAPIClient, n: int, expected: type[APIError]) -> None:
             await api.post("/orders")
 
 
-@pytest.mark.asyncio
 async def test_server_errors_open_the_breaker_and_fail_fast() -> None:
     api, sent = _client(lambda request: httpx.Response(503))
 
@@ -66,7 +65,6 @@ async def test_server_errors_open_the_breaker_and_fail_fast() -> None:
         httpx.TooManyRedirects("redirect loop"),  # 下游重定向死循环
     ],
 )
-@pytest.mark.asyncio
 async def test_downstream_httpx_errors_count_as_failures(error: httpx.RequestError) -> None:
     def _fail(request: httpx.Request) -> httpx.Response:
         raise error
@@ -79,7 +77,6 @@ async def test_downstream_httpx_errors_count_as_failures(error: httpx.RequestErr
     assert len(sent) == 20
 
 
-@pytest.mark.asyncio
 async def test_client_errors_do_not_open_the_breaker() -> None:
     api, sent = _client(lambda request: httpx.Response(404))
 
@@ -88,7 +85,6 @@ async def test_client_errors_do_not_open_the_breaker() -> None:
     assert len(sent) == 30
 
 
-@pytest.mark.asyncio
 async def test_caller_side_transport_errors_do_not_open_the_breaker() -> None:
     # 非法 header 等请求在本地就构造不出来：是调用方的 bug，不能熔断健康的下游
     def _local_error(request: httpx.Request) -> httpx.Response:

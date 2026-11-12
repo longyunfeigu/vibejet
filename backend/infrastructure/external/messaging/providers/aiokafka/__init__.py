@@ -1,4 +1,4 @@
-from .publisher import AiokafkaPublisher
 from .consumer import AiokafkaConsumer
+from .publisher import AiokafkaPublisher
 
 __all__ = ["AiokafkaPublisher", "AiokafkaConsumer"]

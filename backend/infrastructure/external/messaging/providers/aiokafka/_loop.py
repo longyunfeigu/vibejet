@@ -1,7 +1,3 @@
-# input: 无（标准库 asyncio / threading）
-# output: LoopThread（后台线程里的独立事件循环：start / submit / run_coro / in_loop_thread / stop；事件循环在 start() 时才创建、线程退出时关闭，不可重启）, HandlerThread（按顺序跑同步调用的单个守护线程，首次使用时启动；卡死的调用不拦进程退出）
-# owner: unknown
-# pos: 基础设施层 - aiokafka 同步外观用的事件循环线程（发布者与消费者共用）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import asyncio

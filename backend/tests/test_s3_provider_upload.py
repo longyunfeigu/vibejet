@@ -1,6 +1,3 @@
-# input: S3Provider + 内存 fake boto3 S3 client（记录调用参数与执行线程，可注入返回值/异常）
-# output: S3Provider.upload 全分支特征测试（extra args / ETag 回退 / URL 规则 / 异常映射 / 日志），及同文件 lint 修复触及方法的行为钉子
-# pos: 后端测试 - S3 存储 provider 重构护栏；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for S3Provider.upload and the S3 error mapping.
 
 重构（降 McCabe 复杂度 + 修 lint）前后必须同绿：断言的是可观察行为——
@@ -106,6 +103,14 @@ class _FakeS3Client:
     def upload_part(self, **kwargs: Any) -> dict[str, Any]:
         self._record("upload_part", kwargs)
         return {"ETag": '"part-etag"'}
+
+    def generate_presigned_url(self, **kwargs: Any) -> str:
+        self._record("generate_presigned_url", kwargs)
+        return "https://s3.example/signed"
+
+    def generate_presigned_post(self, **kwargs: Any) -> dict[str, Any]:
+        self._record("generate_presigned_post", kwargs)
+        return {"url": "https://s3.example/post", "fields": {"key": kwargs["Key"]}}
 
 
 def _provider(client: _FakeS3Client, **config: Any) -> S3Provider:
@@ -300,10 +305,14 @@ async def test_upload_wraps_other_errors_in_storage_error(err: Exception) -> Non
     assert info.value.__cause__ is err
 
 
-async def test_upload_error_whose_response_is_none_escapes_mapping() -> None:
-    """现状钉子：e.response 为 None 时映射函数自身抛 AttributeError，未转成 StorageError。"""
-    with pytest.raises(AttributeError):
-        await _provider(_FakeS3Client(error=_ResponseIsNoneError("x"))).upload(b"x", "k")
+async def test_upload_error_whose_response_is_none_maps_to_storage_error() -> None:
+    """e.response 为 None 的第三方异常同样归为通用 StorageError，而不是让映射函数自身崩掉。"""
+    err = _ResponseIsNoneError("x")
+    with pytest.raises(StorageError) as info:
+        await _provider(_FakeS3Client(error=err)).upload(b"x", "k")
+
+    assert type(info.value) is StorageError
+    assert info.value.__cause__ is err
 
 
 # ── 同文件 lint 修复触及的方法（f-string / contextlib.suppress / 返回类型）──
@@ -392,3 +401,75 @@ async def test_multipart_start_and_part_return_raw_sdk_identifiers() -> None:
             },
         ),
     ]
+
+
+# ── generate_presigned_url：直传大小绑定 ─────────────────────────────────
+
+
+async def test_presign_put_signs_content_length_when_size_given() -> None:
+    client = _FakeS3Client()
+
+    await _provider(client).generate_presigned_url(
+        "uploads/a.txt", 600, "PUT", "text/plain", content_length=5
+    )
+
+    assert client.calls == [
+        (
+            "generate_presigned_url",
+            {
+                "ClientMethod": "put_object",
+                "Params": {
+                    "Bucket": "bucket-a",
+                    "Key": "uploads/a.txt",
+                    "ContentType": "text/plain",
+                    "ContentLength": 5,
+                },
+                "ExpiresIn": 600,
+            },
+        )
+    ]
+
+
+async def test_presign_put_omits_content_length_when_size_unknown() -> None:
+    client = _FakeS3Client()
+
+    await _provider(client).generate_presigned_url("uploads/a.txt", 600, "PUT", "text/plain")
+
+    assert "ContentLength" not in client.calls[0][1]["Params"]
+
+
+async def test_presign_post_binds_exact_content_length_range() -> None:
+    client = _FakeS3Client()
+
+    await _provider(client).generate_presigned_url(
+        "uploads/a.txt", 600, "POST", "text/plain", content_length=5
+    )
+
+    name, kwargs = client.calls[0]
+    assert name == "generate_presigned_post"
+    assert kwargs["Fields"] == {"Content-Type": "text/plain"}
+    assert kwargs["Conditions"] == [
+        {"Content-Type": "text/plain"},
+        ["content-length-range", 5, 5],
+    ]
+
+
+def test_real_boto3_presign_put_signs_content_length_header() -> None:
+    """真 botocore（s3v4，与 build 配置一致）：ContentLength 进入 X-Amz-SignedHeaders。"""
+    import boto3
+    from botocore.config import Config
+
+    client = boto3.client(
+        "s3",
+        region_name="us-east-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",  # nosec B106 - offline signing only
+        config=Config(signature_version="s3v4"),
+    )
+    url = client.generate_presigned_url(
+        "put_object",
+        Params={"Bucket": "b", "Key": "k", "ContentType": "text/plain", "ContentLength": 5},
+        ExpiresIn=60,
+    )
+
+    assert "X-Amz-SignedHeaders=content-length%3Bcontent-type%3Bhost" in url

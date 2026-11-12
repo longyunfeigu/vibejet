@@ -1,7 +1,3 @@
-# input: aiokafka（AIOKafkaConsumer/AIOKafkaProducer/TopicPartition/ConsumerRebalanceListener/errors.ProducerFenced，运行期延迟导入）, KafkaConfig/RetryConfig, Serializer, ConsumeMiddleware
-# output: AiokafkaConsumer（订阅 → 拉取 → 反序列化 → 中间件（事件循环上）+ handler（独立的守护 handler 线程：心跳不断，卡死的 handler 也不拦进程退出）→ 批量提交位点（只提交仍分配给本消费者的分区；撤销时等在途记录处理完再冲刷（rebalance_timeout_ms = max_poll_interval_ms），停止时冲刷）/ 重试分层 / DLQ；未到期的重投记录只暂停所在分区；重投/DLQ 发送失败时不越过这条：换新的重投 producer、暂停所在分区、回退到它，退避后重新消费；可选事务性重投（等送达后才提交事务）；重投 producer 被隔离或进入致命状态时 start() 抛 RequeueProducerFatalError；跨线程 stop() 冲刷位点、关闭客户端并让 start() 返回；不可重启）
-# owner: unknown
-# pos: 基础设施层 - Kafka 消费者（aiokafka 驱动，at-least-once，独立事件循环线程 + handler 线程）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import asyncio

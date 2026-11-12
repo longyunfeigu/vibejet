@@ -12,7 +12,6 @@ from application.ports.idempotency import (
 from core.logging_config import get_logger
 from infrastructure.external.cache import get_redis_client
 
-
 logger = get_logger(__name__)
 
 

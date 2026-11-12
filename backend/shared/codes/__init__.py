@@ -27,6 +27,8 @@ class BusinessCode(IntEnum):
     USER_ALREADY_EXISTS = 20002
     PASSWORD_ERROR = 20003
     NOT_FOUND = 20004  # Generic resource not found
+    FILE_NOT_UPLOADED = 20005  # Direct-upload confirmed before the object exists in storage
+    FILE_UPLOAD_CLOSED = 20006  # Asset no longer pending (confirmed/deleted); no new upload URL
 
     # Authorization errors (3xxxx)
     PERMISSION_ERROR = 30000
@@ -45,7 +47,6 @@ class BusinessCode(IntEnum):
 
     # Agent / AI (6xxxx)
     CONVERSATION_NOT_FOUND = 60001
-    CONVERSATION_ARCHIVED = 60002
     RUN_NOT_FOUND = 60003
     RUN_ALREADY_COMPLETED = 60004
     AGENT_CONFIG_NOT_FOUND = 60005
@@ -76,12 +77,9 @@ TRANSPORT_STATUS: dict[BusinessCode, TransportStatus] = {
     BusinessCode.PARAM_VALIDATION_ERROR: TransportStatus(
         HTTPStatus.UNPROCESSABLE_ENTITY, "INVALID_ARGUMENT"
     ),
-    # 状态前置条件不满足（已归档/未就绪/处理中/已完成）= 400 + FAILED_PRECONDITION，
+    # 状态前置条件不满足（未就绪/处理中/已完成）= 400 + FAILED_PRECONDITION，
     # 即 google.rpc.Code 的规范映射
     BusinessCode.BUSINESS_ERROR: TransportStatus(HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"),
-    BusinessCode.CONVERSATION_ARCHIVED: TransportStatus(
-        HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
-    ),
     BusinessCode.RUN_ALREADY_COMPLETED: TransportStatus(
         HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
     ),
@@ -98,6 +96,10 @@ TRANSPORT_STATUS: dict[BusinessCode, TransportStatus] = {
     BusinessCode.AGENT_CONFIG_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
     BusinessCode.DOCUMENT_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
     BusinessCode.USER_ALREADY_EXISTS: TransportStatus(HTTPStatus.CONFLICT, "ALREADY_EXISTS"),
+    # 直传确认早于对象落盘：资源当前状态与请求冲突，客户端上传完成后重试即可
+    BusinessCode.FILE_NOT_UPLOADED: TransportStatus(HTTPStatus.CONFLICT, "FAILED_PRECONDITION"),
+    # 资产已确认/已删除后再要上传 URL：状态冲突，不再签发可覆盖对象的写链接
+    BusinessCode.FILE_UPLOAD_CLOSED: TransportStatus(HTTPStatus.CONFLICT, "FAILED_PRECONDITION"),
     BusinessCode.AGENT_CONFIG_NAME_EXISTS: TransportStatus(HTTPStatus.CONFLICT, "ALREADY_EXISTS"),
     BusinessCode.PASSWORD_ERROR: TransportStatus(HTTPStatus.UNAUTHORIZED, "UNAUTHENTICATED"),
     BusinessCode.UNAUTHORIZED: TransportStatus(HTTPStatus.UNAUTHORIZED, "UNAUTHENTICATED"),

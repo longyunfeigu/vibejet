@@ -1,7 +1,3 @@
-# input: FastAPI app, LocaleMiddleware 解析的 request.state.locale
-# output: register_docs(app) 自定义 Swagger UI（/docs，含 i18n 语言注入）
-# owner: wanhua.gu
-# pos: 表示层 - API 文档 UI 装配（从 main.py 抽出的 Swagger 定制，依赖 FastAPI 生成的 HTML 结构，升级 FastAPI 时需要回归 /docs）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Custom Swagger UI registration with locale support.
 
 Kept out of ``main.py`` on purpose: this patches the HTML that
@@ -57,7 +53,7 @@ def register_docs(app: FastAPI) -> None:
         )
         # 注入 requestInterceptor：为“Try it out”请求附带语言信息
         try:
-            content = base.body.decode("utf-8")
+            content = bytes(base.body).decode("utf-8")
         except Exception:
             content = str(base.body)
         injection = (

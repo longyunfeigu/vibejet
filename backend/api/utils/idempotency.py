@@ -1,23 +1,21 @@
-# input: FastAPI Header/Request, application IdempotencyService, core.logging_config
-# output: validate_idempotency_key, build_request_hash, pick_subject_from_request_headers, IdempotencyContext, idempotency_for
-# owner: wanhua.gu
-# pos: 表示层工具 - Idempotency-Key 解析、请求哈希、依赖注入上下文；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Idempotency helpers for API boundaries.
 
 Routes consume `IdempotencyContext` via the `idempotency_for(scope)` dependency
 factory. The context encapsulates key validation, scope/subject resolution,
-request-hash building, cache lookup, and result persistence — so route handlers
-contain only orchestration, not idempotency mechanics.
+request-hash building, cache lookup, result persistence, and lock release on
+failure — so route handlers contain only orchestration, not idempotency mechanics.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Optional
 
 from fastapi import Depends, Header, HTTPException, Request
 
+from application.dto import UserDTO
 from application.services.idempotency_service import IdempotencyService
 from core.logging_config import get_logger
 from domain.common.exceptions import BusinessException
@@ -58,17 +56,6 @@ def build_request_hash(*, scope: str, subject: str, body: Any) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def pick_subject_from_request_headers(headers: dict[str, str]) -> str:
-    """Pick a best-effort idempotency subject.
-
-    Prefer authenticated identity when available; fall back to a stable anon bucket.
-    """
-    auth = (headers.get("authorization") or "").strip()
-    if auth:
-        return hashlib.sha256(auth.encode("utf-8")).hexdigest()
-    return "anon"
-
-
 # ---------------------------------------------------------------------------
 # Per-request idempotency context (dependency-injected)
 # ---------------------------------------------------------------------------
@@ -78,14 +65,19 @@ class IdempotencyContext:
     """Per-request idempotency state.
 
     All methods are safe to call unconditionally: when no Idempotency-Key was
-    provided, ``request_hash``/``lookup``/``persist`` become no-ops, so route
-    handlers don't need to branch on whether the request is idempotent.
+    provided, ``request_hash``/``lookup``/``persist``/``release_on_failure``
+    become no-ops, so route handlers don't need to branch on whether the request
+    is idempotent.
 
     Failure policy mirrors the original inline code:
     - ``decide()`` raising a ``BusinessException`` propagates (e.g. duplicate-with-
       different-body → DomainValidationException → 4xx).
     - Any other ``decide()`` / ``persist_result()`` failure is logged at WARNING
       and the context disables itself for the rest of the request.
+    - The protected operation must run inside ``release_on_failure()``: when it
+      raises, the lock taken by ``lookup()`` is released so a retry with the same
+      key re-executes (and sees the real error) instead of getting "in progress"
+      until the lock TTL expires.
     """
 
     def __init__(
@@ -100,10 +92,7 @@ class IdempotencyContext:
         self._scope = scope
         self._subject = subject
         self._idem_key = idem_key
-
-    @property
-    def active(self) -> bool:
-        return self._idem_key is not None
+        self._lock_held = False
 
     def request_hash(self, body: Any) -> Optional[str]:
         """Return the canonical request hash, or ``None`` when inactive."""
@@ -118,6 +107,7 @@ class IdempotencyContext:
         try:
             decision = await self._service.decide(
                 scope=self._scope,
+                subject=self._subject,
                 key=self._idem_key,
                 request_hash=request_hash,
             )
@@ -133,16 +123,50 @@ class IdempotencyContext:
             self._idem_key = None
             return None
         if decision.execute:
+            self._lock_held = True
             return None
         return decision.payload
+
+    @asynccontextmanager
+    async def release_on_failure(self) -> AsyncIterator[None]:
+        """Wrap the protected operation; release the lock if it raises.
+
+        Only ``Exception`` triggers release: on cancellation (client disconnect)
+        it is unknown whether the side effect happened, so the lock is left to
+        expire rather than inviting a duplicate execution.
+        """
+        try:
+            yield
+        except Exception:
+            await self._release()
+            raise
+
+    async def _release(self) -> None:
+        if not self._lock_held or not self._idem_key:
+            return
+        self._lock_held = False
+        try:
+            await self._service.release(
+                scope=self._scope, subject=self._subject, key=self._idem_key
+            )
+        except Exception as exc:
+            logger.warning(
+                "idempotency_release_failed",
+                scope=self._scope,
+                key=self._idem_key,
+                error=str(exc),
+            )
 
     async def persist(self, request_hash: Optional[str], payload: dict[str, Any]) -> None:
         """Persist the result; no-op when inactive."""
         if not request_hash or not self._idem_key:
             return
+        # persist_result 自己会释放锁；之后不应再由 release_on_failure 重复释放
+        self._lock_held = False
         try:
             await self._service.persist_result(
                 scope=self._scope,
+                subject=self._subject,
                 key=self._idem_key,
                 request_hash=request_hash,
                 payload=payload,
@@ -169,17 +193,22 @@ def idempotency_for(scope_label: str | None = None):
 
     When ``scope_label`` is omitted, the scope defaults to ``f"{method}:{path}"``.
     Validates ``Idempotency-Key`` (if present) and maps ``ValueError`` to 422.
+
+    The subject is the authenticated user id (so the dependency requires auth):
+    a retry after a token refresh keeps the same subject, and two users sending
+    the same key never share a record.
     """
     # Local import to avoid circular import at module load.
-    from api.dependencies import get_idempotency_service
+    from api.dependencies import get_current_user, get_idempotency_service
 
     async def _dep(
         request: Request,
         idem_service: IdempotencyService = Depends(get_idempotency_service),
+        current_user: UserDTO = Depends(get_current_user),
         idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     ) -> IdempotencyContext:
         scope = scope_label or f"{request.method}:{request.url.path}"
-        subject = pick_subject_from_request_headers(dict(request.headers))
+        subject = f"user:{current_user.id}"
 
         idem_key: Optional[str] = None
         if idempotency_key:

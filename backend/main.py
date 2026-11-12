@@ -1,7 +1,3 @@
-# input: core.config.settings, api 路由/中间件, infrastructure 外部客户端生命周期
-# output: FastAPI app（REST 入口，composition root）
-# owner: wanhua.gu
-# pos: 应用入口 - 中间件/路由/异常处理装配 + lifespan 资源生命周期；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """FastAPI应用主入口（composition root）。"""
 
 from contextlib import asynccontextmanager
@@ -9,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.dependencies import shutdown_oauth_exchangers
 from api.docs import register_docs
 from api.middleware import LoggingMiddleware, PrometheusMiddleware, RequestIDMiddleware
 from api.middleware.locale import LocaleMiddleware
@@ -26,7 +23,6 @@ from core.i18n import t
 from core.logging_config import configure_logging, get_logger
 from core.observability import tracing as tracing_obs
 from core.response import success_response
-from api.dependencies import shutdown_oauth_exchangers
 from infrastructure.database import upgrade_schema_to_head
 from infrastructure.external.cache import init_redis_client, shutdown_redis_client
 from infrastructure.external.llm import get_llm_client, init_llm_client, shutdown_llm_client
@@ -154,17 +150,17 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# 添加中间件（注意顺序：从下往上执行）
-# 1. Request ID中间件（最先执行，为后续中间件提供request_id）
-app.add_middleware(RequestIDMiddleware)
-
-# 2. 日志中间件（依赖request_id）
-app.add_middleware(LoggingMiddleware)
-
-# 2.5 语言中间件（解析 locale）
+# 添加中间件：Starlette 中后添加的在外层、先执行，所以下面按「由内到外」的顺序添加。
+# 语言中间件（解析 locale）
 app.add_middleware(LocaleMiddleware)
 
-# 3. CORS中间件
+# 日志中间件（依赖 request_id，必须在 RequestID 之内）
+app.add_middleware(LoggingMiddleware)
+
+# Request ID 中间件（在日志之外，request_started 日志即可带上 request_id）
+app.add_middleware(RequestIDMiddleware)
+
+# CORS中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -173,7 +169,7 @@ app.add_middleware(
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
-# 4. Prometheus metrics middleware (optional)
+# Prometheus metrics middleware (optional, outermost)
 if settings.metrics.enabled:
     app.add_middleware(PrometheusMiddleware)
 

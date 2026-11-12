@@ -1,6 +1,3 @@
-# input: DocumentApplicationService（依赖注入）, FastAPI BackgroundTasks
-# output: /api/v1/documents 路由（建档/列表/详情/内容/重解析/软删）
-# pos: 表示层 - 文档解析 HTTP 端点（异步解析调度 + 状态轮询）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """文档解析相关路由。
 
 创建/重解析返回即刻响应，解析在 BackgroundTasks 中执行；
@@ -16,6 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from api.dependencies import get_current_user, get_document_service
 from application.dto import (
     CreateDocumentDTO,
+    DeletedResourceDTO,
     DocumentContentDTO,
     DocumentDTO,
     UserDTO,
@@ -23,12 +21,9 @@ from application.dto import (
 from application.services.document_service import DocumentApplicationService
 from core.config import settings
 from core.i18n import t
-from core.response import (
-    PaginatedData,
-    Response as ApiResponse,
-    paginated_response,
-    success_response,
-)
+from core.response import PaginatedData
+from core.response import Response as ApiResponse
+from core.response import paginated_response, success_response
 
 # 认证闸门 + 归属校验：文档端点要求登录，且只作用于当前用户的文档（越权 404）
 router = APIRouter(
@@ -125,15 +120,15 @@ async def reparse_document(
 @router.delete(
     "/{document_id}",
     summary="删除文档（软删除）",
-    response_model=ApiResponse[dict],
+    response_model=ApiResponse[DeletedResourceDTO],
 )
 async def delete_document(
     document_id: int,
     user: UserDTO = Depends(get_current_user),
     service: DocumentApplicationService = Depends(get_document_service),
 ):
-    updated = await service.soft_delete(document_id, owner_id=user.id)
+    await service.soft_delete(document_id, owner_id=user.id)
     return success_response(
-        {"deleted": True, "status": updated.status},
+        DeletedResourceDTO(id=document_id),
         message=t("document.delete.soft.success"),
     )

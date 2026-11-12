@@ -2,18 +2,17 @@
 数据传输对象（DTO）- 应用层与表现层之间的数据传输
 """
 
-from pydantic import BaseModel, Field, field_validator, model_serializer, ConfigDict
-from shared.codes import BusinessCode
-from typing import Optional, Any, Literal
 from datetime import datetime, timezone
-from pydantic import model_validator
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
 
 class DTOBase(BaseModel):
     """Base DTO: unify datetime serialization to UTC-Z for all subclasses."""
 
     @model_serializer(mode="wrap")
-    def _serialize_model(self, handler):  # type: ignore[override]
+    def _serialize_model(self, handler):
         data = handler(self)
 
         def convert(value):
@@ -32,60 +31,11 @@ class DTOBase(BaseModel):
         return convert(data)
 
 
-class PaginationParams(DTOBase):
-    """分页参数（页码/每页大小），自动派生 skip/limit。
+class DeletedResourceDTO(DTOBase):
+    """统一的 DELETE 响应 payload：所有删除端点都返回 ``{id, deleted: true}``。"""
 
-    注意：默认值在实例化时从应用设置读取，避免在类定义阶段
-    导入并实例化全局配置导致的副作用。
-    """
-
-    page: int = Field(1, ge=1, description="页码，从1开始")
-    size: Optional[int] = Field(
-        default=None,
-        ge=1,
-        description="每页大小（默认取应用配置 DEFAULT_PAGE_SIZE）",
-    )
-
-    @model_validator(mode="after")
-    def _apply_runtime_defaults(self):  # type: ignore[override]
-        # 延迟导入设置，只有在实例化 DTO 时才读取
-        try:
-            from core.config import settings  # local import to avoid import-time side effects
-
-            default_size = int(getattr(settings, "DEFAULT_PAGE_SIZE", 20))
-            max_size = int(getattr(settings, "MAX_PAGE_SIZE", 100))
-        except Exception:
-            default_size = 20
-            max_size = 100
-        if self.size is None:
-            self.size = default_size
-        # 运行时再约束最大页大小
-        if self.size > max_size:
-            self.size = max_size
-        return self
-
-    @property
-    def skip(self) -> int:
-        return (self.page - 1) * int(self.size or 0)
-
-    @property
-    def limit(self) -> int:
-        return int(self.size or 0)
-
-
-class MessageDTO(DTOBase):
-    """消息响应DTO"""
-
-    message: str
-    code: int = BusinessCode.SUCCESS
-
-
-class ErrorDTO(DTOBase):
-    """错误响应DTO"""
-
-    error: str
-    code: int
-    detail: Optional[str] = None
+    id: int
+    deleted: bool = True
 
 
 class FileAssetDTO(DTOBase):
@@ -130,9 +80,9 @@ class PresignUploadRequestDTO(DTOBase):
     """Input payload for requesting a presigned upload."""
 
     filename: str
-    mime_type: Optional[str] = Field(default=None, alias="mime_type")
+    mime_type: Optional[str] = Field(default=None, alias="mime_type", max_length=100)
     size_bytes: int = Field(ge=0, alias="size_bytes")
-    kind: str = Field(default="uploads")
+    kind: str = Field(default="uploads", max_length=50)
     method: Literal["PUT", "POST"] = Field(default="PUT")
     expires_in: int = Field(default=600, ge=60, le=3600)
 
@@ -265,7 +215,7 @@ class CreateConversationDTO(DTOBase):
 
     title: str = Field(max_length=255)
     system_prompt: Optional[str] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=100)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -274,7 +224,7 @@ class UpdateConversationDTO(DTOBase):
 
     title: Optional[str] = Field(default=None, max_length=255)
     system_prompt: Optional[str] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=100)
 
 
 class ConversationDTO(DTOBase):
@@ -331,7 +281,7 @@ class ChatRequestDTO(DTOBase):
 
     # 上限防误传超大文本直通 LLM（token 成本）与 DB；32k 字符 ≈ 8k-10k token
     message: str = Field(min_length=1, max_length=32_000)
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=100)
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)
     stream: bool = True
@@ -342,7 +292,7 @@ class CreateAgentConfigDTO(DTOBase):
 
     name: str = Field(max_length=100)
     system_prompt: Optional[str] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=100)
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -353,7 +303,7 @@ class UpdateAgentConfigDTO(DTOBase):
 
     name: Optional[str] = Field(default=None, max_length=100)
     system_prompt: Optional[str] = None
-    model: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=100)
     temperature: Optional[float] = Field(default=None, ge=0, le=2)
     max_tokens: Optional[int] = Field(default=None, ge=1)
     metadata: Optional[dict[str, Any]] = None

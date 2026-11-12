@@ -38,11 +38,9 @@ Each skill runs step-by-step with a human confirmation gate between steps.
 All design documents and checklist reports are stored in:
 
 ```
-docs/work/delivery/
-├── [date]-feature-[slug]-design.md
-├── [date]-feature-[slug]-checklist.md
-├── [date]-bugfix-[slug]-design.md
-└── [date]-bugfix-[slug]-checklist.md
+docs/work/delivery/[YYYY-MM]/
+├── [DD]-feature-[slug]/{design,checklist}.md
+└── [DD]-bugfix-[slug]/{design,checklist}.md
 ```
 
 Both documents must be linked in the PR description before merging.

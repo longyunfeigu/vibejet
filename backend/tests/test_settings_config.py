@@ -1,6 +1,3 @@
-# input: core.config.Settings + monkeypatch 环境变量
-# output: Settings 校验行为测试（别名/未知键/SECRET_KEY 弱值与长度/DEBUG 默认与生产互斥）
-# pos: 后端测试 - 配置启动期 fail-fast 校验验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from pathlib import Path
@@ -57,7 +54,7 @@ def test_settings_rejects_known_weak_secret_key(
 ) -> None:
     monkeypatch.setenv("SECRET_KEY", weak_value)
 
-    with pytest.raises(ValidationError, match="弱默认值|长度不足"):
+    with pytest.raises(ValidationError, match="弱默认值"):
         Settings(_env_file=None)
 
 

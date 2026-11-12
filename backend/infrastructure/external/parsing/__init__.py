@@ -1,6 +1,3 @@
-# input: core.config.settings.document（DOCUMENT__PARSER 二选一）
-# output: create_parser/get_parser 工厂（DocumentParserPort 进程级单例）+ init_parser/shutdown_parser 生命周期
-# pos: 基础设施层 - 文档解析 provider 工厂（按配置实例化 markitdown 或 textin，懒加载）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Document parsing provider factory.
 
 Mirrors the storage provider pattern: providers are lazily imported so that

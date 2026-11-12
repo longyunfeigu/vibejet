@@ -8,7 +8,7 @@ This directory contains database migration files managed by Alembic.
    ```
    DATABASE__URL=postgresql+asyncpg://user:password@localhost:5432/dbname
    ```
-   The tooling also falls back to `DATABASE_URL` for compatibility.
+   `DATABASE__URL` wins; the legacy `DATABASE_URL` is only read when it is unset.
 
 2. Install dependencies:
    ```bash
@@ -64,16 +64,9 @@ alembic history --verbose
 
 ## Important Notes
 
-1. **Model Location**: Update `alembic/env.py` to import your actual models:
-   ```python
-   # Replace the placeholder with your actual models
-   from domain.models import Base
-   # OR
-   from infrastructure.database.models import Base
-   ```
+1. **Model Location**: `alembic/env.py` imports `Base` from `infrastructure.models`; new ORM
+   models must be imported in `infrastructure/models/__init__.py` so autogenerate sees them.
 
-2. **Auto-generation**: For auto-generation to work properly, ensure all your models are imported in the `env.py` file.
+2. **Migration Files**: Migration files are timestamped and stored in `alembic/versions/`
 
-3. **Migration Files**: Migration files are timestamped and stored in `alembic/versions/`
-
-4. **Database Support**: Configured to work with PostgreSQL, MySQL, and SQLite. Default fallback is SQLite for development.
+3. **Database Support**: Configured to work with PostgreSQL, MySQL, and SQLite. Default fallback is SQLite for development.

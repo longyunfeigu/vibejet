@@ -1,7 +1,3 @@
-# input: 仅标准库（datetime/dataclasses）
-# output: BaseEntity 领域实体基类, ensure_utc/utcnow 时间工具
-# owner: wanhua.gu
-# pos: 领域层公共原语 - 所有聚合实体的基类（id/时间戳/软删行为）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Shared domain entity primitives.
 
 All aggregate entities should inherit :class:`BaseEntity` instead of
@@ -30,10 +26,6 @@ def ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
-
-
-# Backwards-compatible alias (older code/tests imported the private name)
-_ensure_utc = ensure_utc
 
 
 @dataclass

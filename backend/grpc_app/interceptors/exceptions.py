@@ -8,7 +8,7 @@ import grpc
 
 from core.logging_config import get_logger
 from domain.common.exceptions import BusinessException
-from grpc_app.interceptors.request_id import get_request_id
+from grpc_app.interceptors.request_id import REQUEST_ID_META_KEY, get_request_id
 from shared.codes import BusinessCode, transport_status
 
 logger = get_logger(__name__)
@@ -49,7 +49,12 @@ async def _abort_mapped(
     """附加业务码 trailing metadata → 标记已映射 → 记简洁错误日志（无堆栈）→ abort。"""
     # trailing metadata 尽力而为：RPC 已结束等情况下设置失败则忽略
     with contextlib.suppress(Exception):
-        context.set_trailing_metadata((("x-biz-code", biz_code), ("x-error-type", error_type)))
+        # set_trailing_metadata 是覆盖而非追加：带上 RequestIdInterceptor 已设的 x-request-id
+        metadata = [("x-biz-code", biz_code), ("x-error-type", error_type)]
+        request_id = get_request_id()
+        if request_id:
+            metadata.append((REQUEST_ID_META_KEY, request_id))
+        context.set_trailing_metadata(tuple(metadata))
     set_mapped_error()
     logger.error(
         "grpc_mapped_error",
@@ -104,6 +109,9 @@ class ExceptionMappingInterceptor(grpc.aio.ServerInterceptor):
         async def _unary_unary(request, context: grpc.aio.ServicerContext):
             try:
                 return await handler.unary_unary(request, context)
+            except grpc.aio.AbortError:
+                # servicer 已自行 abort（状态码/详情已定）：原样上抛，不再当未知异常重映射成 INTERNAL
+                raise
             except BusinessException as exc:
                 await _abort_business_error(context, handler_call_details.method, exc)
             except Exception as exc:

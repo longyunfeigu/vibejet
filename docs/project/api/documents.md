@@ -61,7 +61,7 @@
 
 ### DELETE /api/v1/documents/{id}
 
-软删除。响应 `data`: `{ "deleted": true, "status": "..." }`。
+软删除。响应 `data`: `{ "id": <id>, "deleted": true }`（全站 DELETE 统一 payload，见 conventions.md）。
 
 ## 错误码
 
@@ -100,7 +100,6 @@ markitdown 依赖 optional extra：`uv sync --extra documents`。
 
 ## 已知留白（与 files 模块一致）
 
-- 列表不做 owner 过滤、详情不做 ownership 校验 —— 下游项目需补 actor/ownership 检查
 - BackgroundTasks 为进程内执行：进程重启会令文档停留在 `parsing`，超过
   `DOCUMENT__PARSING_STALE_SECONDS` 后可用 reparse 端点恢复；
   多副本部署应将 `process_document` 迁移到 Celery（service 方法可直接复用）

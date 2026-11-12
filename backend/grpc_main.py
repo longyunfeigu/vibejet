@@ -2,10 +2,8 @@ import asyncio
 import signal
 
 from core.config import settings
-from core.logging_config import configure_logging
-from core.logging_config import get_logger
+from core.logging_config import configure_logging, get_logger
 from grpc_app.server import create_server
-
 
 logger = get_logger(__name__)
 
@@ -35,9 +33,7 @@ async def main() -> None:
     try:
         # 信号或服务器自行终止，先到先响应（SIGINT/SIGTERM 均已由
         # add_signal_handler 转为 stop_requested 事件）
-        await asyncio.wait(
-            {stop_waiter, termination_waiter}, return_when=asyncio.FIRST_COMPLETED
-        )
+        await asyncio.wait({stop_waiter, termination_waiter}, return_when=asyncio.FIRST_COMPLETED)
     finally:
         stop_waiter.cancel()
         termination_waiter.cancel()

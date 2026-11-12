@@ -1,7 +1,3 @@
-# input: 无外部依赖（纯抽象）
-# output: AbstractUnitOfWork 事务边界抽象
-# owner: wanhua.gu
-# pos: 应用层端口 - 事务生命周期抽象，保持 repository-agnostic；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application-layer Unit of Work port.
 
 This base owns transaction lifecycle behavior only. Concrete repository

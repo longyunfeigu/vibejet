@@ -71,7 +71,6 @@ def _wrapped(provider: _FakeProvider) -> tuple[CircuitBreakingLLM, SREBreaker]:
         openai.APIConnectionError(request=_REQUEST),
     ],
 )
-@pytest.mark.asyncio
 async def test_upstream_failures_open_the_breaker(error: BaseException) -> None:
     provider = _FakeProvider(error=error)
     llm, _ = _wrapped(provider)
@@ -92,7 +91,6 @@ async def test_upstream_failures_open_the_breaker(error: BaseException) -> None:
         _status_error(openai.RateLimitError, 429),
     ],
 )
-@pytest.mark.asyncio
 async def test_client_side_errors_do_not_open_the_breaker(error: BaseException) -> None:
     provider = _FakeProvider(error=error)
     llm, _ = _wrapped(provider)
@@ -104,7 +102,6 @@ async def test_client_side_errors_do_not_open_the_breaker(error: BaseException) 
     assert provider.calls == 30
 
 
-@pytest.mark.asyncio
 async def test_own_validation_errors_are_not_upstream_failures() -> None:
     provider = OpenAIProvider(api_key="sk-test", default_model="m", max_retries=0)
     breaker = SREBreaker("llm:test", random=lambda: 0.0)
@@ -117,7 +114,6 @@ async def test_own_validation_errors_are_not_upstream_failures() -> None:
     assert breaker._stat.summary() == (1, 1)
 
 
-@pytest.mark.asyncio
 async def test_stream_records_outcomes() -> None:
     failing, failing_breaker = _wrapped(
         _FakeProvider(error=_status_error(openai.InternalServerError, 500))
@@ -133,7 +129,6 @@ async def test_stream_records_outcomes() -> None:
     assert healthy_breaker._stat.summary() == (1, 1)
 
 
-@pytest.mark.asyncio
 async def test_stream_abandoned_by_consumer_is_not_recorded_and_closes_inner() -> None:
     provider = _FakeProvider(chunks=5)
     llm, breaker = _wrapped(provider)
@@ -183,7 +178,6 @@ def _sse_transport(stream: httpx.AsyncByteStream) -> httpx.AsyncClient:
 
 
 @pytest.mark.parametrize("mode", ["drop", "read_timeout", "error_event"])
-@pytest.mark.asyncio
 async def test_openai_midstream_failures_count_as_upstream_failures(mode: str) -> None:
     delta = {
         "id": "c",
@@ -213,7 +207,6 @@ async def test_openai_midstream_failures_count_as_upstream_failures(mode: str) -
 
 
 @pytest.mark.parametrize("mode", ["drop", "read_timeout", "overloaded_event"])
-@pytest.mark.asyncio
 async def test_anthropic_midstream_failures_count_as_upstream_failures(mode: str) -> None:
     anthropic = pytest.importorskip("anthropic")
     from infrastructure.external.llm.anthropic_provider import AnthropicProvider
@@ -273,7 +266,6 @@ _INVALID_2XX_BODIES = {
 
 
 @pytest.mark.parametrize("body", sorted(_INVALID_2XX_BODIES))
-@pytest.mark.asyncio
 async def test_generate_invalid_2xx_body_counts_as_upstream_failure(body: str) -> None:
     provider = OpenAIProvider(api_key="sk-test", default_model="m", max_retries=0)
     provider._client = openai.AsyncOpenAI(
@@ -292,7 +284,6 @@ async def test_generate_invalid_2xx_body_counts_as_upstream_failure(body: str) -
 
 
 @pytest.mark.parametrize("body", sorted(_INVALID_2XX_BODIES))
-@pytest.mark.asyncio
 async def test_anthropic_generate_invalid_2xx_body_counts_as_upstream_failure(body: str) -> None:
     anthropic = pytest.importorskip("anthropic")
     from infrastructure.external.llm.anthropic_provider import AnthropicProvider
@@ -336,7 +327,6 @@ def test_build_client_wraps_provider_with_breaker() -> None:
     assert isinstance(client.inner, OpenAIProvider)
 
 
-@pytest.mark.asyncio
 async def test_shutdown_closes_inner_sdk_client(monkeypatch: pytest.MonkeyPatch) -> None:
     closed: list[bool] = []
 

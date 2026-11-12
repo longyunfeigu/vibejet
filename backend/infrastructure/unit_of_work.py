@@ -1,7 +1,3 @@
-# input: SQLAlchemy AsyncSession 工厂, infrastructure.repositories 各仓储实现
-# output: SQLAlchemyUnitOfWork（typed cached_property 懒实例化的事务边界实现）
-# owner: wanhua.gu
-# pos: 基础设施层 - UoW 具体实现；新聚合 = 新增一个 cached_property；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy Unit of Work 实现。
 
 仓储以带类型标注的 ``cached_property`` 暴露：

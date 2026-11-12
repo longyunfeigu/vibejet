@@ -4,6 +4,7 @@ Current foundation schema contracts:
 
 - [document.md](document.md) — `documents` 表（文档解析聚合）
 - [conversation.md](conversation.md) — `conversations` 等对话聚合表（含归属列）
+- [auth.md](auth.md) — `users` / `oauth_accounts`（认证主体与联合登录身份）
 
 All tables are created by the single init migration `0001`
 (`backend/alembic/versions/20260704_0001_init.py`).

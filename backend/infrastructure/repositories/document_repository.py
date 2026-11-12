@@ -1,6 +1,3 @@
-# input: SQLAlchemy AsyncSession, DocumentModel ORM
-# output: SQLAlchemyDocumentRepository 仓储实现
-# pos: 基础设施层 - 文档聚合仓储 SQLAlchemy 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy-backed repository for documents."""
 
 from __future__ import annotations
@@ -108,6 +105,8 @@ class SQLAlchemyDocumentRepository(SoftDeleteFilterMixin, DocumentRepository):
                 "deleted_at": document.deleted_at,
             },
             not_found=lambda: DocumentNotFoundException(document.id),
+            # 读-改-写期间被并发软删的行不得被这次整行回写复活（reparse 撞上 DELETE）
+            extra_where=(DocumentModel.deleted_at.is_(None),),
         )
         return document
 

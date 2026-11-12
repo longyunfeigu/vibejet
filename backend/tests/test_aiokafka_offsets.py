@@ -1,6 +1,3 @@
-# input: OffsetTracker + 可手动拨动的假时钟（纯状态，不需要 aiokafka）
-# output: 批量提交簿记测试：下一位点跟踪、按条数/按间隔到期、每次尝试重新计批（失败后按间隔重试而不是每条都试）、提交成功后的增量、按分区筛选与遗忘
-# pos: 后端测试 - Kafka 消费位点批量提交时机的确定性验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from infrastructure.external.messaging.providers.aiokafka._offsets import OffsetTracker

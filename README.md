@@ -29,8 +29,10 @@ vibejet/
 |   |-- grpc_app/            # gRPC runtime and protobuf stubs
 |   |-- alembic/             # Database migrations
 |   `-- tests/               # pytest suite
+|-- frontend/                # React + TypeScript (Vite) app
+|-- AutoTest/                # Playwright BDD E2E suite + Release-Check guides
+|-- .agents/skills/          # Repo-local AI workflow skills
 |-- docs/                    # Reusable architecture and workflow docs
-|-- scripts/                 # Development automation scripts
 `-- docker-compose.yml       # Local PostgreSQL + API + gRPC stack
 ```
 
@@ -47,20 +49,28 @@ uv venv --python 3.11 .venv
 source .venv/bin/activate
 uv sync --extra dev
 
-uv run uvicorn main:app --reload
+uv run uvicorn main:app --reload --port 8010
 ```
 
 The REST API runs at:
 
-- `http://localhost:8000`
-- `http://localhost:8000/docs`
-- `http://localhost:8000/redoc`
+- `http://localhost:8010`
+- `http://localhost:8010/docs`
+- `http://localhost:8010/redoc`
+
+8010 (not the usual 8000) is the project's dev port everywhere — backend default, Vite proxy,
+Docker and AutoTest — so it doesn't collide with other local services on 8000.
 
 Run the Docker stack from the repository root:
 
 ```bash
-SECRET_KEY=change-me docker-compose up -d
+SECRET_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
+
+The stack runs migrations on start (`AUTO_RUN_MIGRATIONS=true`, dev only) and exposes the API on
+`:8010` and gRPC (health service) on `:50051`. If Debian/PyPI are unreachable from your network,
+pass mirrors through to the build, e.g.
+`DEBIAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple`.
 
 Run the gRPC service locally:
 
@@ -77,7 +87,7 @@ Settings use Pydantic Settings v2 with nested environment variables.
 APP_NAME=vibejet
 DEBUG=false
 ENVIRONMENT=development
-SECRET_KEY=change-me
+SECRET_KEY=<openssl rand -hex 32 output>
 DATABASE__URL=postgresql+asyncpg://user:password@localhost:5432/dbname
 REDIS__URL=redis://localhost:6379/0
 STORAGE__TYPE=local
@@ -245,7 +255,7 @@ Keep this repository generic:
 
 ## Documentation
 
-- [Architecture](docs/project/architecture.md)
+- [Architecture (DDD layering & rules)](AGENTS.md#backend-architecture)
 - [AI workflow](docs/reference/guides/ai-workflow.md)
 - [FastAPI review checklist](docs/reference/guides/review-checklist-python-fastapi.md)
 - [Auth API contract](docs/project/api/auth.md)

@@ -448,7 +448,7 @@ story-verify-fix
 - Mode: full-stack + visual
 
 ### Environment
-- Backend: started on http://127.0.0.1:8000
+- Backend: started on http://127.0.0.1:8010
 - Frontend: started on http://127.0.0.1:3000
 
 ### Verification

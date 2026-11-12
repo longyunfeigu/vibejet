@@ -6,10 +6,8 @@ locales/
   en/LC_MESSAGES/messages.po|mo
   zh_Hans/LC_MESSAGES/messages.po|mo
 
-Use Babel to extract and compile translations:
+Edit the .po files by hand: code looks messages up by key (`t("key")` / `message_key=`),
+which `pybabel extract` cannot see, so extract + update would mark every entry obsolete.
 
-- Extract: pybabel extract -F babel.cfg -o locales/messages.pot .
-- Init:    pybabel init -i locales/messages.pot -d locales -l en
-- Init:    pybabel init -i locales/messages.pot -d locales -l zh_Hans
-- Update:  pybabel update -i locales/messages.pot -d locales
-- Compile: pybabel compile -d locales
+- Validate: uv run python scripts/validate_po.py (syntax + key coverage; also a pre-commit hook)
+- Compile:  uv run pybabel compile -d locales

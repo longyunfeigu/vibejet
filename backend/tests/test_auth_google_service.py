@@ -1,93 +1,16 @@
-# input: AuthApplicationService.login_with_google + fake UoW/repo/exchanger/token
-# output: Google 授权码登录编排路径行为测试（已绑/验证邮箱链接/新建/未验证不链接/未配置/停用）
-# pos: 后端测试 - 认证应用服务 Google 授权码登录用例验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Behavior tests for AuthApplicationService.login_with_google (auth-code find/link/create)."""
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pytest
 
 from application.ports.oauth import GoogleIdentity
-from application.ports.security import TokenPair
-from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.auth_service import AuthApplicationService
 from application.utils.time import utcnow
-from domain.common.exceptions import UserAlreadyExistsException, UserInactiveException
+from domain.common.exceptions import ServiceUnavailableException, UserInactiveException
 from domain.user.entity import User
-from domain.user.oauth_account import OAuthAccount
-
-
-class FakeUserRepo:
-    def __init__(self) -> None:
-        self.users: dict[int, User] = {}
-        self.oauth: dict[tuple[str, str], int] = {}
-        self._seq = 0
-
-    async def get_by_oauth(self, provider: str, sub: str) -> Optional[User]:
-        uid = self.oauth.get((provider, sub))
-        return self.users.get(uid) if uid else None
-
-    async def get_by_email(self, email: str) -> Optional[User]:
-        for u in self.users.values():
-            if u.email == email and not u.is_deleted():
-                return u
-        return None
-
-    async def get_by_username(self, username: str) -> Optional[User]:
-        for u in self.users.values():
-            if u.username == username:
-                return u
-        return None
-
-    async def get_by_id(self, uid: int) -> Optional[User]:
-        return self.users.get(uid)
-
-    async def create(self, user: User) -> User:
-        self._seq += 1
-        user.id = self._seq
-        self.users[user.id] = user
-        return user
-
-    async def update(self, user: User) -> User:
-        self.users[user.id] = user
-        return user
-
-    async def add_oauth_account(self, account: OAuthAccount) -> OAuthAccount:
-        key = (account.provider, account.provider_sub)
-        if key in self.oauth:
-            raise UserAlreadyExistsException(account.email or account.provider_sub)
-        self.oauth[key] = account.user_id
-        account.id = len(self.oauth)
-        return account
-
-
-class FakeUoW(AbstractUnitOfWork):
-    """继承端口基类以复用真实退出语义（干净退出即提交，异常回滚）。"""
-
-    def __init__(self, repo: FakeUserRepo) -> None:
-        super().__init__()
-        self.user_repository = repo
-        self.commits = 0
-
-    async def commit(self) -> None:
-        self.commits += 1
-
-    async def rollback(self) -> None:
-        return None
-
-
-class FakeTokens:
-    def __init__(self) -> None:
-        self.subjects: list[str] = []
-
-    def issue_pair(self, *, subject: str) -> TokenPair:
-        self.subjects.append(subject)
-        return TokenPair(access_token=f"a-{subject}", refresh_token=f"r-{subject}", expires_in=1800)
-
-    def verify(self, token: str, *, expected_type) -> str:  # pragma: no cover - unused here
-        raise NotImplementedError
+from shared.codes import BusinessCode
+from tests._auth_fakes import FakeTokens, FakeUoW, FakeUserRepo
 
 
 class FakeExchanger:
@@ -233,8 +156,11 @@ async def test_not_configured_raises() -> None:
         token_provider=FakeTokens(),
         google_exchanger=None,
     )
-    with pytest.raises(RuntimeError):
+    # 未配置是服务端能力缺失 → 503 SERVICE_UNAVAILABLE（不是 500）
+    with pytest.raises(ServiceUnavailableException) as exc_info:
         await svc.login_with_google("code")
+    assert exc_info.value.code == BusinessCode.SERVICE_UNAVAILABLE
+    assert exc_info.value.message_key == "auth.google.not_configured"
 
 
 async def test_inactive_user_cannot_login() -> None:

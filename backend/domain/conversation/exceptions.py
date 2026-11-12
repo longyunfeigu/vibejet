@@ -1,7 +1,3 @@
-# input: shared.codes.BusinessCode
-# output: 对话领域异常类
-# owner: unknown
-# pos: 领域层 - 对话聚合异常定义；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain exceptions for the conversation aggregate."""
 
 from __future__ import annotations
@@ -21,18 +17,6 @@ class ConversationNotFoundException(BusinessException):
             error_type="ConversationNotFound",
             details=details,
             message_key="conversation.not_found",
-        )
-
-
-class ConversationArchivedException(BusinessException):
-    def __init__(self, conversation_id: Optional[int] = None):
-        details = {"conversation_id": conversation_id} if conversation_id is not None else None
-        super().__init__(
-            code=BusinessCode.CONVERSATION_ARCHIVED,
-            message="Conversation is archived",
-            error_type="ConversationArchived",
-            details=details,
-            message_key="conversation.archived",
         )
 
 

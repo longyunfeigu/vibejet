@@ -1,11 +1,8 @@
-# input: SQLAlchemy AsyncSession, ConversationModel ORM
-# output: SQLAlchemyConversationRepository 仓储实现
-# owner: unknown
-# pos: 基础设施层 - 对话仓储 SQLAlchemy 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy-backed repository for conversations."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -33,7 +30,8 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
             title=model.title,
             system_prompt=model.system_prompt,
             model=model.model,
-            status=model.status,
+            # 旧版软删写过 status='archived'，实体已只认 'active'；删除态由 deleted_at 承载
+            status="active" if model.status == "archived" else model.status,
             metadata=dict(model.extra_metadata or {}),
             owner_id=model.owner_id,
             created_at=model.created_at,
@@ -84,8 +82,20 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
                 "deleted_at": conversation.deleted_at,
             },
             not_found=lambda: ConversationNotFoundException(conversation.id),
+            # 读-改-写期间被并发软删的行不得被这次整行回写复活（PATCH 撞上 DELETE）
+            extra_where=(ConversationModel.deleted_at.is_(None),),
         )
         return conversation
+
+    async def touch_activity(self, conversation_id: int, *, at: datetime) -> None:
+        await execute_targeted_update(
+            self.session,
+            ConversationModel,
+            conversation_id,
+            {"updated_at": at},
+            not_found=lambda: ConversationNotFoundException(conversation_id),
+            extra_where=(ConversationModel.deleted_at.is_(None),),
+        )
 
     async def get_by_id(
         self, conversation_id: int, *, include_deleted: bool = False
@@ -115,9 +125,7 @@ class SQLAlchemyConversationRepository(SoftDeleteFilterMixin, ConversationReposi
         result = await self.session.execute(query)
         return [self._to_entity(m) for m in result.scalars().all()]
 
-    async def count(
-        self, *, owner_id: Optional[int] = None, status: Optional[str] = None
-    ) -> int:
+    async def count(self, *, owner_id: Optional[int] = None, status: Optional[str] = None) -> int:
         query = select(func.count()).select_from(ConversationModel)
         query = self._apply_filters(query, owner_id=owner_id, status=status)
         result = await self.session.execute(query)

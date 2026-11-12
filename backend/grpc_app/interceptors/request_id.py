@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import uuid
+import contextlib
 import contextvars
-from typing import Callable, Awaitable
+import uuid
+from typing import Awaitable, Callable
 
 import grpc
-
 
 REQUEST_ID_META_KEY = "x-request-id"
 _request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
@@ -29,18 +29,14 @@ class RequestIdInterceptor(grpc.aio.ServerInterceptor):
 
         async def _unary_unary(request, context: grpc.aio.ServicerContext):
             # Try to get request-id from incoming metadata
-            request_id = None
             md = dict(handler_call_details.invocation_metadata or [])
-            if REQUEST_ID_META_KEY in md:
-                request_id = md[REQUEST_ID_META_KEY]
+            request_id = md.get(REQUEST_ID_META_KEY)
             if not request_id:
                 request_id = str(uuid.uuid4())
 
             # Attach as trailing metadata so the client can correlate
-            try:
+            with contextlib.suppress(Exception):
                 context.set_trailing_metadata(((REQUEST_ID_META_KEY, request_id),))
-            except Exception:
-                pass
             token = _request_id_var.set(request_id)
             try:
                 return await handler.unary_unary(request, context)

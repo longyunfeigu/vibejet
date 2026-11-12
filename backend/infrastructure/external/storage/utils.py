@@ -374,6 +374,7 @@ class MiddlewareStorage(StorageProvider):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ):
         """Generate presigned URL."""
         return await self.provider.generate_presigned_url(
@@ -383,6 +384,7 @@ class MiddlewareStorage(StorageProvider):
             content_type,
             response_content_disposition=response_content_disposition,
             response_content_type=response_content_type,
+            content_length=content_length,
         )
 
     async def copy(self, source_key: str, dest_key: str) -> bool:

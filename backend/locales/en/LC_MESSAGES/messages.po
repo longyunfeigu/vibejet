@@ -143,6 +143,12 @@ msgstr "File already deleted"
 msgid "file.key.conflict"
 msgstr "File key already exists"
 
+msgid "file.not_uploaded"
+msgstr "File has not been uploaded yet; finish the upload and confirm again"
+
+msgid "file.upload_closed"
+msgstr "File upload is already completed or no longer allowed; start a new upload"
+
 # File permission and identifier errors
 msgid "file.permission.denied.view"
 msgstr "Permission denied to view file"
@@ -243,11 +249,14 @@ msgstr "Authentication required"
 msgid "auth.token.invalid"
 msgstr "Invalid or expired token"
 
+msgid "auth.google.not_configured"
+msgstr "Google sign-in is not available"
+
+msgid "auth.oauth.not_configured"
+msgstr "This sign-in method is not available"
+
 msgid "conversation.not_found"
 msgstr "Conversation not found"
-
-msgid "conversation.archived"
-msgstr "Conversation is archived"
 
 msgid "run.not_found"
 msgstr "Run not found"
@@ -263,6 +272,9 @@ msgstr "LLM provider error"
 
 msgid "llm.timeout"
 msgstr "LLM request timed out"
+
+msgid "llm.not_configured"
+msgstr "AI service is not available"
 
 msgid "idempotency.key.reused"
 msgstr "Idempotency-Key reused with different request"

@@ -26,6 +26,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from urllib.parse import urlsplit
 
 from redis import asyncio as aioredis
 from redis.asyncio.lock import Lock
@@ -864,10 +865,13 @@ class RedisClient(CacheInterface):
         cancel = asyncio.Event()
         task: Optional[asyncio.Task] = None
 
+        # 没拿到锁（acquire 返回 False 或抛错）就不调 release：redis-py 只在 acquire 成功后
+        # 才记下 token，此时 release 必然失败，只会多记一条误导性的错误日志。
+        # acquire 的 SET 已落到服务端但回包丢失的极端情况，由锁的 timeout 过期兜底。
+        acquired = await lock.acquire()
+        if not acquired:
+            raise TimeoutError(f"获取锁失败: {lock_key}")
         try:
-            acquired = await lock.acquire()
-            if not acquired:
-                raise TimeoutError(f"获取锁失败: {lock_key}")
             if enable_auto_renew:
                 task = asyncio.create_task(
                     self._auto_extend_lock(
@@ -877,8 +881,11 @@ class RedisClient(CacheInterface):
             yield lock
         finally:
             cancel.set()
-            await self._stop_lock_renewal(task)
-            await self._release_lock(lock, lock_key)
+            try:
+                await self._stop_lock_renewal(task)
+            finally:
+                # 无论停续租是否被外部取消打断，拿到的锁都必须释放
+                await self._release_lock(lock, lock_key)
 
     @staticmethod
     async def _auto_extend_lock(
@@ -918,12 +925,17 @@ class RedisClient(CacheInterface):
 
     @staticmethod
     async def _stop_lock_renewal(task: Optional[asyncio.Task]) -> None:
-        """取消续租任务并等它结束；任务内的普通异常被吞掉，CancelledError 不在此列。"""
+        """取消续租任务并等它结束。
+
+        用 asyncio.wait 而不是 await task：被我们自己取消的续租任务不该把 CancelledError
+        抛给调用方；而当前任务若被外部取消，asyncio.wait 仍会照常抛出。
+        """
         if task is None:
             return
         task.cancel()
-        with suppress(Exception):
-            await task
+        await asyncio.wait({task})
+        if not task.cancelled():
+            task.exception()  # 标记已取回，任务内的普通异常只吞不抛
 
     @staticmethod
     async def _release_lock(lock: Lock, lock_key: str) -> None:
@@ -1190,6 +1202,7 @@ async def init_redis_client(
         if not settings.redis.url:
             raise RuntimeError("REDIS__URL 未配置，无法初始化Redis客户端")
 
+        client = None
         try:
             # 创建Redis连接
             # 构建跨平台 keepalive 选项（若可用）
@@ -1226,12 +1239,22 @@ async def init_redis_client(
                 enable_logging=enable_logging,
             )
 
-            logger.info(f"Redis客户端初始化成功: {settings.redis.url}")
+            logger.info(f"Redis客户端初始化成功: {_redis_location(settings.redis.url)}")
             return _cache_instance
 
         except Exception as e:
             logger.error(f"Redis客户端初始化失败: {e}")
+            # ping 失败时关掉这次建的连接池；否则 Redis 宕机期间每次健康探针重试都会泄漏一个池
+            if client is not None:
+                with suppress(Exception):
+                    await client.aclose()  # type: ignore[attr-defined]  # types-redis 4.x 缺 aclose
             raise
+
+
+def _redis_location(url: str) -> str:
+    """Location part of the URL for logs — never log the URL itself, it may carry the password."""
+    parts = urlsplit(url)
+    return parts.netloc.rpartition("@")[2] + parts.path
 
 
 async def get_redis_client() -> RedisClient:

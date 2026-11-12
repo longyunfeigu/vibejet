@@ -1,7 +1,3 @@
-# input: User 领域实体（纯接口定义）
-# output: UserRepository 仓储接口
-# owner: wanhua.gu
-# pos: 领域层 - 用户仓储接口，由 infrastructure 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Repository interface for the user aggregate."""
 
 from __future__ import annotations

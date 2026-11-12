@@ -1,6 +1,3 @@
-# input: OpenAIProvider + 假 OpenAI SDK client（捕获请求 kwargs / 回放响应桩）
-# output: OpenAI provider 的 tool use / json_schema / 流式 tool call 映射测试
-# pos: 后端测试 - LLMPort tool use 扩展在 OpenAI 适配器上的映射验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """OpenAIProvider mapping tests for the extended LLMPort contract.
 
 验收标准（Given-When-Then）：
@@ -16,6 +13,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -72,6 +70,24 @@ def _tool_call_response() -> SimpleNamespace:
     )
 
 
+class _FakeStream:
+    """openai AsyncStream 替身：可 async 迭代，async with 退出时记录关闭。"""
+
+    def __init__(self, chunks):
+        self._chunks = chunks
+        self.closed = False
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        self.closed = True
+
+    async def __aiter__(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
 class _FakeCompletions:
     """捕获 create(**kwargs)，非流式回放 response，流式回放 chunk 序列。"""
 
@@ -79,16 +95,14 @@ class _FakeCompletions:
         self._response = response
         self._stream_chunks = stream_chunks or []
         self.kwargs: dict | None = None
+        self.stream: _FakeStream | None = None
 
     async def create(self, **kwargs):
         self.kwargs = kwargs
         if kwargs.get("stream"):
-            return self._aiter()
+            self.stream = _FakeStream(self._stream_chunks)
+            return self.stream
         return self._response
-
-    async def _aiter(self):
-        for chunk in self._stream_chunks:
-            yield chunk
 
 
 def _provider(response=None, stream_chunks=None) -> tuple[OpenAIProvider, _FakeCompletions]:
@@ -223,9 +237,7 @@ async def test_generate_json_schema_sets_response_format() -> None:
     provider, fake = _provider(response=_text_response('{"city": "sf"}'))
     schema = {"type": "object", "properties": {"city": {"type": "string"}}}
 
-    response = await provider.generate(
-        [LLMMessage(role="user", content="hi")], json_schema=schema
-    )
+    response = await provider.generate([LLMMessage(role="user", content="hi")], json_schema=schema)
 
     # strict 模式会拒绝未全量标注 additionalProperties/required 的普通 schema
     assert fake.kwargs["response_format"] == {
@@ -341,12 +353,31 @@ async def test_stream_text_only_final_chunk_has_usage_no_tool_calls() -> None:
     ]
     provider, _ = _provider(stream_chunks=chunks_in)
 
-    chunks = [
-        chunk async for chunk in provider.stream([LLMMessage(role="user", content="hi")])
-    ]
+    chunks = [chunk async for chunk in provider.stream([LLMMessage(role="user", content="hi")])]
 
     assert [c.content for c in chunks if c.content] == ["Hello"]
     final = chunks[-1]
     assert final.finish_reason == "stop"
     assert final.total_tokens == 5
     assert final.tool_calls == []
+
+
+async def test_stream_closes_response_when_consumer_stops_early() -> None:
+    """客户端断开时调用方 aclose() 生成器，底层 HTTP 响应必须随之关闭，而不是等 GC。"""
+    text_chunk = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(content="Hi", tool_calls=None), finish_reason=None
+            )
+        ],
+        usage=None,
+        model="gpt-4o-mini",
+    )
+    provider, fake = _provider(stream_chunks=[text_chunk, text_chunk])
+
+    gen: Any = provider.stream([LLMMessage(role="user", content="hi")])
+    first = await gen.__anext__()
+    await gen.aclose()
+
+    assert first.content == "Hi"
+    assert fake.stream is not None and fake.stream.closed is True

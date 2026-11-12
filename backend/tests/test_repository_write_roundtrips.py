@@ -1,6 +1,3 @@
-# input: 内存 SQLite 引擎 + conversation/document 仓储 + SQL 语句捕获
-# output: 写路径单往返与列表 defer 的回归测试（PERF QE-2/QE-1/QE-3）
-# pos: 后端测试 - 仓储 SQL 往返数回归；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Repository round-trip regression tests.
 
 update()/delete() 必须是单条定向 DML（不得先 SELECT 再改再 refresh）；
@@ -12,45 +9,37 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
-
 import pytest
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from application.utils.time import utcnow
 from domain.common.exceptions import FileAssetKeyConflictException
 from domain.conversation.entity import Conversation
 from domain.document import Document
 from domain.file_asset.entity import FileAsset
-from infrastructure.models import Base
 from infrastructure.repositories.conversation_repository import SQLAlchemyConversationRepository
 from infrastructure.repositories.document_repository import SQLAlchemyDocumentRepository
 from infrastructure.repositories.file_asset_repository import SQLAlchemyFileAssetRepository
 
 
-@asynccontextmanager
-async def _session_with_statements() -> AsyncIterator[tuple[AsyncSession, list[str]]]:
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+@pytest.fixture
+def session_with_statements(sqlite_engine):
+    """``async with session_with_statements() as (session, statements)``: SQL captured after DDL."""
 
-        statements: list[str] = []
+    @asynccontextmanager
+    async def _session_with_statements() -> AsyncIterator[tuple[AsyncSession, list[str]]]:
+        async with sqlite_engine() as engine:
+            statements: list[str] = []
 
-        @event.listens_for(engine.sync_engine, "before_cursor_execute")
-        def _capture(conn, cursor, statement, parameters, context, executemany) -> None:
-            statements.append(statement.strip())
+            @event.listens_for(engine.sync_engine, "before_cursor_execute")
+            def _capture(conn, cursor, statement, parameters, context, executemany) -> None:
+                statements.append(statement.strip())
 
-        session_factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with session_factory() as session:
-            yield session, statements
-    finally:
-        await engine.dispose()
+            async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+                yield session, statements
+
+    return _session_with_statements
 
 
 def _verbs(statements: list[str]) -> list[str]:
@@ -77,8 +66,8 @@ def _pending_document(now) -> Document:
     )
 
 
-async def test_conversation_update_is_single_statement() -> None:
-    async with _session_with_statements() as (session, statements):
+async def test_conversation_update_is_single_statement(session_with_statements) -> None:
+    async with session_with_statements() as (session, statements):
         repo = SQLAlchemyConversationRepository(session)
         now = utcnow()
         conv = await repo.create(
@@ -99,8 +88,8 @@ async def test_conversation_update_is_single_statement() -> None:
         assert fetched is not None and fetched.title == "renamed"
 
 
-async def test_document_claim_uses_single_returning_statement() -> None:
-    async with _session_with_statements() as (session, statements):
+async def test_document_claim_uses_single_returning_statement(session_with_statements) -> None:
+    async with session_with_statements() as (session, statements):
         repo = SQLAlchemyDocumentRepository(session)
         doc = await repo.create(_pending_document(utcnow()))
 
@@ -116,9 +105,9 @@ async def test_document_claim_uses_single_returning_statement() -> None:
         assert await repo.try_mark_parsing(doc.id) is None
 
 
-async def test_file_asset_duplicate_key_maps_to_domain_conflict() -> None:
+async def test_file_asset_duplicate_key_maps_to_domain_conflict(session_with_statements) -> None:
     """并发同 key 插入撞 uq_file_assets_key 必须映射为域冲突，而不是裸 IntegrityError/500。"""
-    async with _session_with_statements() as (session, _):
+    async with session_with_statements() as (session, _):
         repo = SQLAlchemyFileAssetRepository(session)
         now = utcnow()
 
@@ -132,8 +121,8 @@ async def test_file_asset_duplicate_key_maps_to_domain_conflict() -> None:
             await repo.create(_asset())
 
 
-async def test_document_list_defers_content_md() -> None:
-    async with _session_with_statements() as (session, statements):
+async def test_document_list_defers_content_md(session_with_statements) -> None:
+    async with session_with_statements() as (session, statements):
         repo = SQLAlchemyDocumentRepository(session)
         now = utcnow()
         ready = _pending_document(now)

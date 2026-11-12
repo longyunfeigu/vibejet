@@ -6,8 +6,16 @@ the application layer does not depend on infrastructure details.
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Optional, Protocol, runtime_checkable
 from dataclasses import dataclass, field
+from typing import AsyncIterator, Optional, Protocol, runtime_checkable
+
+
+class StorageObjectNotFoundError(Exception):
+    """端口级"对象不存在"：adapter 把各 provider 的 not-found 翻译成它，应用层据此给业务语义。"""
+
+    def __init__(self, key: str):
+        super().__init__(f"Storage object not found: {key}")
+        self.key = key
 
 
 @dataclass
@@ -51,7 +59,9 @@ class StoragePort(Protocol):
 
     async def download(self, key: str) -> bytes: ...
 
-    async def get_metadata(self, key: str) -> ObjectMetadata: ...
+    async def get_metadata(self, key: str) -> ObjectMetadata:
+        """对象不存在 → 抛 ``StorageObjectNotFoundError``。"""
+        ...
 
     # 端口不提供 bytes 版 upload：应用层统一走 upload_stream（降峰值内存），
     # 小文件由 adapter 内部退化为底层 provider 的单次 upload
@@ -71,6 +81,7 @@ class StoragePort(Protocol):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ) -> PresignedURL: ...
 
     def public_url(self, key: str) -> Optional[str]: ...

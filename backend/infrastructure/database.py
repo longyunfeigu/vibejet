@@ -126,6 +126,8 @@ def _run_alembic_upgrade_to_head() -> None:
 
     alembic_config = Config(str(alembic_ini_path))
     alembic_config.set_main_option("script_location", str(alembic_script_path))
+    # 进程内迁移沿用应用已配好的 structlog，不让 env.py 用 alembic.ini 重配 root logger
+    alembic_config.attributes["configure_logger"] = False
 
     # 确保 env.py 能读取到当前进程的数据库配置
     os.environ["DATABASE__URL"] = settings.database.url

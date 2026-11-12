@@ -143,6 +143,12 @@ msgstr "文件已被删除"
 msgid "file.key.conflict"
 msgstr "文件 key 已存在"
 
+msgid "file.not_uploaded"
+msgstr "文件尚未上传完成，请上传后再确认"
+
+msgid "file.upload_closed"
+msgstr "文件已上传完成或不可再上传，请重新发起上传"
+
 # 文件权限与标识错误
 msgid "file.permission.denied.view"
 msgstr "无权查看该文件"
@@ -243,11 +249,14 @@ msgstr "需要登录"
 msgid "auth.token.invalid"
 msgstr "登录凭证无效或已过期"
 
+msgid "auth.google.not_configured"
+msgstr "Google 登录暂不可用"
+
+msgid "auth.oauth.not_configured"
+msgstr "该登录方式暂不可用"
+
 msgid "conversation.not_found"
 msgstr "对话不存在"
-
-msgid "conversation.archived"
-msgstr "对话已归档"
 
 msgid "run.not_found"
 msgstr "运行记录不存在"
@@ -263,6 +272,9 @@ msgstr "大模型服务出错"
 
 msgid "llm.timeout"
 msgstr "大模型请求超时"
+
+msgid "llm.not_configured"
+msgstr "AI 服务暂不可用"
 
 msgid "idempotency.key.reused"
 msgstr "Idempotency-Key 已被另一个请求使用"

@@ -1,6 +1,3 @@
-# input: core.observability.tracing.instrument_app + sys.modules 中替换的假 instrumentor / 数据库模块
-# output: instrument_app 特征测试：无 OTel 返回 False、幂等、四个 instrumentor 按序执行、单个失败只记 warning 不中断
-# pos: 后端测试 - 可观测性 tracing 装配行为基线（重构前后行为一致的保护网）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for core.observability.tracing.instrument_app."""
 
 from __future__ import annotations

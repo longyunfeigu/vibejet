@@ -1,40 +1,26 @@
-# input: PresignUploadRequestDTO/CompleteUploadRequestDTO/UploadFile, FileAssetApplicationService, IdempotencyContext
-# output: /storage 路由（presign-upload, complete, upload）
-# owner: wanhua.gu
-# pos: 表示层路由 - 文件存储/直传相关 HTTP 接口；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """存储/文件上传相关路由。"""
 
 from __future__ import annotations
 
 from typing import AsyncIterator
 
-from fastapi import (
-    APIRouter,
-    Depends,
-    File,
-    HTTPException,
-    Query,
-    UploadFile,
-)
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from api.dependencies import get_current_user, get_file_asset_service
 from api.utils.idempotency import IdempotencyContext, idempotency_for
 from application.dto import (
-    PresignUploadRequestDTO,
     CompleteUploadRequestDTO,
-    StorageUploadResponseDTO,
-    PresignUploadResponseDTO,
-    PresignUploadDetailDTO,
     FileAssetSummaryDTO,
+    PresignUploadDetailDTO,
+    PresignUploadRequestDTO,
+    PresignUploadResponseDTO,
+    StorageUploadResponseDTO,
     UserDTO,
 )
 from application.services.file_asset_service import FileAssetApplicationService
-from core.response import (
-    Response as ApiResponse,
-    success_response,
-)
 from core.i18n import t
-
+from core.response import Response as ApiResponse
+from core.response import success_response
 
 # 认证闸门：上传/预签名端点要求登录，归属写入当前用户
 router = APIRouter(
@@ -49,14 +35,19 @@ async def _build_presign_response(
     payload: PresignUploadRequestDTO,
     file_summary: FileAssetSummaryDTO,
     *,
+    owner_id: int,
     presigned=None,
 ) -> ApiResponse[PresignUploadResponseDTO]:
-    """Assemble the presign response. Mints a fresh URL on cache hit (presigned=None)."""
+    """Assemble the presign response.
+
+    Cache hit (presigned=None) re-mints a URL only while the asset is still pending;
+    once confirmed/deleted the service raises FileUploadClosed (409).
+    """
     if presigned is None:
         presigned = await service.generate_upload_presign(
-            key=file_summary.key,
+            asset_id=file_summary.id,
+            owner_id=owner_id,
             method=payload.method,
-            content_type=file_summary.content_type,
             expires_in=payload.expires_in,
         )
     response_data = PresignUploadResponseDTO(
@@ -88,22 +79,29 @@ async def presign_upload(
     cached = await idem.lookup(request_hash)
     if cached is not None:
         return await _build_presign_response(
-            service, payload, FileAssetSummaryDTO.model_validate(cached)
+            service,
+            payload,
+            FileAssetSummaryDTO.model_validate(cached),
+            owner_id=current_user.id,
         )
 
-    # 校验失败由 service 统一抛 DomainValidationException，经全局异常处理器翻译
-    file_summary, presigned = await service.presign_upload(
-        user_id=current_user.id,
-        filename=payload.filename,
-        mime_type=payload.mime_type,
-        size_bytes=payload.size_bytes,
-        kind=payload.kind,
-        method=payload.method or "PUT",
-        expires_in=payload.expires_in,
-    )
+    # 校验失败由 service 统一抛 DomainValidationException，经全局异常处理器翻译；
+    # 失败时释放幂等锁，同 key 重试拿到真实错误而不是 in_progress
+    async with idem.release_on_failure():
+        file_summary, presigned = await service.presign_upload(
+            user_id=current_user.id,
+            filename=payload.filename,
+            mime_type=payload.mime_type,
+            size_bytes=payload.size_bytes,
+            kind=payload.kind,
+            method=payload.method or "PUT",
+            expires_in=payload.expires_in,
+        )
 
     await idem.persist(request_hash, file_summary.model_dump(mode="json"))
-    return await _build_presign_response(service, payload, file_summary, presigned=presigned)
+    return await _build_presign_response(
+        service, payload, file_summary, owner_id=current_user.id, presigned=presigned
+    )
 
 
 @router.post(
@@ -137,7 +135,7 @@ async def confirm_presigned_upload(
 )
 async def upload_file(
     file: UploadFile = File(..., description="要上传的文件"),
-    kind: str = Query("uploads", description="业务分类（如 avatar、document 等）"),
+    kind: str = Query("uploads", max_length=50, description="业务分类（如 avatar、document 等）"),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
     current_user: UserDTO = Depends(get_current_user),
 ):

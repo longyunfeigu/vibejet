@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from domain.common.entity import BaseEntity, _ensure_utc
+from domain.common.entity import BaseEntity, ensure_utc
 
 
 def test_ensure_utc_normalizes_naive_datetime() -> None:
     naive = datetime(2024, 1, 1, 12, 0, 0)
-    aware = _ensure_utc(naive)
+    aware = ensure_utc(naive)
     assert aware is not None
     assert aware.tzinfo == timezone.utc
 

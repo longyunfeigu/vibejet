@@ -1,7 +1,3 @@
-# input: KafkaSettings 形状的配置对象（core.config.KafkaSettings 满足 KafkaSettingsLike 协议）
-# output: messaging_config_from_settings（→ MessagingConfig，aiokafka 驱动）, KafkaSettingsLike
-# owner: unknown
-# pos: 基础设施层 - 消息配置装配（设置子集 → messaging dataclass，不反向依赖 core）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Messaging config builder (composition root for messaging layer).
 
 This module maps application settings (Kafka settings subset) to the

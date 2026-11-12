@@ -1,6 +1,3 @@
-# input: RedisClient + 内存 fake async redis client/lock；可替换的 asyncio.wait_for / random.uniform / settings
-# output: RedisClient.lock 全分支特征测试（获取/未获取/释放失败、自动续租开关、续租间隔与抖动、续租失败、退出时取消续租）
-# pos: 后端测试 - Redis 分布式锁上下文管理器重构护栏；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for RedisClient.lock.
 
 重构（降 McCabe 复杂度 + 修 lint）前后必须同绿。续租循环的等待通过替换模块内
@@ -202,7 +199,7 @@ async def test_lock_passes_custom_options_and_unnamespaced_key() -> None:
     ]
 
 
-async def test_lock_not_acquired_raises_timeout_and_still_releases() -> None:
+async def test_lock_not_acquired_raises_timeout_without_releasing() -> None:
     lock = _FakeLock(acquired=False)
     client, _ = _client(lock)
     entered = []
@@ -214,20 +211,21 @@ async def test_lock_not_acquired_raises_timeout_and_still_releases() -> None:
     assert type(info.value) is TimeoutError
     assert str(info.value) == "获取锁失败: lock:ns:job"
     assert entered == []
-    assert lock.release_calls == 1
+    assert lock.release_calls == 0
 
 
-async def test_lock_acquire_error_propagates_and_still_releases() -> None:
+async def test_lock_acquire_error_propagates_without_releasing() -> None:
     err = RedisError("connection lost")
     lock = _FakeLock(acquire_error=err)
     client, _ = _client(lock)
 
-    with pytest.raises(RedisError) as info:
+    with capture_logs() as logs, pytest.raises(RedisError) as info:
         async with client.lock("job"):
             pass
 
     assert info.value is err
-    assert lock.release_calls == 1
+    assert lock.release_calls == 0
+    assert logs == []
 
 
 async def test_lock_release_failure_is_logged_not_raised() -> None:
@@ -242,7 +240,7 @@ async def test_lock_release_failure_is_logged_not_raised() -> None:
     assert logs == [{"event": "释放锁失败 [lock:ns:job]: not owned", "log_level": "error"}]
 
 
-async def test_lock_timeout_still_raised_when_release_also_fails() -> None:
+async def test_lock_timeout_logs_no_spurious_release_error() -> None:
     lock = _FakeLock(acquired=False, release_error=RedisError("not owned"))
     client, _ = _client(lock)
 
@@ -250,7 +248,8 @@ async def test_lock_timeout_still_raised_when_release_also_fails() -> None:
         async with client.lock("job"):
             pass
 
-    assert logs == [{"event": "释放锁失败 [lock:ns:job]: not owned", "log_level": "error"}]
+    assert logs == []
+    assert lock.release_calls == 0
 
 
 async def test_lock_body_error_propagates_after_release() -> None:
@@ -536,16 +535,35 @@ async def test_auto_renew_with_real_timer_extends_after_half_second_floor() -> N
     assert _pending_tasks() == []
 
 
-async def test_auto_renew_exit_without_yielding_leaks_cancelled_error() -> None:
-    """现状钉子（疑似缺陷）：body 期间从未让出事件循环时，续租 task 尚未启动就被 cancel；
-    `await task` 抛出的 CancelledError 是 BaseException，不被 `except Exception` 吞掉，
-    于是从 finally 逃逸并跳过 lock.release()。重构保持该行为，修复另行决策。
+async def test_auto_renew_exit_without_yielding_still_releases() -> None:
+    """body 期间从未让出事件循环时，续租 task 尚未启动就被 cancel：
+    这个自己造成的 CancelledError 不能逃逸给调用方，锁也必须照常释放。
     """
     lock = _FakeLock()
     client, _ = _client(lock)
 
-    with pytest.raises(asyncio.CancelledError):
-        async with client.lock("job", auto_renew=True):
-            pass
+    async with client.lock("job", auto_renew=True):
+        pass
 
-    assert lock.release_calls == 0
+    assert lock.release_calls == 1
+    assert _pending_tasks() == []
+
+
+async def test_outer_cancellation_during_lock_exit_still_releases() -> None:
+    """持锁任务在退出时被外部取消：取消照常向上传播，但锁仍被释放。"""
+    lock = _FakeLock()
+    client, _ = _client(lock)
+    inside = asyncio.Event()
+
+    async def hold() -> None:
+        async with client.lock("job", auto_renew=True):
+            inside.set()
+            await asyncio.sleep(10)
+
+    task = asyncio.create_task(hold())
+    await inside.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert lock.release_calls == 1

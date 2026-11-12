@@ -1,12 +1,10 @@
-# input: 阿里云 OSS (oss2 SDK), StorageConfig（endpoint/bucket/AK, connect+read 双超时）
-# output: OSSProvider（上传/下载/multipart 含 abort/预签名）
-# pos: 基础设施层 - OSS 存储 provider 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Aliyun OSS storage provider implementation."""
 
+import contextlib
 import hashlib
 from datetime import datetime
 from functools import partial
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, NoReturn, Optional
 
 import anyio
 
@@ -61,7 +59,10 @@ class OSSProvider(AdvancedStorageProvider):
             )
 
             # Use server returned ETag if available; else fallback to local hash
-            etag = getattr(result, "etag", None) or hashlib.md5(file).hexdigest()
+            etag = (
+                getattr(result, "etag", None)
+                or hashlib.md5(file, usedforsecurity=False).hexdigest()
+            )
 
             # Build result
             upload_result = UploadResult(
@@ -73,7 +74,7 @@ class OSSProvider(AdvancedStorageProvider):
                 upload_result.url = f"{self.config.public_base_url}/{key}"
             # For private buckets, do not attach presigned URLs to result.url
 
-            logger.info(f"Uploaded to OSS", key=key, size=len(file))
+            logger.info("Uploaded to OSS", key=key, size=len(file))
             return upload_result
 
         except Exception as e:
@@ -84,15 +85,13 @@ class OSSProvider(AdvancedStorageProvider):
         try:
             result = await anyio.to_thread.run_sync(partial(self.bucket.get_object, key))
             try:
-                data = await anyio.to_thread.run_sync(result.read)
-                logger.info(f"Downloaded from OSS", key=key, size=len(data))
+                data: bytes = await anyio.to_thread.run_sync(result.read)
+                logger.info("Downloaded from OSS", key=key, size=len(data))
                 return data
             finally:
                 # Best-effort close of underlying result/stream
-                try:
-                    await anyio.to_thread.run_sync(result.close)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    await anyio.to_thread.run_sync(result.close)
         except Exception as e:
             self._handle_exception(e, f"download {key}")
 
@@ -111,10 +110,8 @@ class OSSProvider(AdvancedStorageProvider):
                     yield chunk
             finally:
                 # Best-effort close of underlying stream/response
-                try:
-                    await anyio.to_thread.run_sync(result.close)  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    await anyio.to_thread.run_sync(result.close)
         except Exception as e:
             self._handle_exception(e, f"stream download {key}")
 
@@ -122,7 +119,7 @@ class OSSProvider(AdvancedStorageProvider):
         """Delete file from OSS."""
         try:
             await anyio.to_thread.run_sync(partial(self.bucket.delete_object, key))
-            logger.info(f"Deleted from OSS", key=key)
+            logger.info("Deleted from OSS", key=key)
             return True
         except Exception as e:
             self._handle_exception(e, f"delete {key}")
@@ -130,7 +127,7 @@ class OSSProvider(AdvancedStorageProvider):
     async def exists(self, key: str) -> bool:
         """Check if file exists in OSS."""
         try:
-            result = await anyio.to_thread.run_sync(partial(self.bucket.object_exists, key))
+            result: bool = await anyio.to_thread.run_sync(partial(self.bucket.object_exists, key))
             return result
         except Exception as e:
             self._handle_exception(e, f"exists {key}")
@@ -213,8 +210,12 @@ class OSSProvider(AdvancedStorageProvider):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ) -> PresignedRequest:
         """Generate presigned URL for OSS."""
+        # OSS 签名 URL 不签 Content-Length，无法绑定大小：忽略该参数（确认期复核兜底；
+        # 更强方案是带 content-length-range 的 POST policy）
+        _ = content_length
         try:
             if method == "GET":
                 # For GET, do NOT sign with headers like Content-Type: browsers won't send them.
@@ -270,7 +271,7 @@ class OSSProvider(AdvancedStorageProvider):
             await anyio.to_thread.run_sync(
                 partial(self.bucket.copy_object, self.bucket.bucket_name, source_key, dest_key)
             )
-            logger.info(f"Copied in OSS", source=source_key, dest=dest_key)
+            logger.info("Copied in OSS", source=source_key, dest=dest_key)
             return True
         except Exception as e:
             self._handle_exception(e, f"copy {source_key} to {dest_key}")
@@ -300,7 +301,7 @@ class OSSProvider(AdvancedStorageProvider):
             logger.info("OSS health check passed")
             return True
         except Exception as e:
-            logger.error(f"OSS health check failed", error=str(e))
+            logger.error("OSS health check failed", error=str(e))
             return False
 
     # Advanced methods
@@ -316,7 +317,8 @@ class OSSProvider(AdvancedStorageProvider):
                     self.bucket.init_multipart_upload, key, headers=headers if headers else None
                 )
             )
-            return upload_id.upload_id
+            upload_id_value: str = upload_id.upload_id
+            return upload_id_value
         except Exception as e:
             self._handle_exception(e, f"start multipart upload {key}")
 
@@ -334,7 +336,8 @@ class OSSProvider(AdvancedStorageProvider):
                     data,
                 )
             )
-            return result.etag
+            etag: str = result.etag
+            return etag
         except Exception as e:
             self._handle_exception(e, f"upload part {part_number}")
 
@@ -419,11 +422,14 @@ class OSSProvider(AdvancedStorageProvider):
 
         return True
 
-    def _handle_exception(self, e: Exception, operation: str) -> None:
+    def _handle_exception(self, e: Exception, operation: str) -> NoReturn:
         """Map OSS exceptions to storage exceptions."""
         import oss2
 
-        if isinstance(e, oss2.exceptions.NoSuchKey):
+        # HEAD 响应无 body，oss2 只能抛裸 NotFound（NoSuchKey 的父类）；NoSuchBucket 是配置错误，不算对象不存在
+        if isinstance(e, oss2.exceptions.NotFound) and not isinstance(
+            e, oss2.exceptions.NoSuchBucket
+        ):
             raise NotFoundError(f"Object not found: {operation}")
         elif isinstance(e, oss2.exceptions.AccessDenied):
             raise PermissionDeniedError(f"Access denied: {operation}")

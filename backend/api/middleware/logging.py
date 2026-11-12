@@ -1,7 +1,3 @@
-# input: ASGI scope/receive/send, core.config settings, core.logging_config logger
-# output: LoggingMiddleware (纯 ASGI)
-# owner: wanhua.gu
-# pos: 表示层中间件 - 请求/响应日志记录（纯 ASGI 实现）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """
 请求/响应日志中间件（纯 ASGI 实现）
 记录所有HTTP请求和响应，包括耗时统计
@@ -13,7 +9,7 @@
 import json
 import time
 from typing import Any, cast
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -202,10 +198,10 @@ class LoggingMiddleware:
         # query params
         qs = scope.get("query_string", b"")
         if qs:
-            info["query_params"] = {
-                k: v if len(v) > 1 else v[0]
-                for k, v in parse_qs(unquote(qs.decode("latin-1"))).items()
-            }
+            # 查询串里同样可能带令牌（如 ?token=），与请求体走同一套脱敏
+            info["query_params"] = self._sanitize_data(
+                {k: v if len(v) > 1 else v[0] for k, v in parse_qs(qs.decode("latin-1")).items()}
+            )
 
         # path params（路由匹配后才有）
         path_params = scope.get("path_params")
@@ -257,7 +253,8 @@ class LoggingMiddleware:
             try:
                 parsed = json.loads(snippet.decode("utf-8", errors="ignore"))
             except Exception:
-                parsed = snippet.decode("utf-8", errors="ignore")
+                # 解析不了就没法按字段脱敏：只记长度，不记原文（原文里可能有密码/令牌）
+                return f"<unparseable json, {len(snippet)} bytes>"
         elif "application/x-www-form-urlencoded" in content_type:
             try:
                 parsed = {

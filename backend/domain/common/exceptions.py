@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
+
 from shared.codes import BusinessCode
 
 
@@ -121,6 +122,21 @@ class InvalidTokenException(BusinessException):
         )
 
 
+class ServiceUnavailableException(BusinessException):
+    """依赖的服务/能力未配置或暂不可用 → 503。
+
+    message 与 message_key 面向客户端，不得包含配置项名、主机等内部细节。
+    """
+
+    def __init__(self, message: str, *, message_key: str):
+        super().__init__(
+            code=BusinessCode.SERVICE_UNAVAILABLE,
+            message=message,
+            error_type="ServiceUnavailable",
+            message_key=message_key,
+        )
+
+
 class DomainValidationException(BusinessException):
     def __init__(
         self,
@@ -174,7 +190,7 @@ class UserAlreadyInactiveException(BusinessException):
 
 class FileAssetNotFoundException(BusinessException):
     def __init__(self, asset_id: Optional[int] = None, *, key: Optional[str] = None):
-        details = {}
+        details: dict[str, Any] = {}
         if asset_id is not None:
             details["asset_id"] = asset_id
         if key is not None:
@@ -210,6 +226,37 @@ class FileAssetKeyConflictException(BusinessException):
             error_type="FileAssetKeyConflict",
             details={"key": key},
             message_key="file.key.conflict",
+        )
+
+
+class FileNotUploadedException(BusinessException):
+    """直传确认时存储里还没有该对象（客户端未上传完成就调用了 complete）。"""
+
+    def __init__(self, asset_id: Optional[int] = None, *, key: Optional[str] = None):
+        details: dict[str, Any] = {}
+        if asset_id is not None:
+            details["asset_id"] = asset_id
+        if key is not None:
+            details["key"] = key
+        super().__init__(
+            code=BusinessCode.FILE_NOT_UPLOADED,
+            message="File has not been uploaded yet",
+            error_type="FileNotUploaded",
+            details=details or None,
+            message_key="file.not_uploaded",
+        )
+
+
+class FileUploadClosedException(BusinessException):
+    """资产已不在 pending（已确认或已删除），不再签发上传链接，防止确认后覆盖对象。"""
+
+    def __init__(self, asset_id: Optional[int] = None):
+        super().__init__(
+            code=BusinessCode.FILE_UPLOAD_CLOSED,
+            message="File upload is already completed or no longer allowed",
+            error_type="FileUploadClosed",
+            details={"asset_id": asset_id} if asset_id is not None else None,
+            message_key="file.upload_closed",
         )
 
 

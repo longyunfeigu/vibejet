@@ -1,6 +1,3 @@
-# input: AuthApplicationService.login + fake UoW/repo/hasher/token
-# output: 本地登录行为测试（凭据错误不可区分 + 时序均衡 dummy verify + oauth-only 用户拒绝）
-# pos: 后端测试 - 认证应用服务本地登录用例验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Behavior tests for AuthApplicationService.login (enumeration-resistant credential check)."""
 
 from __future__ import annotations

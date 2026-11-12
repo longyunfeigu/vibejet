@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from celery import shared_task
 
-from ..utils.base_task import BaseTask
 from core.logging_config import get_logger
+
+from ..utils.base_task import BaseTask
 
 logger = get_logger(__name__)
 

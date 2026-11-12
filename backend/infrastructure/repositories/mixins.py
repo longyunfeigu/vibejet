@@ -1,7 +1,3 @@
-# input: SQLAlchemy Select 查询对象, ORM model_class（需含 deleted_at 列）
-# output: SoftDeleteFilterMixin（仓储基类 mixin，统一“默认排除软删”规则）
-# owner: wanhua.gu
-# pos: 基础设施层 - 仓储 mixin（共享过滤规则）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Repository mixins shared across SQLAlchemy repositories.
 
 The single source of truth for "default exclude soft-deleted rows". Repos whose
@@ -42,6 +38,7 @@ class SoftDeleteFilterMixin:
         """Add ``WHERE deleted_at IS NULL`` to the given query."""
         return query.where(self.model_class.deleted_at.is_(None))
 
-    def _apply_filters(self, query: Any, **_filters: Any) -> Any:
-        """Default: exclude soft-deleted rows. Subclasses override and call super()."""
+    def _apply_filters(self, query: Any) -> Any:
+        """Default: exclude soft-deleted rows. Subclasses override (adding their own
+        keyword-only filters) and call super()."""
         return self._filter_active(query)

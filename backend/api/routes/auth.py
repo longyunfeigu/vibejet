@@ -1,7 +1,3 @@
-# input: AuthApplicationService 依赖注入, get_current_user
-# output: /auth 路由（register, login, google, oauth/{provider}, refresh, me）
-# owner: wanhua.gu
-# pos: 表示层路由 - 认证 API（JWT Bearer + Google / 飞书·Lark 联合登录）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Authentication routes (register / login / google / oauth / refresh / me)."""
 
 from __future__ import annotations

@@ -7,24 +7,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import (
-    get_current_user,
-    get_file_asset_service,
-)
-from application.dto import (
-    FileAssetDTO,
-    FileAccessURLRequestDTO,
-    UserDTO,
-)
+from api.dependencies import get_current_user, get_file_asset_service
+from application.dto import DeletedResourceDTO, FileAccessURLRequestDTO, FileAssetDTO, UserDTO
 from application.services.file_asset_service import FileAssetApplicationService
-from core.response import (
-    Response as ApiResponse,
-    PaginatedData,
-    paginated_response,
-    success_response,
-)
 from core.config import settings
 from core.i18n import t
+from core.response import PaginatedData
+from core.response import Response as ApiResponse
+from core.response import paginated_response, success_response
 
 # 认证闸门 + 归属校验：文件端点要求登录，且只作用于当前用户的资产（越权 404）
 router = APIRouter(
@@ -157,14 +147,12 @@ async def generate_download_url(
 @router.delete(
     "/{asset_id}",
     summary="删除文件（软删除）",
-    response_model=ApiResponse[dict],
+    response_model=ApiResponse[DeletedResourceDTO],
 )
 async def delete_file(
     asset_id: int,
     current_user: UserDTO = Depends(get_current_user),
     service: FileAssetApplicationService = Depends(get_file_asset_service),
 ):
-    updated = await service.soft_delete(asset_id, owner_id=current_user.id)
-    return success_response(
-        {"deleted": True, "status": updated.status}, message=t("file.delete.soft.success")
-    )
+    await service.soft_delete(asset_id, owner_id=current_user.id)
+    return success_response(DeletedResourceDTO(id=asset_id), message=t("file.delete.soft.success"))

@@ -1,6 +1,3 @@
-# input: ChatRequestDTO
-# output: 聊天请求 DTO 边界校验测试
-# pos: 后端测试 - 聊天入参上下限（防超大文本直通 LLM/DB）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """ChatRequestDTO boundary validation tests."""
 
 from __future__ import annotations

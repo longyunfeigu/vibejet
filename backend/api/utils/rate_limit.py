@@ -1,7 +1,3 @@
-# input: core.config.settings.RATE_LIMIT_PER_MINUTE, request.client IP
-# output: rate_limit(scope) FastAPI 依赖工厂（进程内滑动窗口限流）
-# owner: wanhua.gu
-# pos: 表示层工具 - 端点级限流依赖；单进程实现，多副本部署需换 Redis 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Per-endpoint rate limiting dependency (in-process sliding window).
 
 Deliberately minimal for the template:

@@ -1,6 +1,3 @@
-# input: AiokafkaPublisher + 真实 AIOKafkaProducer 的离线子类（只跳过联网的 start 与 send，构造期参数与编解码器校验照常生效）
-# output: 发布端测试：ProducerTuning→aiokafka 参数映射（max_batch_size/idempotence/request_timeout_ms/acks 数值化，不传 max_in_flight）、默认 zstd 有编解码器、send_wait_s/delivery_wait_s 超时抛 PublishError、元数据与中间件；publish_many 先全部发出再一起等送达、任一失败或超时抛 PublishError（入队与送达错误都挂在 __cause__）；构造失败不留线程、不留未关闭的 producer；幂等 producer 有一次送达被拒就在下一次发送前换新（被拒的调用照样抛 PublishError，并发只换一次、只告警一次，旧 producer 借用都结束后才关，关不掉时点名告警；不幂等或入队失败不换）；SerializationError 原样抛出、什么都不发
-# pos: 后端测试 - Kafka 发布者与真实 aiokafka 构造契约的对齐验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import asyncio

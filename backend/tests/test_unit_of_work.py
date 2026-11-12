@@ -1,6 +1,3 @@
-# input: SQLAlchemyUnitOfWork + 内存 SQLite（aiosqlite）
-# output: UoW 事务语义行为测试（自动提交/回滚/只读保护/懒仓储）
-# pos: 后端测试 - UoW 干净退出自动 commit、异常回滚、readonly 写保护语义验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for SQLAlchemyUnitOfWork transaction semantics.
 
 验收标准（对应 AbstractUnitOfWork docstring）：
@@ -18,29 +15,24 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from application.utils.time import utcnow
 from domain.document import Document
-from infrastructure.models.document import DocumentModel
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
 
 
-@asynccontextmanager
-async def _uow_factory():
-    engine = create_async_engine(
-        "sqlite+aiosqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(DocumentModel.metadata.create_all)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        yield lambda **kwargs: SQLAlchemyUnitOfWork(session_factory=session_factory, **kwargs)
-    finally:
-        await engine.dispose()
+@pytest.fixture
+def uow_factory(sqlite_engine):
+    """``async with uow_factory() as factory``: ``factory(**kwargs)`` builds a UoW on fresh SQLite."""
+
+    @asynccontextmanager
+    async def _uow_factory():
+        async with sqlite_engine() as engine:
+            session_factory = async_sessionmaker(engine, expire_on_commit=False)
+            yield lambda **kwargs: SQLAlchemyUnitOfWork(session_factory=session_factory, **kwargs)
+
+    return _uow_factory
 
 
 def _new_doc() -> Document:
@@ -54,8 +46,8 @@ def _new_doc() -> Document:
     )
 
 
-async def test_clean_exit_commits_without_explicit_commit() -> None:
-    async with _uow_factory() as factory:
+async def test_clean_exit_commits_without_explicit_commit(uow_factory) -> None:
+    async with uow_factory() as factory:
         async with factory() as uow:
             doc = await uow.document_repository.create(_new_doc())
 
@@ -63,8 +55,8 @@ async def test_clean_exit_commits_without_explicit_commit() -> None:
             assert await uow.document_repository.get_by_id(doc.id) is not None
 
 
-async def test_exception_rolls_back_writes() -> None:
-    async with _uow_factory() as factory:
+async def test_exception_rolls_back_writes(uow_factory) -> None:
+    async with uow_factory() as factory:
         doc_id = None
         with pytest.raises(ValueError):
             async with factory() as uow:
@@ -78,8 +70,8 @@ async def test_exception_rolls_back_writes() -> None:
             assert await uow.document_repository.get_by_id(doc_id) is None
 
 
-async def test_writes_after_midscope_commit_are_committed_on_exit() -> None:
-    async with _uow_factory() as factory:
+async def test_writes_after_midscope_commit_are_committed_on_exit(uow_factory) -> None:
+    async with uow_factory() as factory:
         async with factory() as uow:
             first = await uow.document_repository.create(_new_doc())
             await uow.commit()
@@ -90,23 +82,23 @@ async def test_writes_after_midscope_commit_are_committed_on_exit() -> None:
             assert await uow.document_repository.get_by_id(second.id) is not None
 
 
-async def test_readonly_commit_raises() -> None:
-    async with _uow_factory() as factory:
+async def test_readonly_commit_raises(uow_factory) -> None:
+    async with uow_factory() as factory:
         async with factory(readonly=True) as uow:
             with pytest.raises(RuntimeError, match="read-only"):
                 await uow.commit()
 
 
-async def test_readonly_write_attempt_raises_instead_of_silent_discard() -> None:
-    async with _uow_factory() as factory:
+async def test_readonly_write_attempt_raises_instead_of_silent_discard(uow_factory) -> None:
+    async with uow_factory() as factory:
         with pytest.raises(RuntimeError, match="read-only"):
             async with factory(readonly=True) as uow:
                 await uow.document_repository.create(_new_doc())
 
 
-async def test_readonly_core_dml_raises_instead_of_silent_discard() -> None:
+async def test_readonly_core_dml_raises_instead_of_silent_discard(uow_factory) -> None:
     """Core UPDATE（不经过 ORM flush）在只读 UoW 下同样必须报错。"""
-    async with _uow_factory() as factory:
+    async with uow_factory() as factory:
         async with factory() as uow:
             doc = await uow.document_repository.create(_new_doc())
 
@@ -121,8 +113,8 @@ async def test_readonly_core_dml_raises_instead_of_silent_discard() -> None:
             assert unchanged is not None and unchanged.status == "pending"
 
 
-async def test_repository_access_before_enter_raises() -> None:
-    async with _uow_factory() as factory:
+async def test_repository_access_before_enter_raises(uow_factory) -> None:
+    async with uow_factory() as factory:
         uow = factory()
         with pytest.raises(RuntimeError, match="not entered"):
             _ = uow.document_repository

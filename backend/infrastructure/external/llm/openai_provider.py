@@ -1,7 +1,3 @@
-# input: openai SDK, LLMPort 接口
-# output: OpenAIProvider LLM 实现（文本 + tool use + json_schema 结构化输出）
-# owner: unknown
-# pos: 基础设施层 - OpenAI SDK LLM 提供者实现（兼容 Azure/vLLM；内容块↔tool_calls/tool 消息映射）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """OpenAI SDK implementation of LLMPort.
 
 API shape differences vs the port's Anthropic-style content blocks are
@@ -278,20 +274,22 @@ class OpenAIProvider:
         usage = None
         accumulator = _ToolCallAccumulator()
 
-        async for chunk in response:
-            resolved_model = chunk.model or resolved_model
-            if chunk.usage:
-                usage = chunk.usage
-            if not chunk.choices:
-                continue
-            choice = chunk.choices[0]
-            if choice.finish_reason:
-                finish_reason = choice.finish_reason
-            delta = choice.delta
-            if delta.tool_calls:
-                accumulator.add(delta.tool_calls)
-            if delta.content:
-                yield LLMChunk(content=delta.content, model=resolved_model)
+        # async with：调用方提前 aclose()（如客户端断开）时立即关闭底层 HTTP 响应，而不是等 GC
+        async with response:
+            async for chunk in response:
+                resolved_model = chunk.model or resolved_model
+                if chunk.usage:
+                    usage = chunk.usage
+                if not chunk.choices:
+                    continue
+                choice = chunk.choices[0]
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
+                delta = choice.delta
+                if delta.tool_calls:
+                    accumulator.add(delta.tool_calls)
+                if delta.content:
+                    yield LLMChunk(content=delta.content, model=resolved_model)
 
         # 收尾 chunk：usage、finish_reason 与完整 tool_calls 统一在最后交付
         yield LLMChunk(

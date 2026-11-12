@@ -1,6 +1,3 @@
-# input: infrastructure/models 全部 ORM 模型定义（与之严格对齐）
-# output: 全量 init schema（users/oauth_accounts/conversations/llm_runs/messages/agent_configs/file_assets/documents）
-# pos: 数据库迁移 - 唯一 init 版本 0001，后续 schema 变更一律在其上 autogenerate；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """init schema
 
 Revision ID: 0001

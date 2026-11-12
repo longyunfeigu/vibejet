@@ -18,9 +18,10 @@ from infrastructure.models import Base  # noqa: E402
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
+# Interpret the config file for Python logging (CLI only).
+# 应用启动时进程内跑迁移（AUTO_RUN_MIGRATIONS）会设 configure_logger=False：fileConfig 会替换
+# root handler、把级别压到 WARNING 并禁用已有 logger，应用日志会被整体吞掉
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here for 'autogenerate' support
@@ -35,14 +36,15 @@ target_metadata = Base.metadata
 def get_database_url():
     """Get database URL from environment variable or .env file"""
     # Try to get from environment variable
-    database_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE__URL")
+    # DATABASE__URL（应用 Settings 的嵌套键）优先：进程内迁移设置的就是它，必须与应用连同一个库
+    database_url = os.getenv("DATABASE__URL") or os.getenv("DATABASE_URL")
 
     # If not found, try to load from .env file
     if not database_url:
         from dotenv import load_dotenv
 
         load_dotenv()
-        database_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE__URL")
+        database_url = os.getenv("DATABASE__URL") or os.getenv("DATABASE_URL")
 
     # Fallback to a default SQLite (async) database for development
     if not database_url:

@@ -30,6 +30,15 @@ class FileAssetRepository(ABC):
     async def update(self, asset: FileAsset) -> FileAsset: ...
 
     @abstractmethod
+    async def update_if_not_deleted(self, asset: FileAsset) -> FileAsset:
+        """条件整行写：仅当行仍未软删（``deleted_at IS NULL``）时写入。
+
+        用于"先读后写且写入会清 deleted_at"的路径（如直传确认激活），防止把读后被
+        并发删除的资产复活。行不存在/已软删 → 抛 ``FileAssetNotFoundException``。
+        """
+        ...
+
+    @abstractmethod
     async def get_by_id(
         self, asset_id: int, *, include_deleted: bool = False
     ) -> Optional[FileAsset]: ...

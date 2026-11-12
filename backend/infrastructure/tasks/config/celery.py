@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
-from core.logging_config import get_logger
+
 from celery import Celery
 from kombu import Queue
+from kombu.utils.url import maybe_sanitize_url
 
 from core.config import settings
-from .beat import CELERY_BEAT_SCHEDULE
+from core.logging_config import get_logger
 
+from .beat import CELERY_BEAT_SCHEDULE
 
 # Task modules are discovered via this tuple so new packages only need to be
 # listed here rather than altering the runtime imports scattered elsewhere.
@@ -68,6 +70,6 @@ logger = get_logger(__name__)
 def _log_configuration(sender, **kwargs):
     logger.info(
         "celery_configured",
-        broker=sender.conf.broker_url,
-        result_backend=sender.conf.result_backend,
+        broker=maybe_sanitize_url(sender.conf.broker_url),
+        result_backend=maybe_sanitize_url(sender.conf.result_backend),
     )

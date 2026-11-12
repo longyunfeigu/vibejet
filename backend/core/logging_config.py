@@ -2,15 +2,17 @@
 Structlog 日志配置模块
 """
 
-import logging
+import contextlib
 import json
-import structlog
+import logging
 from logging.handlers import RotatingFileHandler
-from structlog.processors import TimeStamper, add_log_level, JSONRenderer
-from structlog.dev import ConsoleRenderer
-from structlog.contextvars import merge_contextvars
-from structlog.stdlib import ProcessorFormatter
 from typing import Any, List
+
+import structlog
+from structlog.contextvars import merge_contextvars
+from structlog.dev import ConsoleRenderer
+from structlog.processors import JSONRenderer, TimeStamper, add_log_level
+from structlog.stdlib import ProcessorFormatter
 
 from core.config import settings
 
@@ -30,7 +32,7 @@ def get_renderer() -> Any:
 
 
 def _add_trace_context(logger, method_name, event_dict):
-    try:
+    with contextlib.suppress(Exception):
         from core.observability.tracing import get_current_span_id, get_current_trace_id
 
         trace_id = get_current_trace_id()
@@ -39,8 +41,6 @@ def _add_trace_context(logger, method_name, event_dict):
             event_dict["trace_id"] = trace_id
         if span_id:
             event_dict["span_id"] = span_id
-    except Exception:
-        pass
     return event_dict
 
 
@@ -54,6 +54,8 @@ def configure_logging() -> None:
         _add_trace_context,
         add_log_level,
         timestamper,
+        # stdlib logger 的 extra={...} 字段（消息/Kafka 日志的 topic、offset 等）并入事件
+        structlog.stdlib.ExtraAdder(),
         structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
@@ -84,7 +86,7 @@ def configure_logging() -> None:
     log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
 
     # 配置处理器
-    handlers = []
+    handlers: list[logging.Handler] = []
 
     # 控制台处理器 - 始终启用
     console_handler = logging.StreamHandler()
@@ -132,7 +134,7 @@ def configure_logging() -> None:
 
 def get_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
     """获取 structlog logger 实例。"""
-    return structlog.get_logger(name)
+    return structlog.stdlib.get_logger(name)
 
 
 # Note: do not auto-configure on import to avoid side effects in

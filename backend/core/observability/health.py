@@ -56,6 +56,7 @@ async def check_database(timeout: float = 5.0) -> DependencyHealth:
     start = perf_counter()
     try:
         from sqlalchemy import text
+
         from infrastructure.database import engine
 
         async def _ping() -> None:
@@ -168,6 +169,9 @@ async def full_health_check(**timeouts: float) -> HealthReport:
                     detail=result.__class__.__name__,
                 )
             )
+        elif isinstance(result, BaseException):
+            # 非 Exception 的 BaseException（如 CancelledError）不归为依赖失败，原样抛出
+            raise result
         else:
             checks.append(result)
 

@@ -1,7 +1,3 @@
-# input: aiokafka（AIOKafkaProducer，运行期延迟导入）, KafkaConfig, Serializer, PublishMiddleware
-# output: AiokafkaPublisher（同步 publish / 批量 publish_many：先编码（SerializationError 原样抛出，什么都不发），再全部交给 producer、一起等送达；发送失败都抛 PublishError（__cause__ 为原错误），失败前已交出的记录可能已送达、整批重试会重复；send_wait_s 限制入队、delivery_wait_s 限制送达；幂等 producer 有一批被 broker 拒收后立即标记失效，下一次发送前换新 producer（并发安全、每次换告警一次）；与被拒记录同批的记录也会以同一错误失败（Kafka 按批拒收）；构造失败时关闭 producer 和事件循环线程）
-# owner: unknown
-# pos: 基础设施层 - Kafka 发布者（aiokafka 驱动；客户端参数统一由 _client_config 映射，可替换 producer 见 _producer_slot）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import asyncio

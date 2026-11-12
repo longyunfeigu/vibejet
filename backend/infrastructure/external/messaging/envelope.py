@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-
 H_ATTEMPTS = "x-attempts"
 H_ORIGINAL_TOPIC = "x-original-topic"
 H_RETRY_NOT_BEFORE = "x-retry-not-before"

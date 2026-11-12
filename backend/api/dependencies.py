@@ -1,7 +1,3 @@
-# input: application services, infrastructure 实现（composition root 豁免）, HTTP Bearer 凭证
-# output: get_*_service 依赖工厂, get_current_user 认证依赖, shutdown_oauth_exchangers 生命周期钩子
-# owner: wanhua.gu
-# pos: 表示层 - FastAPI 依赖注入装配点（具体实现→端口的唯一绑定处）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """API 依赖项（composition root）。"""
 
 from fastapi import Depends
@@ -9,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from application.dto import UserDTO
 from application.ports.document_parser import DocumentParserPort
+from application.ports.idempotency import IdempotencyStore
 from application.ports.llm import LLMPort
 from application.ports.security import PasswordHasher, TokenProvider
 from application.ports.storage import StoragePort
@@ -19,14 +16,14 @@ from application.services.document_service import DocumentApplicationService
 from application.services.file_asset_service import FileAssetApplicationService
 from application.services.idempotency_service import IdempotencyService
 from core.config import settings
-from domain.common.exceptions import UnauthorizedException
+from domain.common.exceptions import ServiceUnavailableException, UnauthorizedException
 from infrastructure.adapters.idempotency_store import RedisIdempotencyStore
 from infrastructure.adapters.storage_port import StorageProviderPortAdapter
+from infrastructure.external.google import GoogleAuthCodeExchanger, GoogleIdTokenVerifier
+from infrastructure.external.lark import LARK_OPEN_HOSTS, LarkAuthCodeExchanger
 from infrastructure.external.llm import get_llm_client
 from infrastructure.external.parsing import get_parser
 from infrastructure.external.storage import get_storage
-from infrastructure.external.google import GoogleAuthCodeExchanger, GoogleIdTokenVerifier
-from infrastructure.external.lark import LARK_OPEN_HOSTS, LarkAuthCodeExchanger
 from infrastructure.security import JwtTokenProvider, PwdlibPasswordHasher
 from infrastructure.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -49,7 +46,7 @@ class _NoopIdempotencyStore:
         return None
 
 
-_noop_idempotency_store = _NoopIdempotencyStore()
+_noop_idempotency_store: IdempotencyStore = _NoopIdempotencyStore()
 
 # 进程级单例：密码哈希与令牌签发是无状态纯计算
 _password_hasher = PwdlibPasswordHasher()
@@ -193,8 +190,9 @@ async def get_conversation_service() -> ConversationApplicationService:
 async def get_llm_port() -> LLMPort:
     client = get_llm_client()
     if client is None:
-        raise RuntimeError(
-            "LLM client not initialized. Set LLM__API_KEY in environment or .env and restart."
+        # 未配置原因（LLM__API_KEY 缺失）已在启动时告警；对客户端只回不泄露配置的 503
+        raise ServiceUnavailableException(
+            "AI service is not available", message_key="llm.not_configured"
         )
     return client
 

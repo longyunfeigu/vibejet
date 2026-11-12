@@ -18,6 +18,11 @@ class IdempotencyDecision:
     payload: Optional[dict[str, Any]] = None
 
 
+def _store_key(subject: str, key: str) -> str:
+    """把 subject 编进 store key：不同用户的同名 Idempotency-Key 互不碰撞。"""
+    return f"{subject}:{key}"
+
+
 class IdempotencyService:
     def __init__(
         self,
@@ -36,9 +41,11 @@ class IdempotencyService:
         self,
         *,
         scope: str,
+        subject: str,
         key: str,
         request_hash: str,
     ) -> IdempotencyDecision:
+        key = _store_key(subject, key)
         record = await self._store.get(scope=scope, key=key)
         if record is not None:
             if record.request_hash != request_hash:
@@ -74,10 +81,12 @@ class IdempotencyService:
         self,
         *,
         scope: str,
+        subject: str,
         key: str,
         request_hash: str,
         payload: dict[str, Any],
     ) -> None:
+        key = _store_key(subject, key)
         await self._store.set_result(
             scope=scope,
             key=key,
@@ -91,6 +100,8 @@ class IdempotencyService:
         self,
         *,
         scope: str,
+        subject: str,
         key: str,
     ) -> None:
-        await self._store.release(scope=scope, key=key)
+        """释放执行锁（被保护操作失败时调用），让同 key 重试重新执行而非报 in_progress。"""
+        await self._store.release(scope=scope, key=_store_key(subject, key))

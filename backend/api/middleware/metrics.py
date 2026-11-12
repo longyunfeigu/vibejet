@@ -17,10 +17,10 @@ class PrometheusMiddleware:
     def _normalize_path(self, path: str, scope: dict) -> str:
         route = scope.get("route")
         if route is not None:
-            path_format = getattr(route, "path_format", None)
+            path_format: str | None = getattr(route, "path_format", None)
             if path_format:
                 return path_format
-            route_path = getattr(route, "path", None)
+            route_path: str | None = getattr(route, "path", None)
             if route_path:
                 return route_path
         return "/_unknown"

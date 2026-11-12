@@ -56,8 +56,9 @@ class LoggingInterceptor(grpc.aio.ServerInterceptor):
                 peer = context.peer() if hasattr(context, "peer") else None
                 logger.info("grpc_request", method=method, peer=peer, request_id=get_request_id())
                 return await handler.unary_unary(request, context)
-            except grpc.RpcError:
-                # Already mapped/aborted by exception interceptor; avoid duplicate error logs here
+            except (grpc.RpcError, grpc.aio.AbortError):
+                # Already mapped/aborted (by the exception interceptor or the servicer itself):
+                # the status is set, so this is not an unhandled error
                 raise
             except Exception as exc:
                 # Normalize gRPC abort errors (with code/details) vs truly unhandled exceptions.

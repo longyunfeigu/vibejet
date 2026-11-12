@@ -11,11 +11,11 @@ logger = get_logger(__name__)
 CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
+    from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 
     HAS_PROMETHEUS = True
 except Exception:  # pragma: no cover - optional dependency
-    Counter = Gauge = Histogram = None
+    # Counter/Gauge/Histogram 只在 HAS_PROMETHEUS 分支内使用，缺依赖时无需占位
     generate_latest = None
     CONTENT_TYPE_LATEST = None
     HAS_PROMETHEUS = False
@@ -37,6 +37,18 @@ class NoopMetric:
     def set(self, value: Any) -> None:
         _ = value
 
+
+# 缺 prometheus_client 时退化为 NoopMetric；预声明联合类型让两个分支对 mypy 一致
+HTTP_REQUEST_DURATION: Histogram | NoopMetric
+HTTP_REQUESTS_TOTAL: Counter | NoopMetric
+HTTP_REQUESTS_IN_FLIGHT: Gauge | NoopMetric
+DB_POOL_SIZE: Gauge | NoopMetric
+DB_POOL_CHECKED_IN: Gauge | NoopMetric
+DB_POOL_CHECKED_OUT: Gauge | NoopMetric
+DB_POOL_OVERFLOW: Gauge | NoopMetric
+REDIS_POOL_ACTIVE: Gauge | NoopMetric
+REDIS_POOL_AVAILABLE: Gauge | NoopMetric
+BUSINESS_OPERATIONS_TOTAL: Counter | NoopMetric
 
 if HAS_PROMETHEUS:
     HTTP_REQUEST_DURATION = Histogram(
@@ -137,7 +149,7 @@ def collect_redis_pool_metrics(redis_client: Any, *, pool_name: str = "default")
         available_count = len(available) if isinstance(available, list) else None
         max_connections = getattr(pool, "max_connections", None)
         if active_count is None and hasattr(pool, "in_use_connections"):
-            active_count = len(getattr(pool, "in_use_connections"))
+            active_count = len(pool.in_use_connections)
         if max_connections is not None and active_count is not None:
             available_count = max(max_connections - active_count, 0)
         if active_count is not None:

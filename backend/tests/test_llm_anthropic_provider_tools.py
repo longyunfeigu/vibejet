@@ -1,6 +1,3 @@
-# input: AnthropicProvider + 假 Anthropic SDK client（捕获请求 kwargs / 回放事件桩）
-# output: Anthropic provider 的 tool use / json_schema / 流式 tool call 映射测试
-# pos: 后端测试 - LLMPort tool use 扩展在 Anthropic 适配器上的映射验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """AnthropicProvider mapping tests for the extended LLMPort contract.
 
 anthropic SDK 是 optional extra，未安装时整个文件跳过（与 CI 基础矩阵兼容）。
@@ -232,9 +229,7 @@ async def test_generate_json_schema_uses_forced_tool_call() -> None:
     )
     provider, fake = _provider(response=forced_response)
 
-    response = await provider.generate(
-        [LLMMessage(role="user", content="hi")], json_schema=schema
-    )
+    response = await provider.generate([LLMMessage(role="user", content="hi")], json_schema=schema)
 
     assert fake.kwargs["tools"][0]["name"] == "structured_output"
     assert fake.kwargs["tools"][0]["input_schema"] == schema
@@ -367,9 +362,7 @@ async def test_stream_text_only_final_chunk_carries_finish_reason() -> None:
     ]
     provider, _ = _provider(stream_events=events)
 
-    chunks = [
-        chunk async for chunk in provider.stream([LLMMessage(role="user", content="hi")])
-    ]
+    chunks = [chunk async for chunk in provider.stream([LLMMessage(role="user", content="hi")])]
 
     assert [c.content for c in chunks if c.content] == ["Hello"]
     final = chunks[-1]

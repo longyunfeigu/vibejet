@@ -26,7 +26,7 @@ vibejet 前端的统一规范。栈是当前最适合 AI coding 的组合：**Re
 | 路由 | TanStack Router（文件式，`routeTree.gen.ts` 由 dev 自动生成） |
 | 表单 | React Hook Form + Zod（+ shadcn `Form`） |
 | Toast | sonner（`import { toast } from 'sonner'`；`<Toaster/>` 已在 `main.tsx`） |
-| HTTP | `apiClient`（axios，`@/lib/apiClient`，`baseURL=VITE_API_URL`，`withCredentials`） |
+| HTTP | `apiClient`（axios，`@/lib/apiClient`，`baseURL=${VITE_API_URL}/api/v1`，Bearer 注入 + 401 单飞刷新） |
 
 ## New Component Checklist
 
@@ -47,10 +47,10 @@ features/<name>/
   components/<Name>*.tsx # shadcn + Tailwind，消费 hook
   types/index.ts
   index.ts               # 公开 barrel
-routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
+routes/<name>/index.tsx  # createFileRoute（vite autoCodeSplitting 自动拆包）
 ```
 
-参考实现：`frontend/src/features/health/` + `frontend/src/routes/health/`。
+参考实现：`frontend/src/features/home/` + `frontend/src/routes/index.tsx`。
 
 ## Product Richness（建富屏 — 别像 demo）
 
@@ -110,12 +110,12 @@ routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 - `hooks/use<Name>.ts` 用 `useSuspenseQuery({ queryKey, queryFn })`，组件直接拿 `data`（无 `isLoading` 判断）。
 - 外层用 `<SuspenseLoader>`（`@/components/SuspenseLoader`，Skeleton fallback）。
 - 失败：靠 route `errorComponent` 或 ErrorBoundary 兜，给原因 + 重试（对应 DESIGN 三态强制）。
-- query 默认项见 `main.tsx`（staleTime 30s、不 refetchOnWindowFocus、retry 1）。
+- query 默认项见 `lib/queryClient.ts`（staleTime 30s、不 refetchOnWindowFocus、retry 1）。
 
 ## Routing（TanStack Router，文件式）
 
 - `routes/<name>/index.tsx` 用 `createFileRoute('/<name>/')({ component, loader })`。
-- 重组件用 `lazy(() => import(...))` 包，再套 `<SuspenseLoader>`。
+- 路由级代码拆分由 `@tanstack/router-plugin` 的 `autoCodeSplitting` 自动完成，不手写 `lazy()`；数据组件外层套 `<SuspenseLoader>`。
 - `src/routeTree.gen.ts` 由 `@tanstack/router-plugin` 在 `pnpm dev` 时自动生成，**不手改**；新增/改路由后跑一次 dev 重生。
 
 ## Forms（RHF + Zod + shadcn Form）
@@ -154,6 +154,6 @@ routes/<name>/index.tsx  # createFileRoute + lazy + <SuspenseLoader>
 
 ## Reference
 
-- 参考实现：`frontend/src/features/health/`、`frontend/src/routes/health/`、`frontend/src/components/ui/*`、`frontend/src/index.css`(token)。
+- 参考实现：`frontend/src/features/home/`、`frontend/src/routes/index.tsx`、`frontend/src/components/ui/*`、`frontend/src/index.css`(token)。
 - 设计来源：`docs/project/DESIGN.md`（token / 字阶 / §Spacing Hierarchy / §Richness Floor / §Reference Skeletons）。
 - 密屏工艺：`resources/dense-ui-craft.md`（operational 屏 craft 真相源）。

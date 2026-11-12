@@ -1,7 +1,3 @@
-# input: 无外部依赖（纯 Protocol/数据类定义）
-# output: PasswordHasher / TokenProvider 端口, TokenPair 数据类
-# owner: wanhua.gu
-# pos: 应用层端口 - 密码哈希与令牌签发抽象，infrastructure/security 提供实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Security ports: password hashing and token issuance/verification."""
 
 from __future__ import annotations

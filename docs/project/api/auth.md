@@ -10,9 +10,9 @@
 |---|---|---|---|
 | POST | `/auth/register` | 用户名+邮箱+密码注册 | `auth:register` |
 | POST | `/auth/login` | 用户名或邮箱 + 密码登录 | `auth:login` |
-| POST | `/auth/google` | **Google 登录（ID Token）** | `auth:google` |
+| POST | `/auth/google` | **Google 登录（授权码，popup auth-code 流）** | `auth:google` |
 | POST | `/auth/oauth/{provider}` | **飞书 / Lark 登录（授权码），provider ∈ {feishu, lark}** | `auth:oauth` |
-| POST | `/auth/refresh` | 刷新令牌 | - |
+| POST | `/auth/refresh` | 刷新令牌 | `auth:refresh` |
 | GET | `/auth/me` | 当前用户（Bearer） | - |
 
 ## POST /auth/google（新增）
@@ -20,7 +20,7 @@
 请求：
 
 ```json
-{ "credential": "<Google ID Token (GIS 返回的 JWT)>" }
+{ "code": "<Google authorization code (popup auth-code 流返回)>" }
 ```
 
 响应 `data`（与 `/auth/login` 同款 `TokenPairDTO`）：
@@ -30,11 +30,13 @@
 ```
 
 行为与安全：
-- 后端用 `google-auth` 验签：校验签名、`aud == GOOGLE_CLIENT_ID`、`iss`、`exp`；失败返回令牌错误。
+- 后端用 `GOOGLE_CLIENT_SECRET` 把授权码换成 `id_token`（popup 模式 `redirect_uri="postmessage"`），再用 `google-auth`
+  验签：校验签名、`aud == GOOGLE_CLIENT_ID`、`iss`、`exp`；交换或验签失败返回令牌错误。
 - 找/链/建用户后签发**我们自己的** JWT（复用 `TokenProvider.issue_pair`），下游与密码登录完全一致。
 - 链接策略：`email_verified` 为真才自动链接已有邮箱账号；否则新建独立账号且**不落未验证邮箱**
   （用占位邮箱 `{sub}@google.local`，防预注册接管，详见 `docs/project/data/auth.md`）。
-- 配置：后端 `GOOGLE_CLIENT_ID`（未配置时非生产降级 `DevGoogleVerifier`，生产应拒绝）；前端 `VITE_GOOGLE_CLIENT_ID`。
+- 配置：后端 `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`（缺任一则 `/auth/google` 拒绝，fail-closed）；前端 `VITE_GOOGLE_CLIENT_ID`。
+- 未配置 → `SERVICE_UNAVAILABLE (40003)` / 503，`message_key=auth.google.not_configured`（不回显配置项名）。
 
 ## POST /auth/oauth/{provider}（新增）
 
@@ -63,6 +65,7 @@
 - 配置（fail-closed，缺 app_id/secret 该 provider 不可用）：后端 `FEISHU_APP_ID`/`FEISHU_APP_SECRET`/
   `FEISHU_OAUTH_REDIRECT_URI`（Lark 同名 `LARK_*`）；前端 `VITE_FEISHU_APP_ID`/`VITE_LARK_APP_ID`
   （可选 `VITE_*_AUTHORIZE_URL`/`VITE_*_REDIRECT_URI`，默认回调 `{origin}/auth/callback`，须与控制台注册一致）。
+- 该 provider 未配置 → `SERVICE_UNAVAILABLE (40003)` / 503，`message_key=auth.oauth.not_configured`（不回显配置项名）。
 
 ## 其余端点（既有）
 

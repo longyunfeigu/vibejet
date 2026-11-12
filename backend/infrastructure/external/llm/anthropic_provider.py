@@ -1,7 +1,3 @@
-# input: anthropic SDK（optional extra: anthropic）, LLMPort 接口
-# output: AnthropicProvider LLM 实现（文本 + tool use + json_schema 结构化输出）
-# owner: wanhua.gu
-# pos: 基础设施层 - Anthropic 原生 SDK LLM 提供者实现（system 抽取、usage 映射、内容块原生映射、json_schema 走强制 tool call）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Anthropic SDK implementation of LLMPort.
 
 API shape differences vs OpenAI handled here so the application layer
@@ -251,10 +247,10 @@ class AnthropicProvider:
                     accumulator.start(event.index, event.content_block)
                 elif event.type == "content_block_delta":
                     delta = event.delta
-                    delta_type = getattr(delta, "type", "")
-                    if delta_type == "text_delta" and delta.text:
+                    # 直接比较判别字段 delta.type（SDK 各 delta 都带 Literal type），让 mypy 收窄联合类型
+                    if delta.type == "text_delta" and delta.text:
                         yield LLMChunk(content=delta.text, model=resolved_model)
-                    elif delta_type == "input_json_delta":
+                    elif delta.type == "input_json_delta":
                         accumulator.add_json(event.index, delta.partial_json or "")
                 elif event.type == "content_block_stop":
                     accumulator.stop(event.index)

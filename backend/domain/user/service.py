@@ -1,7 +1,3 @@
-# input: UserRepository 接口（无外部系统依赖）
-# output: UserDomainService 用户域业务规则
-# owner: wanhua.gu
-# pos: 领域服务 - 跨实体业务校验（用户名/邮箱唯一性）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain service for user business rules spanning the aggregate."""
 
 from __future__ import annotations
@@ -32,7 +28,9 @@ class UserDomainService:
         then appends an incrementing suffix until unused.
         """
         local = email.split("@", 1)[0]
-        base = "".join(ch for ch in local if ch.isalnum() or ch in "_.-") or "user"
+        base = (
+            "".join(ch for ch in local if (ch.isascii() and ch.isalnum()) or ch in "_.-") or "user"
+        )
         base = base[:40]
         if len(base) < 3:
             base = f"{base}_user"[:40]

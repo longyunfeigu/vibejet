@@ -1,24 +1,21 @@
-# input: SQLAlchemy Base 基类
-# output: ConversationModel, MessageModel, RunModel, AgentConfigModel ORM 模型
-# owner: unknown
-# pos: 基础设施层 - 对话聚合 ORM 模型定义；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Conversation aggregate database model definitions."""
 
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
-    Column,
     DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     text,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from .base import Base
@@ -38,36 +35,36 @@ class ConversationModel(Base):
         },
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
-    title = Column(String(255), nullable=False, comment="对话标题")
-    owner_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+    title: Mapped[str] = mapped_column(String(255), nullable=False, comment="对话标题")
+    owner_id: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         comment="归属用户ID（软引用 users.id，与 file_assets/documents 一致；NULL 为遗留孤儿行）",
     )
-    system_prompt = Column(Text, nullable=True, comment="系统提示词")
-    model = Column(String(100), nullable=True, comment="默认使用的模型")
-    status = Column(
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True, comment="系统提示词")
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="默认使用的模型")
+    status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="active",
         server_default=text("'active'"),
         comment="对话状态：active/archived",
     )
-    extra_metadata = Column(
+    extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         nullable=True,
         default=dict,
         comment="扩展元数据（JSON）",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
         comment="创建时间",
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
@@ -75,7 +72,7 @@ class ConversationModel(Base):
         onupdate=func.now(),
         comment="更新时间",
     )
-    deleted_at = Column(
+    deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="删除时间（软删除）",
@@ -99,39 +96,39 @@ class MessageModel(Base):
         },
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
-    conversation_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+    conversation_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         comment="所属对话ID",
     )
-    role = Column(
+    role: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         comment="消息角色：system/user/assistant",
     )
-    content = Column(Text, nullable=False, comment="消息内容")
-    run_id = Column(
+    content: Mapped[str] = mapped_column(Text, nullable=False, comment="消息内容")
+    run_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("llm_runs.id", ondelete="SET NULL"),
         nullable=True,
         comment="关联的 Run ID",
     )
-    token_count = Column(
+    token_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         server_default=text("0"),
         comment="Token 数量",
     )
-    extra_metadata = Column(
+    extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         nullable=True,
         default=dict,
         comment="扩展元数据（JSON）",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
@@ -160,54 +157,54 @@ class RunModel(Base):
         },
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
-    conversation_id = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+    conversation_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         comment="所属对话ID",
     )
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="running",
         server_default=text("'running'"),
         comment="Run 状态：running/completed/failed",
     )
-    model = Column(String(100), nullable=True, comment="使用的模型")
-    prompt_tokens = Column(
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="使用的模型")
+    prompt_tokens: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         server_default=text("0"),
         comment="输入 token 数",
     )
-    completion_tokens = Column(
+    completion_tokens: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         server_default=text("0"),
         comment="输出 token 数",
     )
-    total_tokens = Column(
+    total_tokens: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         server_default=text("0"),
         comment="总 token 数",
     )
-    error_message = Column(Text, nullable=True, comment="错误信息")
-    started_at = Column(
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True, comment="错误信息")
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="开始时间",
     )
-    completed_at = Column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="完成时间",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
@@ -231,27 +228,27 @@ class AgentConfigModel(Base):
         },
     )
 
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     # 唯一性由 __table_args__ 中的唯一索引承担（与 baseline migration 对齐）
-    name = Column(String(100), nullable=False, comment="配置名称（唯一）")
-    system_prompt = Column(Text, nullable=True, comment="系统提示词")
-    model = Column(String(100), nullable=True, comment="使用的模型")
-    temperature = Column(Float, nullable=True, comment="温度参数")
-    max_tokens = Column(Integer, nullable=True, comment="最大 token 数")
-    extra_metadata = Column(
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="配置名称（唯一）")
+    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True, comment="系统提示词")
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True, comment="使用的模型")
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True, comment="温度参数")
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="最大 token 数")
+    extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         nullable=True,
         default=dict,
         comment="扩展元数据（JSON）",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
         comment="创建时间",
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),

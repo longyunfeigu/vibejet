@@ -4,7 +4,7 @@
 > 本文件不复述；间距数值以 `docs/project/DESIGN.md` §Spacing Hierarchy 为准。
 > 这里只承载 vj-work 侧的执行协议：参考图批量闸、独立视觉审计、cross-screen polish。
 > 设计背景：规则本就精确，翻车洞在"实现者自评 + 没人看像素"
-> （实证见 memory `frontend-taste-gate-not-checklist`）。
+> （实证见 `.claude/rules/frontend.md` 末尾的翻车记录）。
 
 ## 参考图批量前置闸（Phase 2，一次处理全部屏，fast/strict 均不豁免）
 

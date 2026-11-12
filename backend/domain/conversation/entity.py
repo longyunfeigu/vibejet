@@ -1,7 +1,3 @@
-# input: domain.common（BaseEntity、异常），纯业务逻辑
-# output: Conversation, Message, Run, AgentConfig 领域实体
-# owner: unknown
-# pos: 领域层 - 对话聚合根及关联实体定义（继承 BaseEntity 公共原语）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entities for the conversation aggregate."""
 
 from __future__ import annotations
@@ -13,7 +9,7 @@ from typing import Any, Optional
 from domain.common.entity import BaseEntity, ensure_utc, utcnow
 from domain.common.exceptions import DomainValidationException
 
-_CONVERSATION_STATUSES = {"active", "archived"}
+_CONVERSATION_STATUSES = {"active"}
 _MESSAGE_ROLES = {"system", "user", "assistant"}
 _RUN_STATUSES = {"running", "completed", "failed"}
 
@@ -53,20 +49,9 @@ class Conversation(BaseEntity[int]):
         self.model = model
         self._touch()
 
-    def archive(self) -> None:
-        self.status = "archived"
-        self._touch()
-
-    def record_activity(self) -> None:
-        """会话内发生聊天等活动时刷新 updated_at，驱动列表"最近活跃"排序。"""
-        self._touch()
-
     def soft_delete(self) -> None:
-        self.status = "archived"
+        # 软删只由 deleted_at 表达；status 不再承载生命周期（无归档态）
         self.mark_deleted()
-
-    def is_active(self) -> bool:
-        return self.status == "active" and self.deleted_at is None
 
     def belongs_to(self, user_id: int) -> bool:
         # NULL owner（遗留孤儿行）不属于任何用户

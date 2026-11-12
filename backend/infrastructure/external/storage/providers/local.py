@@ -1,32 +1,34 @@
-# input: 本地文件系统 (config.local_base_path), aiofiles
-# output: LocalStorageProvider（上传/下载/multipart 含 abort/sidecar 元数据）
-# pos: 基础设施层 - 本地存储 provider 实现，开发与单机部署用；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Local file system storage provider implementation."""
 
 import contextlib
 import hashlib
+import mimetypes
+import os
 import shutil
+from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import AsyncIterator, Optional
-from datetime import datetime
-import mimetypes
+from typing import Any, AsyncIterator, Optional
+
 import aiofiles
 import aiofiles.os
 from anyio import to_thread
 
 from core.logging_config import get_logger
+
 from ..base import AdvancedStorageProvider
 from ..config import StorageConfig
-from ..models import UploadResult, StorageObject, StorageMetadata, PresignedRequest
-from ..exceptions import StorageError, NotFoundError, ValidationError
+from ..exceptions import NotFoundError, StorageError, ValidationError
+from ..models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
 
 logger = get_logger(__name__)
 
 
-def _scan_local_files(base_path: Path, clean_prefix: str, limit: int) -> list[tuple[Path, str, object]]:
+def _scan_local_files(
+    base_path: Path, clean_prefix: str, limit: int
+) -> list[tuple[Path, str, os.stat_result]]:
     """同步目录遍历（须在线程池中执行）：收集 (路径, 相对 key, stat)。"""
-    found: list[tuple[Path, str, object]] = []
+    found: list[tuple[Path, str, os.stat_result]] = []
     for path in base_path.rglob("*"):
         if not path.is_file() or path.name.endswith(".meta"):
             continue
@@ -78,7 +80,9 @@ class LocalProvider(AdvancedStorageProvider):
                 await self._save_metadata(file_path, metadata, content_type)
 
             # Calculate ETag（全缓冲 md5 是 CPU-bound，卸载线程池）
-            etag = await to_thread.run_sync(lambda: hashlib.md5(file).hexdigest())
+            etag = await to_thread.run_sync(
+                lambda: hashlib.md5(file, usedforsecurity=False).hexdigest()
+            )
 
             # Build result
             result = UploadResult(
@@ -92,7 +96,7 @@ class LocalProvider(AdvancedStorageProvider):
             if self.config.public_base_url:
                 result.url = f"{self.config.public_base_url}/{key}"
 
-            logger.info(f"Uploaded to local storage", key=key, size=len(file))
+            logger.info("Uploaded to local storage", key=key, size=len(file))
             return result
 
         except Exception as e:
@@ -108,7 +112,7 @@ class LocalProvider(AdvancedStorageProvider):
             async with aiofiles.open(file_path, "rb") as f:
                 data = await f.read()
 
-            logger.info(f"Downloaded from local storage", key=key, size=len(data))
+            logger.info("Downloaded from local storage", key=key, size=len(data))
             return data
 
         except FileNotFoundError as e:
@@ -151,7 +155,7 @@ class LocalProvider(AdvancedStorageProvider):
                 if await aiofiles.os.path.exists(meta_path):
                     await aiofiles.os.remove(meta_path)
 
-                logger.info(f"Deleted from local storage", key=key)
+                logger.info("Deleted from local storage", key=key)
                 return True
 
             return False
@@ -250,13 +254,15 @@ class LocalProvider(AdvancedStorageProvider):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ) -> PresignedRequest:
         """Generate presigned URL for local storage.
 
         For local storage, this returns the public URL directly if configured.
         For secure access, this would need to be integrated with application auth.
         """
-        _ = (response_content_disposition, response_content_type)
+        # 本地存储返回的不是签名 URL，无法绑定 Content-Length，忽略该参数（确认期复核兜底）
+        _ = (response_content_disposition, response_content_type, content_length)
         if self.config.public_base_url:
             url = f"{self.config.public_base_url}/{key}"
         else:
@@ -285,7 +291,7 @@ class LocalProvider(AdvancedStorageProvider):
 
             await to_thread.run_sync(_copy)
 
-            logger.info(f"Copied in local storage", source=source_key, dest=dest_key)
+            logger.info("Copied in local storage", source=source_key, dest=dest_key)
             return True
 
         except NotFoundError:
@@ -312,7 +318,7 @@ class LocalProvider(AdvancedStorageProvider):
 
             await to_thread.run_sync(_move)
 
-            logger.info(f"Moved in local storage", source=source_key, dest=dest_key)
+            logger.info("Moved in local storage", source=source_key, dest=dest_key)
             return True
 
         except NotFoundError:
@@ -341,7 +347,7 @@ class LocalProvider(AdvancedStorageProvider):
             logger.info("Local storage health check passed")
             return True
         except Exception as e:
-            logger.error(f"Local storage health check failed", error=str(e))
+            logger.error("Local storage health check failed", error=str(e))
             return False
 
     # Advanced methods
@@ -369,7 +375,9 @@ class LocalProvider(AdvancedStorageProvider):
             await f.write(data)
 
         # Return ETag of this part（全缓冲 md5 是 CPU-bound，卸载线程池）
-        return await to_thread.run_sync(lambda: hashlib.md5(data).hexdigest())
+        return await to_thread.run_sync(
+            lambda: hashlib.md5(data, usedforsecurity=False).hexdigest()
+        )
 
     async def multipart_upload_complete(
         self, upload_id: str, key: str, parts: list[dict]
@@ -486,7 +494,7 @@ class LocalProvider(AdvancedStorageProvider):
         import json
 
         meta_path = self._metadata_path(file_path)
-        meta_data = {}
+        meta_data: dict[str, Any] = {}
 
         if metadata:
             meta_data["metadata"] = metadata
@@ -508,7 +516,8 @@ class LocalProvider(AdvancedStorageProvider):
         try:
             async with aiofiles.open(meta_path, "r") as f:
                 content = await f.read()
-                return json.loads(content)
+                meta: dict = json.loads(content)
+                return meta
         except (OSError, ValueError) as exc:
             # sidecar 元数据损坏/不可读时降级为空元数据，但留痕（ValueError 覆盖 JSONDecodeError）
             logger.warning("local_metadata_read_failed", path=str(meta_path), error=str(exc))
@@ -516,7 +525,7 @@ class LocalProvider(AdvancedStorageProvider):
 
     async def _calculate_etag(self, file_path: Path) -> str:
         """Calculate ETag for file."""
-        hasher = hashlib.md5()
+        hasher = hashlib.md5(usedforsecurity=False)
 
         async with aiofiles.open(file_path, "rb") as f:
             while True:

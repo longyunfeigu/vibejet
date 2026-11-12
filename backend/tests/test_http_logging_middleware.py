@@ -1,6 +1,3 @@
-# input: api.middleware.logging.LoggingMiddleware + 假 ASGI 下游 / 最小 FastAPI app（httpx ASGITransport）
-# output: HTTP 日志中间件特征测试：跳过路径、请求/响应日志与级别、X-Process-Time、请求体捕获/截断/脱敏、异常日志
-# pos: 后端测试 - 表示层请求日志中间件行为基线（重构前后行为一致的保护网）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for LoggingMiddleware (pure ASGI).
 
 只断言可观察行为：下游收到的 receive/send、返回给客户端的消息与响应头、
@@ -309,13 +306,13 @@ async def test_bare_http_scope_falls_back_to_empty_method_and_path(
     assert logs[1]["event"] == "request_completed"
 
 
-async def test_query_string_is_unquoted_before_parsing(logs: list[dict[str, Any]]) -> None:
-    # 现状：整串先 unquote 再 parse_qs，编码过的 & / = 会拆出新参数；空值被丢弃；查询参数不脱敏
+async def test_query_string_is_decoded_once(logs: list[dict[str, Any]]) -> None:
+    # 只解码一次：编码过的 & / = / + 保持为值的一部分；空值被丢弃；敏感参数脱敏
     scope = http_scope(query=b"q=a%26b%3Dc&name=x%2By&empty=&token=t1")
 
     await run(Downstream(), scope)
 
-    assert logs[0]["query_params"] == {"q": "a", "b": "c", "name": "x y", "token": "t1"}
+    assert logs[0]["query_params"] == {"q": "a&b=c", "name": "x+y", "token": "***"}
 
 
 async def test_path_params_present_in_scope_are_logged(logs: list[dict[str, Any]]) -> None:
@@ -539,15 +536,15 @@ async def test_json_list_body_is_masked(logs: list[dict[str, Any]]) -> None:
     assert logs[-1]["body"] == [{"token": "***"}, 1]
 
 
-async def test_invalid_json_body_is_logged_as_raw_text(logs: list[dict[str, Any]]) -> None:
-    # 现状：解析失败（含被截断的 JSON）按原文记录，原文里的敏感值不会被脱敏
+async def test_invalid_json_body_is_not_logged_verbatim(logs: list[dict[str, Any]]) -> None:
+    # 解析失败（含被截断的 JSON）无法按字段脱敏，只记长度，原文里的密码不能进日志
     await run(
         Downstream(),
         http_scope(method="POST", headers=JSON_HEADERS),
         body_messages(b'{"password": "p"'),
     )
 
-    assert logs[-1]["body"] == '{"password": "p"'
+    assert logs[-1]["body"] == "<unparseable json, 16 bytes>"
 
 
 async def test_form_body_is_parsed_and_masked(logs: list[dict[str, Any]]) -> None:

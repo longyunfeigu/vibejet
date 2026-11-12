@@ -1,7 +1,3 @@
-# input: 标准库 + core.logging_config + infrastructure.external.circuit_breaker
-# output: parse_tool_arguments 安全 JSON 解析、STRUCTURED_OUTPUT_TOOL_NAME 常量、UpstreamResponseError、is_sdk_upstream_failure 熔断口径
-# owner: unknown
-# pos: 基础设施层 - LLM provider 共享助手（tool 参数解析、结构化输出 tool 名、上游无效响应、熔断失败判定）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Helpers shared by the LLM provider implementations."""
 
 from __future__ import annotations

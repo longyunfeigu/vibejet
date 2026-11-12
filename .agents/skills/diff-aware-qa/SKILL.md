@@ -1,6 +1,6 @@
 ---
 name: diff-aware-qa
-description: 基于当前分支、工作区或指定 diff 推导受影响页面、路由和交互，执行 focused regression QA。适用于实现完成后的第二层质量检查，输出结构化问题报告、截图证据和剩余回归风险；默认使用 git diff + playwright-interactive，不负责 Story 验收闭环。
+description: 基于当前分支、工作区或指定 diff 推导受影响页面、路由和交互，执行 focused regression QA。适用于实现完成后的第二层质量检查，输出结构化问题报告、截图证据和剩余回归风险；默认使用 git diff + web-access，不负责 Story 验收闭环。
 ---
 
 # diff-aware-qa
@@ -108,7 +108,7 @@ description: 基于当前分支、工作区或指定 diff 推导受影响页面�
 ### Phase 2: Ensure Targets Are Reachable
 
 1. 确认前端和后端目标可访问。
-2. 如果需要浏览器交互，优先使用 `playwright-interactive`。
+2. 如果需要浏览器交互，优先使用 `web-access`。
 3. 如果需要认证，先处理登录或会话导入。
 
 如果目标不可访问：

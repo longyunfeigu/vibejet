@@ -1,9 +1,10 @@
 """Storage provider factory with registry pattern."""
 
-from typing import Callable, Awaitable
 import importlib
+from typing import Awaitable, Callable
 
 from core.logging_config import get_logger
+
 from .base import StorageProvider
 from .config import StorageConfig, StorageType
 from .exceptions import ConfigurationError
@@ -54,10 +55,10 @@ async def create_provider(config: StorageConfig) -> StorageProvider:
 
     try:
         provider = await builder(config)
-        logger.info(f"Created storage provider", provider=config.type, bucket=config.bucket)
+        logger.info("Created storage provider", provider=config.type, bucket=config.bucket)
         return provider
     except Exception as e:
-        logger.error(f"Failed to create storage provider", provider=config.type, error=str(e))
+        logger.error("Failed to create storage provider", provider=config.type, error=str(e))
         raise ConfigurationError(f"Failed to create storage provider '{config.type}': {e}") from e
 
 

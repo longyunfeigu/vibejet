@@ -1,6 +1,3 @@
-# input: FileAssetApplicationService + 内存 fake 仓储/存储 + files/storage 路由 test app
-# output: Epic-1 Story 1.3 文件归属验收测试
-# pos: 后端测试 - files/storage 端点归属闭环验证（列表过滤、越权 404、complete 归属）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """File asset ownership tests (Epic 1, Story 1.3)."""
 
 from __future__ import annotations
@@ -10,7 +7,7 @@ from typing import Optional
 
 import pytest
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_current_user, get_file_asset_service
 from application.dto import UserDTO
@@ -71,6 +68,9 @@ class _FakeFileAssetRepo:
     async def update(self, asset: FileAsset) -> FileAsset:
         self._items[asset.id] = asset
         return asset
+
+    async def update_if_not_deleted(self, asset: FileAsset) -> FileAsset:
+        return await self.update(asset)
 
 
 class _FakeUoW:
@@ -212,14 +212,13 @@ def _app(service: FileAssetApplicationService, user_id: int) -> FastAPI:
     return app
 
 
-@pytest.mark.asyncio
 async def test_routes_list_scoped_and_non_owner_404() -> None:
     service, repo = _service()
     mine = repo.seed(owner_id=2, status="active", original_filename="mine.txt")
     theirs = repo.seed(owner_id=1, status="active", original_filename="theirs.txt")
 
     app = _app(service, user_id=2)
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # 列表只见自己的
         resp = await client.get("/api/v1/files")
         assert resp.status_code == 200
@@ -251,21 +250,20 @@ async def test_routes_list_scoped_and_non_owner_404() -> None:
         assert (await client.delete(f"/api/v1/files/{mine.id}")).status_code == 200
 
 
-@pytest.mark.asyncio
 async def test_presign_complete_flow_route_level() -> None:
     service, repo = _service()
     pending = repo.seed(owner_id=1, status="pending")
 
     # B(user 2) 确认 A 的 pending 资产 → 404 且状态不变
     app_b = _app(service, user_id=2)
-    async with AsyncClient(app=app_b, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app_b), base_url="http://test") as client:
         resp = await client.post("/api/v1/storage/complete", json={"id": pending.id})
         assert resp.status_code == 404
         assert repo._items[pending.id].status == "pending"
 
     # A(user 1) 自己确认 → 激活
     app_a = _app(service, user_id=1)
-    async with AsyncClient(app=app_a, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app_a), base_url="http://test") as client:
         resp = await client.post("/api/v1/storage/complete", json={"id": pending.id})
         assert resp.status_code == 200
         assert repo._items[pending.id].status == "active"

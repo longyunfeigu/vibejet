@@ -12,13 +12,13 @@ try:
     from opentelemetry import trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter, SpanExporter
     from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
     HAS_OTEL = True
 except Exception:  # pragma: no cover - optional dependency
+    # SDK 类只在 setup_tracing 的 HAS_OTEL 守卫之后使用，缺依赖时无需占位
     trace = None
-    Resource = TracerProvider = BatchSpanProcessor = ConsoleSpanExporter = TraceIdRatioBased = None
     HAS_OTEL = False
 
 
@@ -50,7 +50,7 @@ def setup_tracing(
     resource = Resource.create({"service.name": service_name})
     provider = TracerProvider(resource=resource, sampler=TraceIdRatioBased(rate))
 
-    span_exporter = None
+    span_exporter: Optional[SpanExporter] = None
     if exporter == "otlp":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter

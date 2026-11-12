@@ -1,7 +1,3 @@
-# input: ConversationUnitOfWork, Conversation/AgentConfig 领域实体
-# output: ConversationApplicationService 对话 CRUD 编排
-# owner: unknown
-# pos: 应用层服务 - 对话与 Agent 配置 CRUD 用例编排；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application service for conversation and agent config CRUD."""
 
 from __future__ import annotations
@@ -62,7 +58,9 @@ class ConversationApplicationService:
     # ── Conversation CRUD ──────────────────────────────────────────
 
     @staticmethod
-    async def _get_owned(uow, conversation_id: int, owner_id: int) -> Conversation:
+    async def _get_owned(
+        uow: ConversationUnitOfWork, conversation_id: int, owner_id: int
+    ) -> Conversation:
         """加载会话并断言归属；不存在与越权同样抛 404（不泄露存在性）。"""
         conv = await uow.conversation_repository.get_by_id(conversation_id)
         if conv is None or not conv.belongs_to(owner_id):

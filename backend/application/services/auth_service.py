@@ -1,25 +1,18 @@
-# input: AuthUnitOfWork, PasswordHasher/TokenProvider 端口, GoogleAuthCodeExchanger/LarkAuthCodeExchanger 端口, User 领域实体
-# output: AuthApplicationService 注册/登录/Google授权码登录/飞书·Lark授权码登录/刷新/当前用户用例编排
-# owner: wanhua.gu
-# pos: 应用层服务 - 认证用例编排（注册→哈希入库；登录→校验→签发令牌对；联合登录→授权码换身份→共用 find/link/create）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application service for authentication workflows."""
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Protocol
+from typing import Callable, Mapping, Optional, Protocol
 
 from application.dto import LoginRequestDTO, RegisterRequestDTO, TokenPairDTO, UserDTO
-from application.ports.oauth import (
-    GoogleAuthCodeExchanger,
-    LarkAuthCodeExchanger,
-    OAuthIdentity,
-)
+from application.ports.oauth import GoogleAuthCodeExchanger, LarkAuthCodeExchanger, OAuthIdentity
 from application.ports.security import PasswordHasher, TokenProvider
 from application.utils.time import utcnow
 from core.logging_config import get_logger
 from domain.common.exceptions import (
     InvalidTokenException,
     PasswordErrorException,
+    ServiceUnavailableException,
     UserInactiveException,
 )
 from domain.user.entity import User
@@ -65,7 +58,7 @@ class AuthApplicationService:
         password_hasher: PasswordHasher,
         token_provider: TokenProvider,
         google_exchanger: Optional[GoogleAuthCodeExchanger] = None,
-        oauth_exchangers: Optional[dict[str, LarkAuthCodeExchanger]] = None,
+        oauth_exchangers: Optional[Mapping[str, LarkAuthCodeExchanger]] = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._hasher = password_hasher
@@ -141,8 +134,14 @@ class AuthApplicationService:
         Google 永远返回邮箱，故走共用编排时不会触发占位邮箱合成。
         """
         if self._google is None:
-            raise RuntimeError(
-                "Google login not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing)"
+            # 配置项名只进服务端日志，不回给客户端
+            logger.warning(
+                "oauth_provider_not_configured",
+                provider=GOOGLE_PROVIDER,
+                hint="GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing",
+            )
+            raise ServiceUnavailableException(
+                "Google sign-in is not available", message_key="auth.google.not_configured"
             )
 
         google_identity = await self._google.exchange(code)  # InvalidTokenException on bad code
@@ -161,7 +160,10 @@ class AuthApplicationService:
         """
         exchanger = self._oauth_exchangers.get(provider)
         if exchanger is None:
-            raise RuntimeError(f"OAuth login not configured for provider '{provider}'")
+            logger.warning("oauth_provider_not_configured", provider=provider)
+            raise ServiceUnavailableException(
+                "This sign-in method is not available", message_key="auth.oauth.not_configured"
+            )
 
         identity = await exchanger.exchange(code)  # InvalidTokenException on bad code/token
         return await self._complete_oauth_login(provider, identity)
@@ -195,7 +197,8 @@ class AuthApplicationService:
                             username=username,
                             email=email,
                             hashed_password=None,
-                            full_name=identity.name,
+                            # 提供方显示名不受我们控制，截到 users.full_name 列宽（100）
+                            full_name=identity.name[:100] if identity.name else None,
                             created_at=now,
                             updated_at=now,
                         )

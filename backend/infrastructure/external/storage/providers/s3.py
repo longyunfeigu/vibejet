@@ -1,6 +1,3 @@
-# input: AWS S3 / 兼容对象存储 (boto3), StorageConfig（connect+read 超时与重试）
-# output: S3Provider（上传/下载/multipart 含 abort/预签名）
-# pos: 基础设施层 - S3 存储 provider 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """AWS S3 storage provider implementation."""
 
 import contextlib
@@ -24,6 +21,14 @@ from ..exceptions import (
 from ..models import PresignedRequest, StorageMetadata, StorageObject, UploadResult
 
 logger = get_logger(__name__)
+
+
+def _aws_error_code(e: Exception) -> str:
+    """botocore ClientError 的错误码；其他异常（含 response 为 None 的）返回空串。"""
+    response = getattr(e, "response", None)
+    if not isinstance(response, dict):
+        return ""
+    return str((response.get("Error") or {}).get("Code", ""))
 
 
 class S3Provider(AdvancedStorageProvider):
@@ -170,7 +175,7 @@ class S3Provider(AdvancedStorageProvider):
             )
             return True
         except Exception as e:
-            code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+            code = _aws_error_code(e)
             if code in ("404", "NoSuchKey", "NotFound"):
                 return False
             self._handle_exception(e, f"exists {key}")
@@ -226,6 +231,7 @@ class S3Provider(AdvancedStorageProvider):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ) -> PresignedRequest:
         """Generate presigned URL for S3."""
         try:
@@ -254,6 +260,8 @@ class S3Provider(AdvancedStorageProvider):
                             "Bucket": self.bucket,
                             "Key": key,
                             **({"ContentType": content_type} if content_type else {}),
+                            # SigV4 把 Content-Length 纳入签名头：任何其他大小的 PUT 都被 S3 拒绝
+                            **({"ContentLength": content_length} if content_length else {}),
                         },
                         ExpiresIn=expires_in,
                     )
@@ -266,43 +274,46 @@ class S3Provider(AdvancedStorageProvider):
                 )
 
             elif method == "POST":
-                # Generate presigned POST
-                if content_type:
-                    response = await anyio.to_thread.run_sync(
-                        partial(
-                            self.client.generate_presigned_post,
-                            Bucket=self.bucket,
-                            Key=key,
-                            ExpiresIn=expires_in,
-                            Fields={"Content-Type": content_type},
-                            Conditions=[{"Content-Type": content_type}],
-                        )
-                    )
-                else:
-                    response = await anyio.to_thread.run_sync(
-                        partial(
-                            self.client.generate_presigned_post,
-                            Bucket=self.bucket,
-                            Key=key,
-                            ExpiresIn=expires_in,
-                        )
-                    )
-                headers = {}
-                if content_type:
-                    headers["Content-Type"] = content_type
-                return PresignedRequest(
-                    url=response["url"],
-                    method="POST",
-                    expires_in=expires_in,
-                    fields=response["fields"],
-                    headers=headers,
-                )
+                return await self._presign_post(key, expires_in, content_type, content_length)
 
             else:
                 raise ValueError(f"Unsupported method: {method}")
 
         except Exception as e:
             self._handle_exception(e, f"generate presigned URL {key}")
+
+    async def _presign_post(
+        self,
+        key: str,
+        expires_in: int,
+        content_type: Optional[str],
+        content_length: Optional[int],
+    ) -> PresignedRequest:
+        """Presigned POST；声明了大小时用 policy 的 content-length-range 绑死。"""
+        fields: dict[str, str] = {}
+        conditions: list[Any] = []
+        if content_type:
+            fields["Content-Type"] = content_type
+            conditions.append({"Content-Type": content_type})
+        if content_length:
+            conditions.append(["content-length-range", content_length, content_length])
+        response = await anyio.to_thread.run_sync(
+            partial(
+                self.client.generate_presigned_post,
+                Bucket=self.bucket,
+                Key=key,
+                ExpiresIn=expires_in,
+                **({"Fields": fields} if fields else {}),
+                **({"Conditions": conditions} if conditions else {}),
+            )
+        )
+        return PresignedRequest(
+            url=response["url"],
+            method="POST",
+            expires_in=expires_in,
+            fields=response["fields"],
+            headers={"Content-Type": content_type} if content_type else {},
+        )
 
     async def copy(self, source_key: str, dest_key: str) -> bool:
         """Copy file within S3."""
@@ -474,7 +485,7 @@ class S3Provider(AdvancedStorageProvider):
 
     def _handle_exception(self, e: Exception, operation: str) -> NoReturn:
         """Map S3 exceptions to storage exceptions."""
-        error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+        error_code = _aws_error_code(e)
 
         if error_code in ["NoSuchKey", "404"]:
             raise NotFoundError(f"Object not found: {operation}")

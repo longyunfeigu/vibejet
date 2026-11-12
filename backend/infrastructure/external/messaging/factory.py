@@ -1,7 +1,3 @@
-# input: MessagingConfig（provider=kafka，driver=aiokafka）, Serializer, 发布/消费中间件
-# output: create_publisher / create_consumer（只构造 aiokafka 驱动的 Kafka 客户端）
-# owner: unknown
-# pos: 基础设施层 - 消息客户端工厂（Kafka 只保留 aiokafka 驱动，confluent 已移除）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from typing import List, Optional

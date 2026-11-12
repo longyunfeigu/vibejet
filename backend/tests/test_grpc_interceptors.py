@@ -1,6 +1,3 @@
-# input: grpc_app.interceptors.{exceptions,logging,request_id} + 假 ServicerContext / 进程内 grpc.aio server
-# output: gRPC 异常映射与日志拦截器特征测试：业务码→status、trailing metadata、映射标记、重复日志抑制、耗时日志、真实调用链
-# pos: 后端测试 - gRPC 拦截器行为基线（重构前后行为一致的保护网）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for ExceptionMappingInterceptor and LoggingInterceptor."""
 
 from __future__ import annotations
@@ -193,6 +190,7 @@ async def test_business_exception_is_mapped_and_aborted(
     assert context.trailing_metadata == (
         ("x-biz-code", str(code)),
         ("x-error-type", "SomeError"),
+        ("x-request-id", "rid-1"),
     )
     assert logs == [
         {
@@ -284,18 +282,18 @@ async def test_trailing_metadata_failure_is_ignored(
     assert is_mapped_error() is True
 
 
-async def test_servicer_abort_is_remapped_as_system_error(logs: list[dict[str, Any]]) -> None:
-    # 现状（疑似缺陷）：servicer 自己 abort 抛出的 AbortError 也被当成未知异常再映射一次
+async def test_servicer_abort_passes_through_unmapped(logs: list[dict[str, Any]]) -> None:
+    # servicer 自己 abort 抛出的 AbortError 原样上抛：不重复 abort、不记误导性的 SystemError
     context = FakeContext()
 
-    with pytest.raises(FakeAbort):
+    with pytest.raises(grpc.aio.AbortError):
         await call(
             ExceptionMappingInterceptor(), raising(grpc.aio.AbortError("Locally aborted.")), context
         )
 
-    assert context.aborted == (Status.INTERNAL, "系统内部错误")
-    assert logs[0]["code"] == "40000"
-    assert logs[0]["message"] == "Locally aborted."
+    assert context.aborted is None
+    assert context.trailing_metadata is None
+    assert logs == []
 
 
 async def test_base_exception_is_not_mapped(logs: list[dict[str, Any]]) -> None:
@@ -344,9 +342,11 @@ def done_log(elapsed_ms: float = 12.35, request_id: Any = "rid-1") -> dict[str, 
 
 
 @pytest.fixture
-def clock(monkeypatch: pytest.MonkeyPatch) -> None:
+def clock(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(grpc_logging, "time", FakePerfCounter(1.0, 1.0123456))
-    _request_id_var.set("rid-1")
+    token = _request_id_var.set("rid-1")
+    yield
+    _request_id_var.reset(token)
 
 
 async def test_success_logs_request_and_elapsed_time(
@@ -515,10 +515,14 @@ async def test_real_server_interceptor_chain(logs: list[dict[str, Any]]) -> None
     assert events(entries) == [("grpc_request", None, None), ("grpc_request_done", None, None)]
     assert {e["request_id"] for e in entries} == {"rid-e2e"}
 
-    # 现状：错误响应的 trailing metadata 覆盖了 x-request-id
+    # 错误响应的 trailing metadata 保留 x-request-id
     status, details, trailers, entries = results[b"biz"]
     assert (status, details) == (Status.NOT_FOUND, "User not found")
-    assert trailers == (("x-biz-code", "20001"), ("x-error-type", "UserNotFound"))
+    assert trailers == (
+        ("x-biz-code", "20001"),
+        ("x-error-type", "UserNotFound"),
+        ("x-request-id", "rid-e2e"),
+    )
     assert events(entries) == [
         ("grpc_request", None, None),
         ("grpc_mapped_error", "20001", "User not found"),
@@ -527,19 +531,22 @@ async def test_real_server_interceptor_chain(logs: list[dict[str, Any]]) -> None
 
     status, details, trailers, entries = results[b"boom"]
     assert (status, details) == (Status.INTERNAL, "系统内部错误")
-    assert trailers == (("x-biz-code", "40000"), ("x-error-type", "SystemError"))
+    assert trailers == (
+        ("x-biz-code", "40000"),
+        ("x-error-type", "SystemError"),
+        ("x-request-id", "rid-e2e"),
+    )
     assert events(entries) == [
         ("grpc_request", None, None),
         ("grpc_mapped_error", "40000", "boom"),
         ("grpc_request_done", None, None),
     ]
 
-    # 现状：servicer 自己 abort 时客户端拿到原状态，但服务端多记一条误导性的 SystemError 日志
+    # servicer 自己 abort：客户端拿到原状态，服务端不再多记一条误导性的 SystemError 日志
     status, details, trailers, entries = results[b"abort"]
     assert (status, details) == (Status.FAILED_PRECONDITION, "servicer abort")
     assert trailers == (("x-request-id", "rid-e2e"),)
     assert events(entries) == [
         ("grpc_request", None, None),
-        ("grpc_mapped_error", "40000", "Locally aborted."),
         ("grpc_request_done", None, None),
     ]

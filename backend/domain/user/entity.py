@@ -1,7 +1,3 @@
-# input: domain.common（BaseEntity、异常），纯业务逻辑
-# output: User 领域实体（认证主体聚合根）
-# owner: wanhua.gu
-# pos: 领域层 - 用户聚合根：激活/停用不变量、可认证性判定；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entity for the user aggregate (authentication subject)."""
 
 from __future__ import annotations

@@ -1,7 +1,3 @@
-# input: ConversationApplicationService 依赖注入
-# output: 对话 + Agent 配置 CRUD HTTP 端点
-# owner: unknown
-# pos: 表示层路由 - 对话管理与 Agent 配置 CRUD API；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Conversation and AgentConfig CRUD routes."""
 
 from __future__ import annotations
@@ -16,6 +12,7 @@ from application.dto import (
     ConversationDTO,
     CreateAgentConfigDTO,
     CreateConversationDTO,
+    DeletedResourceDTO,
     MessageDTO_Agent,
     RunDTO,
     UpdateAgentConfigDTO,
@@ -25,12 +22,9 @@ from application.dto import (
 from application.services.conversation_service import ConversationApplicationService
 from core.config import settings
 from core.i18n import t
-from core.response import (
-    PaginatedData,
-    Response as ApiResponse,
-    paginated_response,
-    success_response,
-)
+from core.response import PaginatedData
+from core.response import Response as ApiResponse
+from core.response import paginated_response, success_response
 
 # 认证闸门：所有端点要求登录；conversation 端点强制 owner 归属（越权 404），
 # agent-configs 维持共享资源现状（Epic-1 D5）
@@ -105,15 +99,15 @@ async def update_conversation(
 @router.delete(
     "/conversations/{conversation_id}",
     summary="删除对话（软删除）",
-    response_model=ApiResponse[ConversationDTO],
+    response_model=ApiResponse[DeletedResourceDTO],
 )
 async def delete_conversation(
     conversation_id: int,
     current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
-    conv = await service.delete_conversation(conversation_id, owner_id=current_user.id)
-    return success_response(conv, message=t("ok"))
+    await service.delete_conversation(conversation_id, owner_id=current_user.id)
+    return success_response(DeletedResourceDTO(id=conversation_id), message=t("ok"))
 
 
 @router.get(
@@ -214,11 +208,11 @@ async def update_agent_config(
 @router.delete(
     "/agent-configs/{config_id}",
     summary="删除 Agent 配置",
-    response_model=ApiResponse[dict],
+    response_model=ApiResponse[DeletedResourceDTO],
 )
 async def delete_agent_config(
     config_id: int,
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):
     await service.delete_agent_config(config_id)
-    return success_response({"deleted": True}, message=t("ok"))
+    return success_response(DeletedResourceDTO(id=config_id), message=t("ok"))

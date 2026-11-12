@@ -1,15 +1,13 @@
-# input: ChatApplicationService + 内存 fake UoW/仓储/LLM
-# output: SSE 流式聊天的预校验时机（4xx 先于流）与完整事件序列测试；非流式 LLM 失败不外泄上游报错原文
-# pos: 后端测试 - 聊天应用服务流式/非流式路径验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for ChatApplicationService.send_message_stream validation timing.
 
-审计 P1-1：会话不存在/已归档的域异常必须在返回 SSE 生成器之前抛出
+审计 P1-1：会话不存在/越权的域异常必须在返回 SSE 生成器之前抛出
 （即 await send_message_stream 时），否则 StreamingResponse 已发 200，
 客户端拿到的是中断流而不是 4xx。
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import AsyncIterator, Optional
 
 import pytest
@@ -19,17 +17,14 @@ from application.ports.unit_of_work import AbstractUnitOfWork
 from application.services.chat_service import ChatApplicationService
 from application.utils.time import utcnow
 from domain.conversation.entity import Conversation, Message, Run
-from domain.conversation.exceptions import (
-    ConversationArchivedException,
-    ConversationNotFoundException,
-    LLMProviderException,
-)
+from domain.conversation.exceptions import ConversationNotFoundException, LLMProviderException
 
 
 class _FakeConversationRepo:
     def __init__(self, conversation: Optional[Conversation]):
         self._conversation = conversation
         self.updated: list[Conversation] = []
+        self.touched: list[tuple[int, datetime]] = []
 
     async def get_by_id(self, conversation_id: int) -> Optional[Conversation]:
         return self._conversation
@@ -38,6 +33,9 @@ class _FakeConversationRepo:
         self.updated.append(conversation)
         self._conversation = conversation
         return conversation
+
+    async def touch_activity(self, conversation_id: int, *, at: datetime) -> None:
+        self.touched.append((conversation_id, at))
 
 
 class _FakeMessageRepo:
@@ -121,17 +119,6 @@ async def test_stream_raises_not_found_before_returning_generator() -> None:
         await service.send_message_stream(1, _chat_dto(), owner_id=1)
 
 
-async def test_stream_raises_archived_before_returning_generator() -> None:
-    now = utcnow()
-    conv = Conversation(
-        id=1, title="t", status="archived", owner_id=1, created_at=now, updated_at=now
-    )
-    service, _ = _service(conversation=conv)
-
-    with pytest.raises(ConversationArchivedException):
-        await service.send_message_stream(1, _chat_dto(), owner_id=1)
-
-
 async def test_stream_happy_path_emits_full_event_sequence() -> None:
     now = utcnow()
     conv = Conversation(
@@ -204,8 +191,11 @@ async def test_send_message_bumps_conversation_updated_at() -> None:
         pass
 
     repo = uow.conversation_repository
-    assert repo.updated, "会话未被更新（updated_at 未 bump）"
-    assert repo.updated[0].updated_at > before
+    assert repo.touched, "会话未被更新（updated_at 未 bump）"
+    assert repo.touched[0][0] == 1
+    assert repo.touched[0][1] >= before
+    # 活跃度刷新不得整行回写（会覆盖并发 PATCH / 复活并发软删的会话）
+    assert repo.updated == []
 
 
 class _FailingGenerateLLM(_FakeLLM):

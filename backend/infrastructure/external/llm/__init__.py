@@ -1,7 +1,3 @@
-# input: core.config.settings.llm（provider/api_key/base_url）, OpenAI/Anthropic SDK
-# output: init_llm_client, shutdown_llm_client, get_llm_client 生命周期函数（provider 路由）
-# owner: unknown
-# pos: 基础设施层 - LLM 客户端生命周期管理与 provider 选择（openai/openrouter/litellm/anthropic，每个 provider 外套熔断）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """LLM client lifecycle management with provider routing.
 
 Supported ``LLM__PROVIDER`` values:

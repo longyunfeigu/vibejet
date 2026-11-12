@@ -1,7 +1,3 @@
-# input: 无外部依赖（纯 dataclass）
-# output: MessagingConfig / KafkaConfig（driver 仅 aiokafka）/ TLSConfig / SASLConfig / ProducerTuning / ConsumerTuning / RetryConfig / RetryLayer
-# owner: unknown
-# pos: 基础设施层 - 消息配置模型（Kafka 单驱动 aiokafka）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -10,7 +10,7 @@ class LoggingMiddleware(PublishMiddleware, ConsumeMiddleware):
     def __init__(self, logger: Optional[logging.Logger] = None) -> None:
         self.log = logger or logging.getLogger("messaging")
 
-    def before_publish(self, topic: str, env: Envelope) -> Envelope:  # type: ignore[override]
+    def before_publish(self, topic: str, env: Envelope) -> Envelope:
         self.log.debug(
             "publishing",
             extra={
@@ -21,7 +21,7 @@ class LoggingMiddleware(PublishMiddleware, ConsumeMiddleware):
         )
         return env
 
-    def after_publish(self, topic: str, env: Envelope, result: PublishResult) -> None:  # type: ignore[override]
+    def after_publish(self, topic: str, env: Envelope, result: PublishResult) -> None:
         self.log.info(
             "published",
             extra={
@@ -32,7 +32,7 @@ class LoggingMiddleware(PublishMiddleware, ConsumeMiddleware):
             },
         )
 
-    def before_handle(self, topic: str, partition: int, offset: int, env: Envelope) -> Envelope:  # type: ignore[override]
+    def before_handle(self, topic: str, partition: int, offset: int, env: Envelope) -> Envelope:
         self.log.debug(
             "handling",
             extra={
@@ -52,7 +52,7 @@ class LoggingMiddleware(PublishMiddleware, ConsumeMiddleware):
         env: Envelope,
         result: HandleResult,
         exc: Optional[BaseException] = None,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         level = logging.ERROR if exc else logging.INFO
         self.log.log(
             level,

@@ -5,9 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import DateTime, Integer, String
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.pool import StaticPool
 
 from domain.common.entity import BaseEntity
 from domain.common.exceptions import BusinessException
@@ -15,11 +13,11 @@ from infrastructure.repositories.base_repository import SQLAlchemyBaseRepository
 from shared.codes import BusinessCode
 
 
-class TestBase(DeclarativeBase):
+class _TagBase(DeclarativeBase):
     pass
 
 
-class TagModel(TestBase):
+class TagModel(_TagBase):
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -72,19 +70,8 @@ class TagRepository(SQLAlchemyBaseRepository[Tag, TagModel, int]):
         )
 
 
-@pytest.mark.asyncio
-async def test_sqlalchemy_base_repository_crud() -> None:
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(TestBase.metadata.create_all)
-
-    async with async_session() as session:
+async def test_sqlalchemy_base_repository_crud(sqlite_session) -> None:
+    async with sqlite_session(_TagBase.metadata) as session:
         repo = TagRepository(session)
         now = datetime.now(timezone.utc)
         created = await repo.create(Tag(name="alpha", created_at=now, updated_at=now))
@@ -101,26 +88,15 @@ async def test_sqlalchemy_base_repository_crud() -> None:
         await repo.create(Tag(name="gamma"))
         items = await repo.list(skip=0, limit=10)
         total = await repo.count()
-        assert total == len(items)
+        assert total == len(items) == 2
 
         await repo.delete(updated.id)
         missing = await repo.get_by_id(updated.id)
         assert missing is None
 
 
-@pytest.mark.asyncio
-async def test_sqlalchemy_base_repository_not_found() -> None:
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(TestBase.metadata.create_all)
-
-    async with async_session() as session:
+async def test_sqlalchemy_base_repository_not_found(sqlite_session) -> None:
+    async with sqlite_session(_TagBase.metadata) as session:
         repo = TagRepository(session)
         with pytest.raises(BusinessException):
             await repo.delete(999)

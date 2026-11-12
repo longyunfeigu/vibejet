@@ -1,19 +1,15 @@
-# input: SQLAlchemy AsyncSession, FileAssetModel ORM
-# output: SQLAlchemyFileAssetRepository 仓储实现
-# owner: wanhua.gu
-# pos: 基础设施层 - 文件资源仓储 SQLAlchemy 实现；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy-backed repository for file assets."""
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from domain.file_asset import FileAsset, FileAssetRepository
 from domain.common.exceptions import FileAssetKeyConflictException, FileAssetNotFoundException
+from domain.file_asset import FileAsset, FileAssetRepository
 from infrastructure.models.file_asset import FileAssetModel
 from infrastructure.repositories.base_repository import execute_targeted_update
 from infrastructure.repositories.mixins import SoftDeleteFilterMixin
@@ -96,30 +92,45 @@ class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
         await self.session.refresh(model)
         return self._to_entity(model)
 
+    @staticmethod
+    def _update_values(asset: FileAsset) -> dict[str, Any]:
+        return {
+            "owner_id": asset.owner_id,
+            "storage_type": asset.storage_type,
+            "bucket": asset.bucket,
+            "region": asset.region,
+            "key": asset.key,
+            "size": asset.size,
+            "etag": asset.etag,
+            "content_type": asset.content_type,
+            "original_filename": asset.original_filename,
+            "kind": asset.kind,
+            "is_public": asset.is_public,
+            "extra_metadata": asset.metadata or {},
+            "url": asset.url,
+            "status": asset.status,
+            "updated_at": asset.updated_at,
+            "deleted_at": asset.deleted_at,
+        }
+
     async def update(self, asset: FileAsset) -> FileAsset:
         await execute_targeted_update(
             self.session,
             FileAssetModel,
             asset.id,
-            {
-                "owner_id": asset.owner_id,
-                "storage_type": asset.storage_type,
-                "bucket": asset.bucket,
-                "region": asset.region,
-                "key": asset.key,
-                "size": asset.size,
-                "etag": asset.etag,
-                "content_type": asset.content_type,
-                "original_filename": asset.original_filename,
-                "kind": asset.kind,
-                "is_public": asset.is_public,
-                "extra_metadata": asset.metadata or {},
-                "url": asset.url,
-                "status": asset.status,
-                "updated_at": asset.updated_at,
-                "deleted_at": asset.deleted_at,
-            },
+            self._update_values(asset),
             not_found=lambda: FileAssetNotFoundException(asset.id),
+        )
+        return asset
+
+    async def update_if_not_deleted(self, asset: FileAsset) -> FileAsset:
+        await execute_targeted_update(
+            self.session,
+            FileAssetModel,
+            asset.id,
+            self._update_values(asset),
+            not_found=lambda: FileAssetNotFoundException(asset.id),
+            extra_where=(FileAssetModel.deleted_at.is_(None),),
         )
         return asset
 

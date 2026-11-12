@@ -1,6 +1,3 @@
-# input: backend/locales/ 编译后的 gettext 目录, 请求上下文 locale
-# output: t() 翻译函数, set_locale/get_locale 请求级 locale 管理
-# pos: 核心配置 - 国际化翻译（加载/格式化失败降级原文并记 warning）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 from __future__ import annotations
 
 import gettext

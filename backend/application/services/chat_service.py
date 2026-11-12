@@ -1,7 +1,3 @@
-# input: ChatUnitOfWork, LLMPort, Conversation/Message/Run 领域实体
-# output: ChatApplicationService 聊天用例编排（流式 + 非流式）
-# owner: unknown
-# pos: 应用层服务 - 核心聊天流程编排，发消息→创建Run→调LLM→流式返回；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Application service for the chat workflow (send message → LLM → stream response).
 
 Transaction shape (deliberate): three short UoWs instead of one long one so the
@@ -22,11 +18,7 @@ from application.ports.llm import LLMMessage, LLMPort, LLMResponse
 from application.utils.time import utcnow
 from core.logging_config import get_logger
 from domain.conversation.entity import Message, Run
-from domain.conversation.exceptions import (
-    ConversationArchivedException,
-    ConversationNotFoundException,
-    LLMProviderException,
-)
+from domain.conversation.exceptions import ConversationNotFoundException, LLMProviderException
 from domain.conversation.repository import ConversationRepository, MessageRepository, RunRepository
 
 logger = get_logger(__name__)
@@ -87,16 +79,14 @@ class ChatApplicationService:
         """Phase 1: validate conversation + ownership, persist user message, create run."""
         async with self._uow_factory() as uow:
             conv = await uow.conversation_repository.get_by_id(conversation_id)
-            # 归属断言必须先于 archived 判断与任何写库：越权与不存在同 404，
-            # 否则 409-archived 会泄露他人会话的存在性（Epic-1 I3）
+            # 归属断言必须先于任何写库：越权与不存在同 404（Epic-1 I3）
             if conv is None or not conv.belongs_to(owner_id):
                 raise ConversationNotFoundException(conversation_id)
-            if not conv.is_active():
-                raise ConversationArchivedException(conversation_id)
 
-            # 发消息即视为会话活跃：bump updated_at，列表按"最近活跃"排序
-            conv.record_activity()
-            await uow.conversation_repository.update(conv)
+            # 发消息即视为会话活跃：bump updated_at，列表按"最近活跃"排序。
+            # 只写 updated_at 且守卫 deleted_at IS NULL：整行回写会覆盖并发 PATCH、
+            # 复活刚被软删的会话；守卫落空（期间被删）→ 404 并回滚本事务
+            await uow.conversation_repository.touch_activity(conversation_id, at=utcnow())
 
             model = dto.model or conv.model
             now = utcnow()
@@ -259,7 +249,7 @@ class ChatApplicationService:
     ) -> AsyncIterator[str]:
         """Send a user message and stream the assistant response as SSE events.
 
-        Phase 1（会话存在/归属/归档校验、落用户消息）在这里同步 await 完成：
+        Phase 1（会话存在/归属校验、落用户消息）在这里同步 await 完成：
         校验失败的域异常在 StreamingResponse 构造之前抛出，路由能正常映射 4xx，
         而不是 200 之后流被掐断。
         """

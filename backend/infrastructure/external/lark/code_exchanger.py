@@ -1,7 +1,3 @@
-# input: httpx, 飞书/Lark 开放平台 (open.feishu.cn / open.larksuite.com), FEISHU_/LARK_ APP_ID/SECRET
-# output: LarkAuthCodeExchanger —— 授权码换 access_token 再调 user_info，返回可信 OAuthIdentity；LARK_OPEN_HOSTS 映射
-# owner: wanhua.gu
-# pos: 基础设施层 - 飞书/Lark OAuth 授权码交换实现（v2 token + v1 user_info，app_secret 仅后端持有）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Exchange a Feishu/Lark authorization code for a trusted identity (auth-code flow)."""
 
 from __future__ import annotations
@@ -24,7 +20,8 @@ LARK_OPEN_HOSTS = {
 }
 
 # 授权码换 user_access_token（v2 OIDC，client_id+client_secret+code，无需先取 app_access_token）。
-_TOKEN_PATH = "/open-apis/authen/v2/oauth/token"
+# bandit B105 误报：这是端点路径，不是口令
+_TOKEN_PATH = "/open-apis/authen/v2/oauth/token"  # nosec B105
 # 用 user_access_token 拿用户身份。
 _USER_INFO_PATH = "/open-apis/authen/v1/user_info"
 _REQUEST_TIMEOUT_SECONDS = 10.0

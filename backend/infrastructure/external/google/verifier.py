@@ -1,7 +1,3 @@
-# input: google-auth 库, GOOGLE_CLIENT_ID, Google 签发的 ID Token
-# output: GoogleIdTokenVerifier —— 验 Google ID Token 并返回可信身份
-# owner: wanhua.gu
-# pos: 基础设施层 - Google ID Token 验签实现（验签名/aud/iss/exp）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Verify Google ID tokens via the official google-auth library."""
 
 from __future__ import annotations

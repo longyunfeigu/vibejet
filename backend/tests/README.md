@@ -2,13 +2,14 @@
 
 pytest + pytest-asyncio；从 `backend/` 目录运行：`uv run pytest tests/ -v`。
 `conftest.py` 在采集前兜底设置必需环境变量（SECRET_KEY 等）。
-仓储类测试统一用内存 SQLite（aiosqlite + StaticPool）；服务类测试用 fake UoW/端口，不触网。
+仓储类测试统一用 `conftest.py` 的内存 SQLite fixture（`sqlite_session` / `sqlite_engine`，aiosqlite + StaticPool，退出即 dispose）；服务类测试用 fake UoW/端口，不触网。
 
 ## 文件索引
 
 | 文件 | 覆盖内容 |
 |------|---------|
-| `conftest.py` | pytest bootstrap：强制环境变量兜底 |
+| `conftest.py` | pytest bootstrap：强制环境变量兜底；共享内存 SQLite fixture（返回 async 上下文管理器，测试可按需传入自己的 metadata） |
+| `_auth_fakes.py` | 认证服务测试共用 fake（用户仓储 / UoW / token provider），非测试模块 |
 | `test_settings_config.py` | Settings 校验：别名、未知键 fail-fast、SECRET_KEY 弱值/长度、DEBUG 默认与生产互斥 |
 | `test_base_entity.py` | 领域基础实体行为 |
 | `test_base_repository.py` | 泛型仓储基类 + 软删过滤 |
@@ -32,8 +33,10 @@ pytest + pytest-asyncio；从 `backend/` 目录运行：`uv run pytest tests/ -v
 | `test_redis_client_lock.py` | `RedisClient.lock` 的特征测试：获取/超时/自动续期/释放失败，用假的异步 redis 锁 |
 | `test_api_client_request.py` | `BaseAPIClient._request` 的特征测试：重试、限流/认证/404 等错误映射、请求头合并、响应包装（httpx.MockTransport） |
 | `test_document_entity.py` / `test_document_repository.py` / `test_document_service.py` | 文档模块状态机、仓储、解析编排 |
-| `test_document_parsers.py` | 文档解析器（需 documents extra，未装则 skip） |
+| `test_document_parsers.py` | 文档解析器（markitdown 用例需 documents extra，未装则只 skip 这些；TextIn 用例只依赖 httpx） |
 | `test_file_asset_relay_cleanup.py` | relay 上传 DB 失败时孤儿对象 best-effort 清理 |
 | `test_storage_upload_stream_abort.py` | 流式上传中断时 multipart abort 补偿 |
-| `test_idempotency_presign.py` | presign 幂等（Idempotency-Key） |
+| `test_idempotency_presign.py` | presign 幂等（Idempotency-Key）：重放、key 复用、store 不可用 fail-open、失败释放锁、subject 按用户 id（换 token 不变、跨用户隔离） |
+| `test_service_unavailable.py` | 依赖能力未配置（LLM）渲染 503 `SERVICE_UNAVAILABLE`，不泄露配置项名 |
+| `test_delete_response_shape.py` | 所有 DELETE 端点统一返回 `data = {id, deleted: true}` |
 | `test_observability_fallback.py` | 可观测性降级路径 |

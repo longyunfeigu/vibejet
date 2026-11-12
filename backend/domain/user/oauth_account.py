@@ -1,7 +1,3 @@
-# input: domain.common（BaseEntity、异常），纯业务逻辑
-# output: OAuthAccount 领域实体（联合登录身份，挂在 User 聚合下）
-# owner: wanhua.gu
-# pos: 领域层 - 联合身份实体：记录某 provider 的稳定标识与所属用户；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Domain entity for a federated identity linked to a user (e.g. Google)."""
 
 from __future__ import annotations

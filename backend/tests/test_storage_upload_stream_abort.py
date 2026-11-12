@@ -1,6 +1,3 @@
-# input: StorageProviderPortAdapter + fake AdvancedStorageProvider
-# output: 流式上传中断路径的 multipart abort 补偿测试
-# pos: 后端测试 - 存储端口适配器 multipart 生命周期验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for multipart abort on interrupted streaming uploads (audit批次C).
 
 multipart 已开启后源流抛异常（超限截断/断连），不 abort 会在对象存储侧

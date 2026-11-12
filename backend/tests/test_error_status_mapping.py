@@ -17,18 +17,22 @@ from http import HTTPStatus
 
 import pytest
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from core.exceptions import register_exception_handlers
-from domain.common.exceptions import BusinessException
+from domain.common.exceptions import (
+    BusinessException,
+    FileNotUploadedException,
+    FileUploadClosedException,
+)
 from domain.conversation.exceptions import (
     AgentConfigNameExistsException,
     AgentConfigNotFoundException,
-    ConversationArchivedException,
     LLMProviderException,
     LLMTimeoutException,
     RunNotFoundException,
 )
+from domain.document.exceptions import DocumentNotReadyException
 from shared.codes import TRANSPORT_STATUS, BusinessCode, transport_status
 
 # google/rpc/code.proto 的规范状态名（grpc.StatusCode 成员名与之一致）
@@ -90,7 +94,6 @@ def _app_raising(exc: BusinessException) -> FastAPI:
     return app
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("exc", "expected_status"),
     [
@@ -101,13 +104,19 @@ def _app_raising(exc: BusinessException) -> FastAPI:
         (LLMProviderException(), 502),
         (LLMTimeoutException(), 504),
         # 状态前置条件：保持 400（不改既有行为）
-        (ConversationArchivedException(1), 400),
+        (DocumentNotReadyException(1), 400),
+        # 直传确认早于对象落盘：可重试的状态冲突
+        (FileNotUploadedException(1), 409),
+        # 已确认/已删除资产不再签发上传链接
+        (FileUploadClosedException(1), 409),
     ],
 )
 async def test_http_handler_renders_declared_status(
     exc: BusinessException, expected_status: int
 ) -> None:
-    async with AsyncClient(app=_app_raising(exc), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=_app_raising(exc)), base_url="http://test"
+    ) as client:
         resp = await client.get("/boom")
 
     assert resp.status_code == expected_status

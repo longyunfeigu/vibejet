@@ -1,6 +1,3 @@
-# input: infrastructure.external.storage 的 StorageProvider 实现
-# output: StorageProviderPortAdapter（实现 application StoragePort；流式上传中断自动 abort multipart）
-# pos: 基础设施层 - 存储端口适配器，应用层与具体 provider 的转换边界；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Infrastructure adapter that implements the application StoragePort
 by delegating to the concrete StorageProvider and translating models.
 """
@@ -9,15 +6,16 @@ from __future__ import annotations
 
 from typing import AsyncIterator, Optional
 
-from application.ports.storage import StoragePort
 from application.ports.storage import (
-    PresignedURL,
     ObjectMetadata,
+    PresignedURL,
     StorageInfo,
+    StorageObjectNotFoundError,
+    StoragePort,
     UploadOutcome,
 )
 from core.logging_config import get_logger
-from infrastructure.external.storage import StorageProvider
+from infrastructure.external.storage import NotFoundError, StorageProvider
 from infrastructure.external.storage.base import AdvancedStorageProvider
 
 logger = get_logger(__name__)
@@ -60,7 +58,7 @@ class StorageProviderPortAdapter(StoragePort):
         bucket = getattr(cfg, "bucket", None)
         region = getattr(cfg, "region", None)
         if hasattr(stype, "value"):
-            stype_value = str(getattr(stype, "value"))
+            stype_value = str(stype.value)
         else:
             stype_value = str(stype) if stype is not None else ""
         return StorageInfo(type=stype_value, bucket=bucket, region=region)
@@ -72,7 +70,10 @@ class StorageProviderPortAdapter(StoragePort):
         return await self.provider.download(key)
 
     async def get_metadata(self, key: str) -> ObjectMetadata:
-        meta = await self.provider.get_metadata(key)
+        try:
+            meta = await self.provider.get_metadata(key)
+        except NotFoundError as exc:
+            raise StorageObjectNotFoundError(key) from exc
         return ObjectMetadata(
             etag=getattr(meta, "etag", None),
             content_type=getattr(meta, "content_type", None),
@@ -88,6 +89,7 @@ class StorageProviderPortAdapter(StoragePort):
         content_type: Optional[str] = None,
         response_content_disposition: Optional[str] = None,
         response_content_type: Optional[str] = None,
+        content_length: Optional[int] = None,
     ) -> PresignedURL:
         presigned = await self.provider.generate_presigned_url(
             key,
@@ -96,6 +98,7 @@ class StorageProviderPortAdapter(StoragePort):
             content_type,
             response_content_disposition=response_content_disposition,
             response_content_type=response_content_type,
+            content_length=content_length,
         )
         return PresignedURL(
             url=getattr(presigned, "url", ""),

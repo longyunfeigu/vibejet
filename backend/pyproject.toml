@@ -73,6 +73,7 @@ addopts = [
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
@@ -80,8 +81,12 @@ markers = [
 ]
 filterwarnings = [
     "error",
-    "ignore::UserWarning",
     "ignore::DeprecationWarning",
+    # 同步测试里的 asyncio.run() 结束时 set_event_loop(None)，把 pytest-asyncio 给前一个异步测试
+    # 恢复的事件循环孤立掉（未 close）；之后谁 gc.collect() 谁就收到该循环和它的 self-pipe socket
+    # 的 ResourceWarning。属测试运行器之间的交互，不是被测代码泄漏（pytest-asyncio 0.21 与 1.3 均复现）
+    "ignore:Exception ignored in. <function BaseEventLoop.__del__:pytest.PytestUnraisableExceptionWarning",
+    "ignore:Exception ignored in. <socket.socket fd=\\d+, family=1, type=1:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]
@@ -215,7 +220,8 @@ dependencies = [
     "uvicorn[standard]>=0.24.0,<1",
     "python-multipart>=0.0.31,<0.1",
     # Database (async PostgreSQL + migrations)
-    "sqlalchemy>=2.0.23,<3",
+    # [asyncio] pulls greenlet on every platform; the bare marker skips macOS arm64
+    "sqlalchemy[asyncio]>=2.0.23,<3",
     "asyncpg>=0.29.0,<1",
     "alembic>=1.13.0,<2",
     # Configuration & validation
@@ -240,7 +246,8 @@ dependencies = [
     "pwdlib[argon2]>=0.2,<1",
     # i18n
     "Babel>=2.12.0,<3",
-    "google-auth>=2,<3",
+    # [requests]: infrastructure/external/google/verifier.py imports google.auth.transport.requests
+    "google-auth[requests]>=2,<3",
 ]
 
 [project.optional-dependencies]
@@ -280,7 +287,7 @@ dev = [
     "pre-commit==3.7.0",
     "polib==1.2.0",
     "pytest==9.0.3",
-    "pytest-asyncio==0.21.1",
+    "pytest-asyncio==1.3.0",
     "pytest-cov==5.0.0",
     "pytest-xdist==3.5.0",
     "pytest-timeout==2.3.1",

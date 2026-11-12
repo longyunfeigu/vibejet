@@ -12,7 +12,7 @@ ORM：`backend/infrastructure/models/conversation.py`。
 | `owner_id` | Integer | nullable | 归属用户（逻辑外键，未强制约束，与 file_assets/documents 一致；NULL 为归属列引入前的遗留孤儿行，对所有用户不可见） |
 | `system_prompt` | Text | nullable | 系统提示词 |
 | `model` | String(100) | nullable | 默认模型 |
-| `status` | String(20) | not null, default `'active'`, CHECK `ck_conversations_status` | active / archived |
+| `status` | String(20) | not null, default `'active'`, CHECK `ck_conversations_status` | 应用只写 `active`（软删只看 `deleted_at`，无归档态）；CHECK 仍保留 init 时的旧取值，收紧需单独迁移 |
 | `extra_metadata` | JSON | nullable | 扩展元数据（JSON） |
 | `created_at` / `updated_at` | DateTime(tz) | not null, server_default now() | 时间戳 |
 | `deleted_at` | DateTime(tz) | nullable | 软删除标记 |
@@ -38,7 +38,7 @@ ORM：`backend/infrastructure/models/conversation.py`。
 - 可空、不回填是刻意决策：基础库无生产数据，下游各有回填策略；被拒绝的替代方案是
   非空 + 回填到某个系统用户（会伪造归属语义）。
 - messages / llm_runs 不带 owner 列：经由 conversation 聚合根访问，归属由聚合根裁决。
-- agent_configs 无 owner 语义（共享配置资源，D5）。
+- agent_configs 无 owner 语义（共享配置资源，基础库不引入 owner 语义）。
 
 ## messages / llm_runs / agent_configs
 

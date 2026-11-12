@@ -1,7 +1,3 @@
-# input: SQLAlchemy AsyncSession, UserModel ORM
-# output: SQLAlchemyUserRepository 仓储实现
-# owner: wanhua.gu
-# pos: 基础设施层 - 用户仓储 SQLAlchemy 实现（软删过滤）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """SQLAlchemy-backed repository for users."""
 
 from __future__ import annotations

@@ -41,8 +41,8 @@
    用 frontmatter 的 `status: canonical | experimental | deprecated`，而不是靠文字描述。
    病根不是「有 N 个重叠实现」，是「没有字段告诉 AI 哪个是当前的」。
 2. **把散文规则翻译成会失败的代码。**
-   DDD 依赖方向用 import-linter 拦；头注释用 pre-commit 拦；「公共 API 变了要更新契约」用 diff 检查。
-   已落地（2026-07 第一批）：DDD 依赖方向 import-linter 四条契约 + `print` 禁令
+   DDD 依赖方向用 import-linter 拦；「公共 API 变了要更新契约」用 diff 检查。
+   已落地（2026-07 第一批）：DDD 依赖方向 import-linter 契约（清单以 `backend/pyproject.toml` 为准）+ `print` 禁令
    flake8-print + UoW 形状 `backend/tests/test_architecture.py`；
    设计与被拒绝的方案见 `docs/reference/adrs/0001-architecture-rule-locking.md`。
 3. **断言「当前状态」的文档必须生成或被校验，不能手维护。**

@@ -1,6 +1,3 @@
-# input: infrastructure.database._engine_kwargs / _build_async_url + settings
-# output: 引擎池参数按方言下发的单元测试（PERF-01）
-# pos: 后端测试 - 连接池配置门控验证；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Engine kwargs tests: pool settings apply to network databases, not SQLite."""
 
 from __future__ import annotations

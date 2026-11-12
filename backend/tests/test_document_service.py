@@ -1,6 +1,3 @@
-# input: DocumentApplicationService 及内存 fake（UoW/parser/storage）
-# output: 文档服务编排测试（建档/解析成功/失败/重解析/内容读取）
-# pos: 后端测试 - 文档应用服务用例验证（不触数据库与网络）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Tests for DocumentApplicationService using in-memory fakes."""
 
 from __future__ import annotations
@@ -149,9 +146,7 @@ def _build_service(
     return service, documents, assets
 
 
-def _seed_asset(
-    assets: FakeFileAssetRepository, asset_id: int = 10, owner_id=None
-) -> FileAsset:
+def _seed_asset(assets: FakeFileAssetRepository, asset_id: int = 10, owner_id=None) -> FileAsset:
     asset = FileAsset(
         id=asset_id,
         owner_id=owner_id,

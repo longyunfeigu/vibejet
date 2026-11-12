@@ -1,6 +1,3 @@
-# input: MiddlewareStorage + 内存 fake provider / 记录型 middleware；真实 Logging/Validation/Metrics middleware
-# output: MiddlewareStorage.upload 全分支特征测试（before/after 链、三阶段 on_error 通知、性能日志），及 utils.py lint 修复触及函数的行为钉子
-# pos: 后端测试 - 存储 middleware 包装层重构护栏；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Characterization tests for MiddlewareStorage.upload.
 
 重构（降 McCabe 复杂度 + 修 lint）前后必须同绿：断言 hook 的调用顺序与入参、

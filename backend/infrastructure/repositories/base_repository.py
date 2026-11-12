@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, Optional, Type, TypeVar
+from typing import Any, Callable, Generic, Optional, Protocol, Sequence, Type, TypeVar
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped
 
 from domain.common.exceptions import BusinessException
 from domain.common.repository import BaseRepository
 
+
+class _ModelWithId(Protocol):
+    """ORM 模型的最小结构约束：带 ``id`` 主键列（get_by_id 按它查询）。"""
+
+    id: Mapped[Any]
+
+
 EntityT = TypeVar("EntityT")
-ModelT = TypeVar("ModelT")
+ModelT = TypeVar("ModelT", bound=_ModelWithId)
 IdT = TypeVar("IdT")
 
 
@@ -22,6 +30,7 @@ async def execute_targeted_update(
     values: dict[str, Any],
     *,
     not_found: Callable[[], BusinessException],
+    extra_where: Sequence[Any] = (),
 ) -> None:
     """定向 Core UPDATE（单往返）——全仓写路径的唯一实现，具体仓储不要另写 DML。
 
@@ -29,10 +38,11 @@ async def execute_targeted_update(
     再改再 refresh。``values`` 不应包含主键与 created_at。
     synchronize_session=False：同一 session 中已加载的同行 ORM 模型不会被同步，
     调用方持有的领域实体才是权威状态。行不存在（rowcount 0）→ 抛 ``not_found()``。
+    ``extra_where``：附加守卫条件（如 ``deleted_at IS NULL``），不满足同样按 rowcount 0 → ``not_found()``。
     """
     result = await session.execute(
         update(model_class)
-        .where(model_class.id == entity_id)
+        .where(model_class.id == entity_id, *extra_where)
         .values(**values)
         .execution_options(synchronize_session=False)
     )

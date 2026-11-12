@@ -1,7 +1,3 @@
-# input: httpx, Google token 端点(oauth2.googleapis.com/token), GOOGLE_CLIENT_ID/SECRET, GoogleIdentityVerifier
-# output: GoogleAuthCodeExchanger —— 授权码换 id_token 并验签，返回可信 GoogleIdentity
-# owner: wanhua.gu
-# pos: 基础设施层 - Google OAuth 授权码交换实现（popup auth-code 流，client_secret 仅后端持有）；一旦我被更新，务必更新我的开头注释以及所属文件夹的md
 """Exchange a Google authorization code for a verified identity (auth-code flow)."""
 
 from __future__ import annotations
@@ -18,7 +14,8 @@ from infrastructure.external.http_client import LazyAsyncClient
 logger = get_logger(__name__)
 
 # Google OAuth 2.0 token 端点（用授权码换 access_token / id_token）。
-_GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+# bandit B105 误报：这是端点 URL，不是口令
+_GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"  # nosec B105
 _EXCHANGE_TIMEOUT_SECONDS = 10.0
 
 

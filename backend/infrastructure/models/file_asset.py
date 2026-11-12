@@ -1,19 +1,20 @@
 """File asset database model definitions."""
 
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
-    Column,
     DateTime,
     Index,
     Integer,
-    JSON,
     String,
     text,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from .base import Base
@@ -34,99 +35,99 @@ class FileAssetModel(Base):
         },
     )
 
-    id = Column(
+    id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         autoincrement=True,
         comment="主键ID",
     )
-    owner_id = Column(
+    owner_id: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
         comment="归属用户ID（可为空；示例项目未强制外键约束）",
     )
-    storage_type = Column(
+    storage_type: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         default="local",
         server_default=text("'local'"),
         comment="存储类型：local/s3/oss",
     )
-    bucket = Column(
+    bucket: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="存储桶/容器名称",
     )
-    region = Column(
+    region: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
         comment="区域名（可为空）",
     )
-    key = Column(
+    key: Mapped[str] = mapped_column(
         String(512),
         nullable=False,
         comment="对象存储中的Key（路径），全局唯一（uq_file_assets_key）",
     )
-    size = Column(
+    size: Mapped[int] = mapped_column(
         BigInteger,
         nullable=False,
         default=0,
         server_default=text("0"),
         comment="文件大小（字节）",
     )
-    etag = Column(
+    etag: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
         comment="存储返回的ETag/校验值",
     )
-    content_type = Column(
+    content_type: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
         comment="MIME类型",
     )
-    original_filename = Column(
+    original_filename: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
         comment="原始文件名",
     )
-    kind = Column(
+    kind: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         comment="业务分类，如 avatar/document",
     )
-    is_public = Column(
+    is_public: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
         server_default=text("false"),
         comment="是否公共可读",
     )
-    extra_metadata = Column(
+    extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         nullable=True,
         default=dict,
         comment="扩展元数据（JSON）",
     )
-    url = Column(
+    url: Mapped[str | None] = mapped_column(
         String(1024),
         nullable=True,
         comment="公共/CDN URL快照（可选）",
     )
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="active",
         server_default=text("'active'"),
         comment="文件状态：pending/active/deleted",
     )
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
         comment="创建时间",
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
@@ -134,7 +135,7 @@ class FileAssetModel(Base):
         onupdate=func.now(),
         comment="更新时间",
     )
-    deleted_at = Column(
+    deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
         comment="删除时间（软删除）",

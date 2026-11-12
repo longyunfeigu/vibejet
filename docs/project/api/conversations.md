@@ -14,7 +14,7 @@
 | GET | `/api/v1/conversations` | 分页列表（`page`/`size`/`status`），仅当前用户 |
 | GET | `/api/v1/conversations/{id}` | 详情 |
 | PATCH | `/api/v1/conversations/{id}` | 更新 title / system_prompt / model |
-| DELETE | `/api/v1/conversations/{id}` | 软删除（状态转 archived） |
+| DELETE | `/api/v1/conversations/{id}` | 软删除（写 `deleted_at`，`status` 不变）；`data = { id, deleted: true }` |
 | GET | `/api/v1/conversations/{id}/messages` | 消息历史（分页） |
 | GET | `/api/v1/conversations/{id}/runs` | Run 列表 |
 | POST | `/api/v1/conversations/{id}/chat` | 发消息；`stream=true` 走 SSE |
@@ -22,13 +22,15 @@
 ## Chat 行为
 
 - `stream=true`：SSE 事件序列 `message_created → message_delta* → message_complete → run_complete → done`；
-  会话不存在/越权/已归档的校验在流开始**之前**完成（4xx，而非 200 断流）。
+  会话不存在/越权的校验在流开始**之前**完成（4xx，而非 200 断流）。
 - `stream=false`：同步返回 `{ message, run }`。
-- 已归档会话 → `CONVERSATION_ARCHIVED (60002)`；越权 chat 不产生任何副作用（不落消息、不建 Run、不调 LLM）。
+- 越权 chat 不产生任何副作用（不落消息、不建 Run、不调 LLM）。
+- LLM 未配置 → `SERVICE_UNAVAILABLE (40003)` / 503，`message_key=llm.not_configured`。
 - `message` 长度 1..32000 字符，超限 422（防超大文本直通 LLM/DB）。
-- 发消息会刷新会话 `updated_at`（列表按"最近活跃"排序）。
+- 发消息会刷新会话 `updated_at`（列表按"最近活跃"排序）；只写 `updated_at` 且限未删除行，
+  不覆盖并发 PATCH，也不会复活并发删除的会话（此时该次 chat → 404）。
 
 ## agent-configs（同 router，无归属）
 
 `/api/v1/agent-configs` CRUD 为共享配置资源，仅要求登录，暂无 owner 边界
-（见 conventions.md 鉴权与归属的已知例外）。
+（见 conventions.md 鉴权与归属的已知例外）。DELETE 返回 `data = { id, deleted: true }`。

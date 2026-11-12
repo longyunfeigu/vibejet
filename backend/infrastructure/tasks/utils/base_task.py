@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from celery import Task
+
 from core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -11,7 +12,7 @@ logger = get_logger(__name__)
 class BaseTask(Task):
     """Provides unified failure logging and hooks for future extensions."""
 
-    def on_failure(self, exc, task_id, args, kwargs, einfo):  # type: ignore[override]
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Emit a structured error message before the default Celery handling."""
         logger.error(
             "celery_task_failure",
@@ -23,7 +24,7 @@ class BaseTask(Task):
         )
         super().on_failure(exc, task_id, args, kwargs, einfo)
 
-    def on_success(self, retval, task_id, args, kwargs):  # type: ignore[override]
+    def on_success(self, retval, task_id, args, kwargs):
         """Log a success event so operators can trace normal execution."""
         logger.info(
             "celery_task_success",
