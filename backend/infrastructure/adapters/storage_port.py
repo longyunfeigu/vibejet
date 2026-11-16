@@ -53,15 +53,22 @@ class StorageProviderPortAdapter(StoragePort):
         self.provider = provider
 
     def info(self) -> StorageInfo:
-        cfg = getattr(self.provider, "config", None)
+        # 启动时 provider 被 middleware 包装器包住，包装器没有 config；
+        # 逐层解包到底层 provider 再读（与 shutdown_storage_client 的解包方式一致）
+        provider = self.provider
+        while getattr(provider, "config", None) is None and hasattr(provider, "provider"):
+            provider = provider.provider
+        cfg = getattr(provider, "config", None)
         stype = getattr(cfg, "type", None)
-        bucket = getattr(cfg, "bucket", None)
-        region = getattr(cfg, "region", None)
-        if hasattr(stype, "value"):
-            stype_value = str(stype.value)
-        else:
-            stype_value = str(stype) if stype is not None else ""
-        return StorageInfo(type=stype_value, bucket=bucket, region=region)
+        if stype is None:
+            # 空类型必然违反 file_assets.storage_type 检查约束，宁可在这里明确报错
+            raise RuntimeError("storage provider exposes no config.type")
+        stype_value = str(stype.value) if hasattr(stype, "value") else str(stype)
+        return StorageInfo(
+            type=stype_value,
+            bucket=getattr(cfg, "bucket", None),
+            region=getattr(cfg, "region", None),
+        )
 
     async def delete(self, key: str) -> bool:
         return await self.provider.delete(key)

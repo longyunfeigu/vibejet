@@ -11,6 +11,7 @@ from typing import AsyncIterator
 
 import pytest
 from sqlalchemy import event
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from application.utils.time import utcnow
@@ -119,6 +120,26 @@ async def test_file_asset_duplicate_key_maps_to_domain_conflict(session_with_sta
         await repo.create(_asset())
         with pytest.raises(FileAssetKeyConflictException):
             await repo.create(_asset())
+
+
+async def test_file_asset_other_integrity_errors_are_not_reported_as_key_conflict(
+    session_with_statements,
+) -> None:
+    """只有 key 唯一冲突才算 KeyConflict；其他约束（如 storage_type 检查）不能被它掩盖。"""
+    async with session_with_statements() as (session, _):
+        repo = SQLAlchemyFileAssetRepository(session)
+        now = utcnow()
+        bad = FileAsset(
+            id=None,
+            owner_id=1,
+            key="uploads/bad-type.bin",
+            storage_type="",
+            created_at=now,
+            updated_at=now,
+        )
+
+        with pytest.raises(IntegrityError):
+            await repo.create(bad)
 
 
 async def test_document_list_defers_content_md(session_with_statements) -> None:

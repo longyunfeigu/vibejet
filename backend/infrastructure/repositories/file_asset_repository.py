@@ -15,6 +15,12 @@ from infrastructure.repositories.base_repository import execute_targeted_update
 from infrastructure.repositories.mixins import SoftDeleteFilterMixin
 
 
+def _is_key_unique_violation(exc: IntegrityError) -> bool:
+    """PostgreSQL 报约束名 uq_file_assets_key；SQLite 报 "UNIQUE constraint failed: file_assets.key"。"""
+    message = str(exc.orig)
+    return "uq_file_assets_key" in message or "file_assets.key" in message
+
+
 class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
     """Persist file asset aggregates using SQLAlchemy ORM."""
 
@@ -87,8 +93,11 @@ class SQLAlchemyFileAssetRepository(SoftDeleteFilterMixin, FileAssetRepository):
             await self.session.flush()
         except IntegrityError as exc:
             # 应用层 get_by_key 预检在并发下存在 check-then-act 窗口；
-            # uq_file_assets_key 兜底后映射回域异常，而不是裸 500
-            raise FileAssetKeyConflictException(asset.key) from exc
+            # uq_file_assets_key 兜底后映射回域异常，而不是裸 500。
+            # 只认 key 唯一冲突：其他约束（如 storage_type 检查）照常抛出，别被误报成"key 已存在"
+            if _is_key_unique_violation(exc):
+                raise FileAssetKeyConflictException(asset.key) from exc
+            raise
         await self.session.refresh(model)
         return self._to_entity(model)
 
