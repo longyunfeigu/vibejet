@@ -12,6 +12,8 @@
  *          framework refactor migration; data ops belong in core/api).
  * Check I: controlledWait budget — global controlledWait/workaroundSleep count
  *          may only decrease (ratchet baseline).
+ * Check J: Backend-Unit rows — a 后端单测 case ID must not be tagged in any .feature,
+ *          and its Notes must name the backend test (后端单测 / test_x.py).
  *
  * NOTE: Feature files are English-only. There is no .feature/.cn.feature
  * bilingual-sync check — the runner only executes plain English *.feature files,
@@ -23,7 +25,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { findApiCallViolations, countControlledWaits } from './lib/guardrails.mjs';
+import {
+  findApiCallViolations, countControlledWaits, EXEC_TYPES_CN, collectFeatureCaseIds, findBackendUnitViolations,
+} from './lib/guardrails.mjs';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -364,8 +368,9 @@ function checkStability(): { passed: boolean; violations: string[] } {
 
 const CSV_COLUMN_COUNT = 16;
 const EXEC_COL = 7;
-// Canonical 3-type vocabulary for the Chinese case file.
-const EXEC_CN = new Set(['自动化测试', '手工测试-产线高危', '手工测试-故障注入']);
+const NOTES_COL = 15;
+// Canonical 4-type vocabulary for the Chinese case file (see lib/guardrails.mjs).
+const EXEC_CN = new Set(EXEC_TYPES_CN);
 
 /** RFC4180 quote-aware CSV parser (handles embedded commas/newlines, "" escapes, BOM). */
 function parseCsv(content: string): string[][] {
@@ -440,6 +445,39 @@ function checkCsvStructure(): { passed: boolean; violations: string[] } {
   return { passed: violations.length === 0, violations };
 }
 
+// ── Check J: Backend-Unit rows — no .feature tag, Notes name the backend test ──
+
+function checkBackendUnitRows(): { passed: boolean; violations: string[] } {
+  // Any .feature counts (pending / cn included): a 后端单测 row has no browser scenario at all.
+  const featureIds = new Set<string>();
+  function walkFeatures(dir: string): void {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walkFeatures(full);
+      else if (e.name.endsWith('.feature')) {
+        for (const id of collectFeatureCaseIds(fs.readFileSync(full, 'utf-8'))) featureIds.add(id);
+      }
+    }
+  }
+  walkFeatures(MODULES_DIR);
+
+  const violations: string[] = [];
+  for (const filePath of findCaseCsvs()) {
+    const rel = path.relative(MODULES_DIR, filePath);
+    const rows = parseCsv(fs.readFileSync(filePath, 'utf-8'));
+    rows.slice(1).forEach((r, idx) => {
+      if (isBlankRow(r)) return;
+      violations.push(...findBackendUnitViolations({
+        where: `${rel}:${idx + 2}`,
+        caseId: (r[0] ?? '').trim(),
+        exec: (r[EXEC_COL] ?? '').trim(),
+        notes: (r[NOTES_COL] ?? '').trim(),
+      }, featureIds));
+    });
+  }
+  return { passed: violations.length === 0, violations };
+}
+
 // ── Check H: API-first — no page.request.* in steps/pages (report-only) ──────
 
 function checkApiInSteps(): { passed: boolean; violations: string[] } {
@@ -508,6 +546,7 @@ function main(): void {
   const csvStructResult   = checkCsvStructure();
   const apiInStepsResult  = checkApiInSteps();
   const cwBudgetResult    = checkControlledWaitBudget();
+  const backendUnitResult = checkBackendUnitRows();
 
   printResult('Tag compliance',   tagResult);
   printResult('Step locator',     locatorResult);
@@ -519,8 +558,9 @@ function main(): void {
   // assertion-reads are disambiguated as each module migrates to core/api).
   printResult('No page.request in steps/pages (report-only until migration done)', apiInStepsResult);
   printResult('controlledWait budget (no increase)', cwBudgetResult);
+  printResult('Backend-Unit rows (no .feature, Notes name the test)', backendUnitResult);
 
-  const failCount = [tagResult, locatorResult, testDataResult, stabilityResult, tcTagResult, csvStructResult, cwBudgetResult]
+  const failCount = [tagResult, locatorResult, testDataResult, stabilityResult, tcTagResult, csvStructResult, cwBudgetResult, backendUnitResult]
     .filter(r => !r.passed).length;
 
   console.log('');

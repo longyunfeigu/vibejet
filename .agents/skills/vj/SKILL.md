@@ -1,85 +1,47 @@
 ---
 name: vj
-description: Route and execute Vibe Engineering work through the smallest reliable VJ delivery track. Use for “用 vj 做/处理/实现”, “走 vibe engineering workflow”, workflow selection, or when another vj skill needs to decide between a direct patch, bounded Story, and full Epic delivery.
+description: Route and execute Vibe Engineering work through the smallest reliable VJ delivery track. Use for “用 vj 做/处理/实现”, “走 vibe engineering workflow”, workflow selection, or when another vj skill needs to decide between a direct patch, a bounded Story, and a written plan (vj-plan → vj-work).
 ---
 
-# VJ Delivery Router
+# VJ 交付路由
 
-Choose the smallest track that can produce observable evidence without hiding risk. Read
-`docs/reference/guides/ai-workflow.md` only when the selected track needs its detailed handoff.
+选能产出可观察证据的最轻交付轨。轨越重，文档和等待越多；只有出错代价高时才值得。
 
-## 1. Classify
+## 选轨
 
-| Track | Use when | Required artifacts |
-|-------|----------|--------------------|
-| **Patch** | Local bug or adjustment; behavior is clear; no strict trigger | Reproduction or explicit assertion, diff, verification evidence |
-| **Story** | Bounded user-visible capability; normally 2-5 files or one frontend/backend slice; no strict trigger | Lightweight Intent Contract, execution steps, verification evidence |
-| **Epic** | Multiple capabilities or bounded contexts, or any strict trigger | Epic/Story WHAT, reviewed execution pack, run state, evidence |
+| 轨 | 什么时候用 | 产物 |
+|----|-----------|------|
+| **Patch** | 局部修复或调整，行为明确，没命中 strict 触发条件 | 改动 + 验证证据 |
+| **Story** | 一个有边界的用户可见能力（通常 2-5 个文件，或一个前端/后端切片），没命中 strict 触发条件 | 简短意图 + 改动 + 验证证据 |
+| **Plan** | 多个能力或跨 bounded context，或命中任一 strict 触发条件，或要做整份 PRD / 其中一个 Epic | 计划文档（`vj-plan`，整份 PRD 拆成每块一份）→ 执行（`vj-work`）→ 证据 |
 
-Strict triggers are defined once in `AGENTS.md` under **Plan 规范**. Do not copy the list here.
-Ambiguity that changes behavior is strict until resolved.
+strict 触发条件只在 `AGENTS.md`「Plan 规范」维护。会改变行为的歧义在澄清前按 strict 处理。
 
-## 2. Establish the two contracts
+## 开工前
 
-Before editing, state:
+在回复里用几行说清：
 
-1. **Intent Contract**: requested outcome, in-scope behavior, explicit non-goals, observable done
-   signals, and unresolved decisions.
-2. **Execution Contract**: selected track/policy, write surface, verification commands, and whether
-   commits are allowed.
+- **意图**：要什么结果、不做什么、怎样算做完、还有哪些未决选择。
+- **执行**：选哪条轨、会改哪些地方、用什么命令验证、是否 commit。
 
-Do not ask for confirmation when the request and reversible implementation are already clear.
-Use one intent gate only when a product choice changes observable behavior. Use one execution gate
-only for unresolved destructive, security, migration, external-side-effect, or other strict decisions.
-An explicit user authorization satisfies the gate for already disclosed risks; it does not resolve an
-unknown product decision.
+需求清楚、改动可逆时直接开工，不要确认。只在两种情况停一次：未决的产品选择会改变可观察行为；
+或要执行破坏性、安全、迁移、外部副作用类动作而风险还没被用户认可。用户已明确授权的风险不再问。
 
-## 3. Initialize run state
+用户说"不要 commit"时，所有工作流里的 commit 步骤都跳过；这不影响验证和 review。
 
-Create runtime state with:
+## 各轨怎么做
 
-```bash
-python3 .agents/skills/_shared/scripts/workflow_state.py init \
-  --name <slug> --source <prompt-or-story-path> --track <Patch|Story|Epic> \
-  --policy <fast|strict> --commit-policy <enabled|disabled-by-user>
-```
+**Patch**：读受影响代码和调用点 → 复现问题或写出会失败的断言 → 窄改动 → 定向验证 →
+按 `AGENTS.md` 的 review 触发条件决定是否 review。不建 Story/Plan 文档。修 bug 时在回复里写一句根因
+（为什么会错，不只是哪行错），并用 `rg` 搜一遍同样写法的其他位置，一起修或列出来。
 
-The returned `.vj/runs/.../run-state.json` is the execution-state source. Follow
-`.agents/skills/_shared/runtime-contract.md` for tool adapters. User instructions such as “不要
-commit” always set `disabled-by-user` and suppress every workflow commit step.
+**Story**：按会话里的简短计划直接实现，不建文档。跑定向测试和相邻影响检查，按 review 触发条件 review。
+途中出现 strict 触发条件或跨上下文依赖时升级为 Plan。
 
-## 4. Execute the selected track
+**Plan**：`vj-plan` 出一份计划文档（整份给人审）→ `vj-work` 读代码、把验收变成测试、按执行顺序做完。
+跨任务端到端风险值得时再跑 `vj-test`。进度和验收说明都写回那份计划文件。
 
-### Patch
+## 收尾
 
-Read the affected code and call sites, reproduce or define the failing assertion, make the narrow
-change, run focused verification, then apply the repo review trigger. Do not create Epic/Story/Plan
-documents.
-
-### Story
-
-Use `vj-feature` only if the capability needs a durable Story. Do not create a review pack by default.
-Execute from the Story plus a concise in-session plan; run focused tests, affected-neighbor checks,
-and the repo review trigger. Escalate to Epic when a strict trigger or cross-context dependency
-appears.
-
-### Epic
-
-Use `vj-feature` or `vj-epic-story` to establish WHAT, then `vj-epic-plan`, `vj-plan-review`, and
-`vj-work`. Run `workflow_doctor.py plan <pack> --for-execution` before code changes. Use `vj-test`
-only when cross-task end-to-end risk justifies it.
-
-## 5. Close the run
-
-Transition `running -> verifying -> completed` only after externally observable evidence passes.
-Record test, browser, lint, and review evidence with `workflow_state.py evidence`. A failed required
-check transitions to `blocked`; never relabel it as completed. Product status remains in Epic
-frontmatter (and standalone Story frontmatter when the format provides it) and is updated once
-during closeout.
-
-## Completion
-
-- The selected track is no heavier than its risk requires.
-- Required behavior has outcome evidence, not only document/lint compliance.
-- No unplanned human gate or commit occurred.
-- Run state validates and the user receives changed files, verification, and residual risks.
+报告改了哪些文件、跑了哪些验证（附真实输出）、还剩什么风险。必需的检查失败就如实报失败，
+不要说成完成。

@@ -21,7 +21,7 @@ vibejet/
 │   ├── reference/     # ADRs, guides, research notes
 │   ├── solutions/     # Solved problems & decisions knowledge base (vj-compound 写入)
 │   ├── archive/       # Historical / superseded docs, not current baseline
-│   └── work/          # In-flight delivery: epics/ + plans/ + tasks/ (task packets)
+│   └── work/          # In-flight delivery: plans/（每块工作一份计划文档）
 ├── .agents/skills/    # Repo-local AI workflow skills
 └── docker-compose.yml
 ```
@@ -135,41 +135,36 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 
 - DB 等基础设施可用 `docker-compose up -d` 启动
 - 后端 `.env`: `SECRET_KEY`（必填，缺失则启动失败）、`DATABASE__URL`、`DEBUG`；env 用嵌套键（如 `DATABASE__URL`、`REDIS__URL`）
-- 前端 `.env`: `VITE_API_URL`（Vite 代理 `/api` 请求到此地址，默认 `http://localhost:8000`）
+- 前端 `.env`: `VITE_API_URL`（Vite 代理 `/api` 请求到此地址，默认 `http://localhost:8010`，与后端默认端口一致）
 - 两个 `.env` 均不提交 git；不提交任何 secrets；默认 CORS/dev 配置不得用于生产
 
 ## AI Workflow Entry Points
 
-默认从 `vj` router 进入，按风险选择 Patch / Story / Epic；详细阶段、UI 双轨、catalog delta、
-验证与收口规则见 `docs/reference/guides/ai-workflow.md`。
+默认从 `vj` router 进入，按风险选择 Patch / Story / Plan；详细阶段、UI 双轨、验证与收口规则见
+`docs/reference/guides/ai-workflow.md`。
 
-- Patch：不建 Story/Plan，窄改动 + focused verification。
-- Story：Intent Contract + concise execution plan；普通 bounded change 不建 Epic review pack。
-- Epic/strict：`vj-feature|vj-epic-story -> vj-epic-plan -> vj-plan-review -> vj-work`。
-- 工作流自身变更：跑 `.agents/evals/vj-workflow/`；plan handoff 必过 `plan_lint.py` +
-  `workflow_doctor.py`。
+- Patch：不建文档，窄改动 + focused verification。
+- Story：回复里写几行意图和执行方式，直接实现，不建文档。
+- Plan / strict：`vj-plan`（一份计划文档）`-> vj-work`。
+- 工作流自身变更：跑 `.agents/evals/vj-workflow/` 和 `.agents/tests/`；计划交付必过 `plan_lint.py`，
+  `vj-work` 开工必过 `plan_lint.py --for-execution` + `workflow_doctor.py plan`。
 
 ## Plan 规范
 
-- Plan 以 **Epic 为单位**，由 `vj-epic-plan` 生成 review pack 目录
-  `docs/work/plans/{date}-epic-{N}-{slug}/`（README / design / decisions）+
-  task packets（`docs/work/tasks/epic-{N}-{slug}/`），由 `vj-work` 消费执行
-- 执行策略用 **Execution Policy: fast | strict** 表达（旧 Story 级 Flow A/B/C 模板已废弃删除）
+- 一块工作一份计划：`vj-plan` 生成 `docs/work/plans/{date}-{slug}.md`，写给人审：做什么、关键设计、
+  要拍板的决定、验收清单、执行顺序（只有后三节格式固定，其余按这块工作的性质写）；不写改哪些文件——
+  `vj-work` 开工时读真实代码、把验收变成测试、拆子任务，进度和验收说明写回同一文件。
+  整份 PRD 输入时先出拆分总览（`{date}-epic-0-overview.md`），再按 Epic 拆成多份、一次全部写完，`after:` 只表示先后；
+  每份计划写完调 `prd-to-bdd` 生成给人把关的用例表（`cases:` 指向它），`vj-work` 收尾时激活这些用例并用 AutoTest 真跑
+- 执行策略用计划 frontmatter 的 `policy: fast | strict` 表达
 - **strict 触发条件**（plan 阶段或开发中碰到任一条 → strict，开发中则暂停并升级）：
-  改 DB migration/schema、改公共 API 契约、改权限/认证/安全/ownership、引入外部系统或
-  异步任务、复杂状态机/幂等/事务一致性、需求不清楚、影响多个 bounded context、
+  改 DB migration/schema/数据回填/破坏性数据更新、改公共 API 契约/DTO envelope/错误码/
+  向后兼容、改权限/认证/安全/ownership/tenant 边界、引入外部系统或异步任务、复杂状态机/
+  幂等/并发/事务（UoW）一致性、需求不清楚、影响多个 bounded context、
   UI shell/navigation/design token 级变更、预计大 diff（跨子系统 ≥400 行或总计 ≥1000 行）
-- Simple 档小改动（单文件 <20 行）可不出 review pack 直接实现；但命中 strict 触发条件的
-  改动必须走完整 plan 链路
-- Plan status 中 `research-ready` 只开放 `Risk class: research-only` 的证据任务，write scope
-  只能在 `.vj/` 与 `docs/reference/research/`；完成后回到 `awaiting-approval`。生产实现只接受
-  `ready`。质量、延迟、兼容性等经验事实不得靠文档审批，必须先产生可审计证据。
-- Plan 信息按维度分配真相源：Story AC 管可观察行为；approved decisions 管设计取舍；
-  `docs/project/api|data|ui/` 管精确合同；design.md 管 delta 理由和跨层不变量；task docs 只是
-  执行投影。跨维度冲突必须 STOP 修正来源，禁止用线性优先级静默覆盖。
-- plan 阶段新增的 catalog 合同必须标 `planned (Epic N)`；planned 只服务所属 plan，不证明代码
-  已实现。vj-work 全部验证、review 和合同比对通过后才翻 `active`；其他 Epic 只把 active
-  条目当可消费的当前能力。
+- Simple 档小改动（单文件 <20 行）可不出计划直接实现；但命中 strict 触发条件的改动必须先出计划
+- 质量、延迟、兼容性等经验事实不靠文档审批，先产生可审计证据（计划执行顺序里的证据步骤）。计划状态和写法
+  见 `.agents/skills/vj-plan/SKILL.md`。
 
 ## 架构文档策略
 
@@ -195,9 +190,9 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 |------|----------|----------|
 | **Simple** | Single file, <20 lines, local impact | Execute directly with minimal explanation |
 | **Standard Story** | 2-5 files, bounded impact, requirements reasonably clear | Use `vj` Story track: Intent Contract + concise execution plan, then implement and verify |
-| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | Full `vj-epic-plan` review pack（Execution policy 通常为 strict）+ the appropriate skill workflow |
+| **Complex** | Architecture changes, multiple modules, high risk, or external references needed | `vj-plan` 计划文档（policy 通常为 strict）→ `vj-work` |
 
-Complex workflow: RESEARCH → PLAN（`vj-epic-plan`，需要外部参考时先 `story-reference-impl`）→ EXECUTE →
+Complex workflow: RESEARCH → PLAN（`vj-plan`，需要外部参考时先 `story-reference-impl`）→ EXECUTE →
 VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ REGRESSION QA
 （变更涉及 UI、路由、共享组件或高风险流程时跑 `diff-aware-qa`）。
 
@@ -206,7 +201,7 @@ VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ 
 
 ### Testing Strategy
 
-- **默认 TDD**: 测试用例从 Story 验收标准（Given-When-Then）推导，不从 AI 生成的代码推导
+- **默认 TDD**: 测试用例从计划的验收清单推导，不从 AI 生成的代码推导
 - **后端**: 在 `backend/` 内运行 pytest；测试放 `backend/tests/` 下的 `test_*.py`；
   异步测试用 `pytest-asyncio`，API 测试优先 `httpx.AsyncClient`；隔离副作用（事务 fixture 或清理 DB 状态）
 - **联调 / UI**: 用 `story-verify-fix`；页面交互/截图验证走全局 `web-access` skill
@@ -221,10 +216,8 @@ AI review + 人扫一遍；🟢 DTO/数据搬运/UI 样式 → AI review + 测�
 - 评估维度：维护活跃度、社区、与现有 stack 的契合度、license 可商用；选择自研必须说明为何现有方案不适用
 - 过度工程红线：4+ 底层库拼一个常见场景；>200 行实现一个已被解决的问题；
   没有具体需求的"以后可能需要灵活性"
-- 机器位：`vj-epic-plan` Phase 2 **默认派发** external-solutions scout（Agent E）先检索
-  GitHub/生态并评估（仅纯 CRUD/纯 UI 组合且仓库已有权威实现覆盖时可跳过，跳过须记录
-  判定理由；超时降级由主上下文快查兜底，不豁免检索），Phase 3 收口进 `decisions.md`
-  （直接用 / 改造 / 自研+拒因）；"改造/深度借鉴"路径的实现期研究走 `story-reference-impl`
+- 机器位：`vj-plan` 写关键设计前先查现成的库和方案，结论写成计划第 3 节的一条决定
+  （直接用 / 改造 / 自研 + 理由）；"改造/深度借鉴"路径的实现期研究走 `story-reference-impl`
 
 ### Red Lines
 
@@ -236,7 +229,7 @@ AI review + 人扫一遍；🟢 DTO/数据搬运/UI 样式 → AI review + 测�
 - Never implement "blindly" - confirm understanding via code reading + references
 - Do not add speculative features, abstractions, configuration, or extension points for future needs
 - Do not refactor, reformat, rename, or clean up unrelated code while implementing a requested change
-- Every changed line must trace back to the user request, Story acceptance criteria, verification, or cleanup caused by this change
+- Every changed line must trace back to the user request, the plan's acceptance checklist, verification, or cleanup caused by this change
 
 ### Quality & Cleanup
 

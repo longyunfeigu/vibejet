@@ -6,7 +6,7 @@
             "type": "domain",
             "enforcement": "suggest",
             "priority": "high",
-            "description": "VJ 工作流控制面：按风险把请求路由到 Patch、Story 或 Epic 交付轨，建立 Intent/Execution Contract 与运行状态，并选择最小可靠流程。",
+            "description": "VJ 工作流控制面：按风险把请求路由到 Patch、Story 或 Plan 交付轨，开工前说清意图与执行方式，并选择最小可靠流程；Plan 轨由 vj-plan 出计划、vj-work 执行。",
             "promptTriggers": {
                 "keywords": [
                     "用 vj",
@@ -17,7 +17,7 @@
                 ],
                 "intentPatterns": [
                     "(用|按|走).*?vj.*?(做|处理|实现|开发|工作流)",
-                    "(选择|判断|路由).*?(Patch|Story|Epic|工作流)",
+                    "(选择|判断|路由).*?(Patch|Story|Plan|工作流)",
                     "vibe engineering.*?(workflow|工作流|实现|开发)"
                 ]
             }
@@ -162,11 +162,11 @@
                 ]
             }
         },
-        "vj-feature": {
+        "vj-plan": {
             "type": "domain",
             "enforcement": "suggest",
             "priority": "medium",
-            "description": "给已有项目追加功能。从功能想法出发，通过对话澄清需求，生成或追加 Epic/Story，可选同步 PRD，最后路由到实现。",
+            "description": "给一块要做的东西出一份计划文档：输入是 PRD 的一个 Epic 或一句功能描述；前四节给人审（做什么、关键设计、要拍板的决定、验收清单），附录是给 AI 的任务清单。",
             "promptTriggers": {
                 "keywords": [
                     "加功能",
@@ -178,12 +178,19 @@
                     "新增功能",
                     "feature",
                     "add feature",
-                    "new feature"
+                    "new feature",
+                    "出计划",
+                    "规划这个功能",
+                    "epic plan",
+                    "epic 计划",
+                    "plan"
                 ],
                 "intentPatterns": [
                     "(加|添加|增加|新增|做一个|搞一个).*?(功能|能力|模块|系统)",
                     "(我想|我要|我们要|需要).*(加|添加|增加|做).*?(功能|能力|特性)",
-                    "(add|implement|build|create).*?(feature|capability|module)"
+                    "(add|implement|build|create).*?(feature|capability|module)",
+                    "(规划|计划|出|做).*?epic",
+                    "(给|为).*?(epic|功能).*?(计划|plan|方案)"
                 ]
             }
         },
@@ -218,6 +225,27 @@
                 ]
             }
         },
+        "vj-product-requirements": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "把产品想法写成 1-2 页 PRD + 可点击场景原型：先采访只有用户知道的事（证据、现在怎么应付、为什么选我们、第二次为什么回来、最小版本），新产品先做轻量竞品调研，EARS 只留在 §12 行为合同；也用于审查和更新已有 PRD",
+            "promptTriggers": {
+                "keywords": [
+                    "写 PRD",
+                    "写PRD",
+                    "产品需求文档",
+                    "需求文档",
+                    "PRD",
+                    "产品需求"
+                ],
+                "intentPatterns": [
+                    "(写|出|整理|生成|起草).*?(PRD|需求文档|产品需求)",
+                    "(审查|检查|评审|更新|修改).*?(PRD|需求文档)",
+                    "把.*?(想法|点子).*?(整理|写)成.*?(PRD|需求)"
+                ]
+            }
+        },
         "vj-mock-board": {
             "type": "domain",
             "enforcement": "suggest",
@@ -243,30 +271,6 @@
                     "(出|画|生成|做).*?(mock|原型板|线框|界面草图|mockup|wireframe)",
                     "(看看|想看|预览).*?(产品|界面|页面).*?(长什么样|样子|效果)",
                     "mock.*?(board|html|页面|界面)"
-                ]
-            }
-        },
-        "vj-epic-plan": {
-            "type": "domain",
-            "enforcement": "suggest",
-            "priority": "medium",
-            "description": "以一个 Epic（含若干 Story）为单元生成适合人工 Review 且可供下游执行的实现计划（HOW）：共享设计（人工 review 主面：ERD/流程图/边界/术语，决策内联进图）、§0 审批门（待拍板决策）、跨 epic 契约、实现单元与依赖图；命中 API 或持久化变化时同步维护 docs/project/api/ 与 docs/project/data/ 模块化契约目录。",
-            "promptTriggers": {
-                "keywords": [
-                    "epic plan",
-                    "epic 计划",
-                    "epic 实现计划",
-                    "规划 epic",
-                    "epic 详规",
-                    "给 epic 出计划",
-                    "epic 级计划",
-                    "epic-plan",
-                    "plan epic"
-                ],
-                "intentPatterns": [
-                    "(规划|计划|出|做).*?epic",
-                    "epic.*?(实现计划|详规|plan|计划)",
-                    "(给|为).*?epic.*?(计划|plan|实现)"
                 ]
             }
         },

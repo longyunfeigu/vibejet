@@ -1,6 +1,6 @@
 # Backend Testing
 
-Use this for `backend/tests/`, task-doc bare `tests/...` paths in a backend Unit, and backend verification planning.
+Use this for `backend/tests/`, bare `tests/...` paths in a backend Story's execution block, and backend verification planning.
 
 ## Test Strategy
 
@@ -18,7 +18,7 @@ Use this for `backend/tests/`, task-doc bare `tests/...` paths in a backend Unit
 ## Current Repo Defaults
 
 - Tests live under `backend/tests/` as `test_*.py`.
-- If a task document in a backend Unit says `tests/...`, interpret it as `backend/tests/...` unless the plan explicitly says otherwise.
+- If a backend Story's execution block says `tests/...`, interpret it as `backend/tests/...` unless the plan explicitly says otherwise.
 - Use `pytest` and `pytest-asyncio`.
 - Prefer existing fixtures from `backend/tests/conftest.py`.
 - Use dependency overrides rather than changing production dependency factories for tests.
@@ -32,7 +32,7 @@ Use this for `backend/tests/`, task-doc bare `tests/...` paths in a backend Unit
 
 ## Verification Commands
 
-Run from `backend/` unless the task has a narrower command:
+Run from `backend/` unless the Story has a narrower command:
 
 ```bash
 uv run pytest tests/ -q

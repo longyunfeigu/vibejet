@@ -5,275 +5,124 @@ description: Match a product-level UI/brand brief or PRD to three reference DESI
 
 # vj-design-md-matcher
 
-根据产品级 UI / 品牌 brief 或 PRD，从 `vibeui / awesome-design-md` 设计库推荐 3 个参考 `DESIGN.md`，再生成项目自己的 `docs/project/DESIGN.md` 与 golden screen 参考。
+From a product-level UI/brand brief or PRD, recommend 3 reference `DESIGN.md` files from the
+vibeui / awesome-design-md library, then write the project's own `docs/project/DESIGN.md` and
+golden screen references.
 
-## Boundary
+This is the low-frequency product/brand direction step. Once `DESIGN.md` exists and is confirmed,
+downstream work (`vj-plan`, `vj-work`) consumes it; do not run this skill
+during execution to pick a temporary style. Single-screen structure and states belong to
+`ui-page-goal-structure` / `ui-state-coverage`, not here.
 
-This skill is a low-frequency product / brand direction step:
+Run it only when: `DESIGN.md` is missing or explicitly obsolete; product/brand direction is
+unclear; a front-of-house screen (login, signup, landing, onboarding, first-run empty state) has
+no golden reference; a new downstream product needs its own system; or the user asks for this
+matching or a DESIGN.md rewrite.
 
-```text
-ui-requirement-brief（产品级，可选但推荐）
-  -> vj-design-md-matcher
-  -> docs/project/DESIGN.md + docs/reference/research/designs/golden/
-  -> vj-epic-story / vj-epic-plan / vj-work
-```
-
-Do not use this skill during `vj-work` or story implementation to choose a temporary visual style. Once `docs/project/DESIGN.md` exists and is confirmed, downstream work consumes that file as the stable style source.
-
-Do not copy a brand's DESIGN.md into the project. Treat library entries as references for interaction density, layout rhythm, token discipline, and tone. Generate a project-owned system that fits the PRD.
-
-Do not use this skill for routine single-screen structure or state coverage. For a concrete screen, use the screen-level track:
-
-```text
-ui-requirement-brief（单屏级，可选）
-  -> ui-page-goal-structure
-  -> ui-state-coverage
-  -> vj-epic-story 页面体验地图
-  -> vj-epic-plan Screen Contract
-```
-
-Run this skill only when at least one trigger is true:
-
-- `docs/project/DESIGN.md` is missing or explicitly obsolete.
-- Product / brand visual direction is unclear.
-- A front-of-house screen such as login, signup, landing, onboarding, or first-run empty state has no golden reference.
-- A new downstream product needs its own design system.
-- The user explicitly asks for visual direction matching, vibeui / awesome-design-md references, or a DESIGN.md rewrite.
+Do not copy a brand's DESIGN.md. Borrow interaction density, layout rhythm, token discipline and
+tone; generate a system that fits this PRD.
 
 ## Inputs
 
-Prefer inputs in this order:
+In order of preference: a product-level brief (ideally from `ui-requirement-brief`), a PRD or
+brief path the user names, `docs/product/requirements.md`, the conversation. Optional: a local
+library mirror, an output path, explicit constraints ("avoid dark UI", "mobile first"). Single-screen
+briefs are examples of key archetypes, not the product identity.
 
-1. Product-level UI / brand brief, ideally produced by `ui-requirement-brief`.
-2. User-specified PRD or product brief path.
-3. `docs/product/requirements.md`.
-4. User's product description in the current conversation.
+## Phase 1: Extract product signals
 
-Optional inputs:
+Summarize: domain and adjacent market; users and roles; primary workflows; page types; information
+density; interaction intensity; desired tone; explicit visual constraints and anti-goals; brand
+trust points and front-of-house promises; screen archetypes that need golden references (especially
+login/auth and the primary operational screen). If product-level signals are too vague, ask one
+concise question. Do not infer brand tone from backend feature names.
 
-- local library mirror: path to `awesome-design-md` repo root or its `design-md/` directory.
-- output path override: defaults to `docs/project/DESIGN.md`.
-- explicit constraints: "avoid dark UI", "enterprise admin", "mobile first", "do not use gradients".
-- existing single-screen briefs: use only as examples of key screen archetypes, not as the whole product identity.
-
-## Local Cache Policy
-
-Prefer the bundled cache at `assets/awesome-design-md/` for all matching. This keeps the skill usable if `vibeui.top` becomes unavailable.
-
-The authoritative cache source is `https://vibeui.top/site-assets/designs.js`, not only the GitHub `VoltAgent/awesome-design-md/design-md` directory. The vibeui catalog currently includes brand `design-md/*` entries plus `extra/uiuxskillProMax/generated/*/DESIGN.md` style templates, so it can contain more entries than the GitHub `design-md` directory alone.
-
-Default behavior:
-
-1. If `assets/awesome-design-md/design-md/*/DESIGN.md` exists, use it first.
-2. If local cache misses entries and network is allowed, merge missing entries from `vibeui.top`.
-3. If no cache exists, fall back to `vibeui.top`.
-4. If `--offline` is set, fail instead of using network.
-
-Refresh the cache when the catalog changes:
+## Phase 2: Retrieve candidates
 
 ```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py --download-cache
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py --prd docs/product/requirements.md --limit 8
+python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py --query "<one-line brief>" --limit 8
 ```
 
-Use a custom cache location:
+The script uses the bundled cache at `assets/awesome-design-md/` first and merges missing entries from
+`https://vibeui.top/site-assets/designs.js` when network is allowed. That vibeui catalog is the
+authoritative source: it includes brand `design-md/*` entries plus generated style templates, so it
+is larger than the GitHub `design-md` directory. Other flags: `--offline` (fail instead of network),
+`--local <mirror>`, `--json`, `--download-cache [--cache <dir>]` to refresh the cache,
+`--source github` (legacy fallback only).
 
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --download-cache \
-  --cache /path/to/design-md-cache
-```
+## Phase 3: Recommend three
 
-## Workflow
+Read `references/matching-rubric.md`, then pick exactly three: a primary (closest product/workflow
+fit), a secondary (complementary interaction or layout pattern), and a contrast (a useful constraint
+or anti-pattern boundary). For each: why it fits, what to borrow, what to avoid, link to its
+`DESIGN.md`. Override the script's ranking when its top picks are visually unsafe for the project, and say why.
 
-### Phase 1: Extract Product Signals
+## Phase 4: Confirm references
 
-Read the product-level UI / brand brief first when present, then PRD or product brief. Summarize:
+Show the three before writing anything and wait for confirmation, unless the user asked to proceed
+without review. If one is rejected, replace only that one.
 
-- domain and adjacent market
-- target users and roles
-- primary workflows
-- page types: dashboard, table, editor, form, wizard, review queue, content page, marketing page
-- information density: sparse, medium, high
-- interaction intensity: read-only, CRUD, review/approval, real-time, creation tool
-- desired tone: utilitarian, premium, friendly, editorial, technical, consumer, playful
-- explicit visual constraints and anti-goals
-- brand trust points and front-of-house promises
-- screen archetypes that need golden references, especially login/auth and the primary operational screen
+## Phase 4.5: Render direction candidates
 
-If product-level signals are too vague, ask one concise clarification before matching. Do not infer brand tone only from backend feature names.
+Choose the direction from rendered pixels, not from text: two implementations can satisfy the same
+prose and look completely different. Do not skip this phase.
 
-### Phase 2: Retrieve Candidate DESIGN.md Entries
+1. Pick anchors: the highest-frequency operational screen (prefer table-list / console / review queue),
+   plus the primary front-of-house screen when the product has one.
+2. For each candidate direction and anchor, write one throwaway self-contained HTML (inline CSS,
+   realistic mock data, ok / loading / failed / queued states) to
+   `docs/reference/research/designs/candidates/`, plus an `index.html` side-by-side page.
+   Follow `references/direction-candidate-craft.md`: each candidate is a committed visual thesis
+   (mood + material + energy), not a skin-swap. Operational candidates stay calm and dense within the
+   token system and are written inline. Front-of-house candidates may extend palette, type and depth
+   within brand DNA, and are produced through `high-end-visual-design` / `design-taste-frontend`
+   (or one focused design subagent) against a named reference bar (the site the user names, else
+   Linear / Stripe / Resend), iterating to that bar; prose in this skill does not substitute for that pass.
+3. Never render UI candidates with an image-generation model. Verified failures: garbled small text,
+   direction collapsing toward a generic mean, AI-template look.
+4. Run the litmus gate in `direction-candidate-craft.md` and drop failing candidates (lone centered card,
+   no memorable anchor, slop). Show only passers, with desktop screenshots when browser tooling is
+   available; otherwise ask the user to open `index.html`. The user picks one; at most one more
+   re-render round.
+5. Save the winner as golden: screenshots to `docs/reference/research/designs/golden/{archetype}.png`,
+   or keep the winning `.html` when screenshots are unavailable.
+6. Optional, brand-heavy front-of-house only: generate brand photography/texture (never UI) with an
+   image tool, extract the palette from its pixels, and feed palette and assets into the chosen
+   direction. Skip silently if the tool is unavailable; derive the palette from the references instead.
 
-Use `scripts/match_design_md.py` for first-pass retrieval.
+## Phase 5: Write `docs/project/DESIGN.md`
 
-Default local-cache-first matching:
+Sections: Product Design Direction; Reference Inspirations; Visual Principles; Color Tokens;
+Typography Tokens; Layout Rules; Spacing Hierarchy; Component Rules; Interaction States;
+Data-Dense UI Rules; Richness Floor by Screen-Type; Reference Skeletons (per screen archetype);
+Golden Screens; Accessibility Rules; Do / Don't; Downstream Prompt Base.
 
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/product/requirements.md \
-  --limit 8
-```
+- Fit the product, not the reference brands. Use tokens a frontend engineer can implement. Avoid
+  one-note purple/blue gradients, decorative orbs, heavy beige themes and brand-copy colors unless the PRD demands them.
+- Operational screens (tables, queues, editors) default to quiet, dense, scannable composition.
+  Do not apply that austerity to front-of-house screens: they need a richness floor — intentional
+  composition and product identity within the same tokens, never marketing gradient/orb/glass. A
+  token system that yields a lone centered card on every screen has failed; state the floor explicitly
+  so executors do not ship AC-minimal screens.
+- **Spacing Hierarchy is layered, never a single range.** A flat rule like "operational screens use 8–16"
+  gets executed as wall-to-wall 8px and reads as Excel, not Linear. Give hard ranges per level: page
+  frame > region gaps > container padding > component rhythm > row height. Density lives in the data
+  core; air lives at the page frame. Include machine-checkable floors (minimum page padding, minimum
+  region gap, at most ~4 distinct gap values per screen) so screenshots can be measured.
+- **Richness Floor by Screen-Type**: one-line minimum for each archetype in the PRD (front-of-house /
+  dashboard / table-list / detail-reading / form-wizard). Richness means deliberate composition,
+  identity and hierarchy, not decoration.
+- **Reference Skeletons**: keep the matched references' structure and density after extracting tokens —
+  distill each into a per-archetype skeleton (regions, order, density) re-skinned with these tokens,
+  including the product's login/auth screen when the PRD has one, so executors copy a good skeleton
+  instead of inventing a minimal one.
+- Cover loading, empty, error, disabled, selected, dirty, saved, review-needed and destructive states when relevant.
+- **Golden Screens**: list golden paths per archetype and state that implementation treats token text
+  plus golden pixels as a dual source of truth; executors and visual auditors compare against the image,
+  not only the prose.
+- **Downstream Prompt Base**: reusable by `vj-plan` and `vj-work`; tells them to
+  follow this `DESIGN.md` plus the approved golden references.
 
-Local mirror:
-
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/product/requirements.md \
-  --local /path/to/awesome-design-md \
-  --limit 8
-```
-
-Offline local-only:
-
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/product/requirements.md \
-  --offline \
-  --limit 8
-```
-
-Conversation-only brief:
-
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --query "enterprise employee exam and grading admin system, high-density tables, review workflow" \
-  --limit 8
-```
-
-The script returns candidate names, categories, links, descriptions, source mode, and score breakdowns. It uses the bundled cache first and `vibeui.top/site-assets/designs.js` as the network source. `--source github` is available only as a legacy fallback for the smaller `VoltAgent/awesome-design-md/design-md` source.
-
-### Phase 3: Score and Recommend Three
-
-Read `references/matching-rubric.md` before final selection.
-
-Select exactly 3 references:
-
-- primary reference: closest product/workflow fit
-- secondary reference: complementary interaction or layout pattern
-- contrast reference: useful constraint or anti-pattern boundary
-
-For each selected reference, report:
-
-- why it fits the PRD
-- which parts to borrow
-- which parts to avoid
-- source link to its `DESIGN.md`
-
-If the top script results are visually unsafe for the project, override them and explain why.
-
-### Phase 4: User Confirmation
-
-Before writing `docs/project/DESIGN.md`, show the 3-reference recommendation and wait for user confirmation unless the user explicitly asked to proceed without review.
-
-If the user rejects one reference, replace only that reference and keep the rest stable.
-
-### Phase 4.5: Render Direction Candidates (pixel-level decision)
-
-Text summaries only confirm reference *sources*; the visual direction itself must be chosen from
-rendered pixels. Text underdetermines pixels — two implementations can both "satisfy" the same
-prose and look completely different. Do not skip this phase and synthesize DESIGN.md from text.
-
-1. Pick two anchors when relevant:
-   - the highest-frequency core operational screen in the PRD (prefer table-list / console / review queue);
-   - the primary front-of-house screen when the product has login, signup, landing, onboarding, or empty first-run.
-2. Produce one throwaway HTML per candidate direction per chosen anchor — same screen content and information
-   architecture, but each candidate must be a **committed visual thesis**, not a timid skin-swap.
-   Read `references/direction-candidate-craft.md` and follow it: give each candidate a distinct
-   one-sentence thesis (mood + material + energy); apply the two-track bar (operational stays calm/dense
-   within the existing token system; **front-of-house candidates may extend palette/type/depth beyond the
-   operational tokens, within brand DNA**); **for front-of-house, generate via the dedicated craft engine, not inline** — invoke
-   `high-end-visual-design` / `design-taste-frontend` (or one focused design subagent), against a
-   **required reference target** (a 高级 login/site the user names, else a named default bar such as
-   Linear / Stripe / Resend), then iterate to that bar. Prose in this skill does not substitute for the
-   engine. See `references/direction-candidate-craft.md` §7. Operational candidates stay inline.
-   Each candidate is:
-   - Self-contained single files (inline CSS, realistic mock data, all states: ok / loading /
-     failed / queued) written to `docs/reference/research/designs/candidates/`, plus an
-     `index.html` side-by-side comparison page.
-   - **Never use an image-generation model to render UI candidates.** Verified failure modes:
-     garbled small text, direction collapse toward a generic mean, AI-template look. Image
-     models are only allowed in the optional mood-asset substep below.
-3. Confirm with the user:
-   - Before showing anything, run the litmus gate in `references/direction-candidate-craft.md` and
-     drop any candidate that fails (lone centered card, no memorable anchor, slop). Show only passers.
-   - If Playwright/browser tooling is available, attach desktop screenshots; otherwise ask the
-     user to open `index.html` directly — the HTML itself is the artifact, screenshots are only
-     a viewing convenience. Tooling unavailability never blocks this phase.
-   - The user picks one direction; apply feedback and re-render at most one more round.
-4. Persist the winner as the golden standard: screenshots to
-   `docs/reference/research/designs/golden/{archetype}.png` (when screenshots cannot be
-   produced, keep the winning `.html` as the golden source).
-5. Optional mood-asset substep (brand-heavy front-of-house products only):
-   - Generate brand photography / texture assets (never UI mockups) with an image-generation
-     tool (e.g. codex CLI imagegen), extract the dominant palette from the image pixels, and
-     feed palette + assets into the chosen direction and DESIGN.md; assets may be embedded
-     into pages directly as hero visuals or section textures.
-   - If codex/imagegen is unavailable, times out, or quota is exhausted: skip this substep and
-     derive the palette from the matched references instead. This substep must never block the
-     main flow.
-
-### Phase 5: Generate Project DESIGN.md
-
-Write `docs/project/DESIGN.md` with these sections:
-
-```markdown
-# DESIGN.md
-
-## Product Design Direction
-## Reference Inspirations
-## Visual Principles
-## Color Tokens
-## Typography Tokens
-## Layout Rules
-## Spacing Hierarchy
-## Component Rules
-## Interaction States
-## Data-Dense UI Rules
-## Richness Floor by Screen-Type
-## Reference Skeletons (per screen archetype)
-## Golden Screens
-## Accessibility Rules
-## Do / Don't
-## Downstream Prompt Base
-```
-
-Rules for generation:
-
-- Make the system fit the product, not the reference brands.
-- Use practical tokens that a frontend engineer can implement.
-- Keep palettes balanced; avoid one-note purple/blue gradients, decorative orbs, heavy beige themes, or brand-copy colors unless the PRD demands them.
-- For SaaS/admin tools, default **operational** screens (tables, queues, editors) to quiet, dense, scannable composition. BUT do **not** blanket-apply this austerity to **front-of-house** screens (login, first-run, landing, empty-first-screen): those must meet a **richness floor** — intentional composition + product identity within the *same* tokens — never marketing gradient/orb/glass. A token system that is "correct" but produces a lone centered card on every screen has failed; encode the floor explicitly so downstream executors don't ship AC-minimal screens.
-- `Spacing Hierarchy` is **mandatory** and must be layered, not a single range. A flat rule like "operational screens use 8–16" will be executed literally by downstream AI as wall-to-wall 8px and the result reads as Excel, not as Linear. Always specify per-level hard ranges: page frame (content padding, around the page header) > region gaps (between header / stats / toolbar / table) > container internal padding > component rhythm > row height. State the principle explicitly: **density lives in the data core; air lives at the page frame** — premium dense references (Linear, Airtable) pack rows but keep generous page padding. Include machine-checkable floors (minimum page padding, minimum region gap, max ~4 distinct gap values per screen) so the exit gate can measure screenshots against them.
-- `Richness Floor by Screen-Type`: for each screen archetype present in the PRD (front-of-house / dashboard / table-list / detail-reading / form-wizard), state a one-line **floor** (the minimum intentional composition, not an upper bound). Make clear richness = deliberate composition + identity + hierarchy, not decoration.
-- `Reference Skeletons (per screen archetype)`: **do not discard the matched references' composition after extracting tokens.** Distill each selected reference's *structure and density* into a concrete per-archetype skeleton (regions, order, density), re-skinned with this file's tokens — so the executor copies a good skeleton instead of inventing a minimal one. Include a project-specific skeleton for the product's primary login/auth screen when the PRD has one.
-- Include states for loading, empty, error, disabled, selected, dirty, saved, review-needed, and destructive actions when relevant.
-- `Golden Screens`: list the golden screenshot/HTML paths per screen archetype produced in
-  Phase 4.5 (and mood assets if any), and state explicitly that downstream implementation must
-  treat **token text spec + golden pixels** as a dual-channel source of truth — text alone
-  underdetermines pixels, so executors and visual auditors must compare against the golden
-  image, not only the prose.
-- The `Downstream Prompt Base` must be reusable by frontend planning and execution
-  (`vj-epic-story`, `vj-epic-plan`, `vj-work`) and must explicitly say to follow
-  this `DESIGN.md` plus the approved golden screen references.
-
-## Outputs
-
-- Recommendation summary in chat.
-- Direction candidate HTMLs under `docs/reference/research/designs/candidates/` and the chosen
-  golden screen under `docs/reference/research/designs/golden/` (Phase 4.5).
-- `docs/project/DESIGN.md` after confirmation or explicit proceed.
-- Optional retrieval JSON when requested:
-
-```bash
-python3 .agents/skills/vj-design-md-matcher/scripts/match_design_md.py \
-  --prd docs/product/requirements.md \
-  --json > /tmp/design-md-candidates.json
-```
-
-## Relationship To Other Skills
-
-- `ui-requirement-brief`: recommended upstream for product-level brief. Use it to clarify product identity, users, trust points, tone, anti-goals, and key screen archetypes before matching.
-- `ui-page-goal-structure` / `ui-state-coverage`: separate screen-level track. They consume a single-screen brief and produce page structure / state coverage; they do not pick the global visual direction.
-- `vj-epic-story` / `vj-epic-plan`: downstream; they consume `docs/project/DESIGN.md` and golden references, then produce page experience maps and Screen Contracts.
-- `design-taste-frontend` / `frontend-dev-guidelines`: implementation-time quality guardrails, not library matching.
-- `vj-work`: do not integrate this skill into execution; execution should not pick new styles.
+Outputs: the recommendation in chat; candidates under `designs/candidates/` and the golden under
+`designs/golden/`; `docs/project/DESIGN.md` after confirmation or explicit proceed.

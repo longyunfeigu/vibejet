@@ -82,6 +82,6 @@ gh api repos/{owner}/{repo}/contents/{path} --jq '.content' | base64 -d      # �
 3. 每个候选快速研究（方法 B 或 D）：读 README 了解架构 + 读 1-2 个核心模块看实现质量。
 4. 输出对比表并给出推荐与拒因。
 
-> 与 vj-epic-plan Agent E（external-solutions scout）的分工：Agent E 在 plan-time 做
-> 轻量选型（不 clone、只读 README 级），回答"用/改造/自研"；本 skill 在实现期做深度研究
+> 与 `vj-plan` 选型的分工：`vj-plan` 出计划时做轻量选型（不 clone、只读 README 级），回答
+> "用/改造/自研"；本 skill 在实现期做深度研究
 > （可 clone、读调用链），回答"具体怎么改造"。

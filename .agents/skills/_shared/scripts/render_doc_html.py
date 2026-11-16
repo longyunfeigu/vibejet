@@ -6,14 +6,16 @@
 - .html 永不手工编辑、不进 git（见 .gitignore）；.md 变更后重跑本脚本再生成。
 - 渲染是确定性的：模板固定，Markdown 原文嵌入页面，浏览器端渲染。
   marked 内联进 HTML（vendor `_shared/vendor/marked.min.js`，缺失退 CDN），正文离线可读；
-  mermaid 走 CDN，加载失败降级为可折叠源码卡（不糊原文）。
+  mermaid（3.5MB，不内联）按相对路径引用 vendor `_shared/vendor/mermaid.min.js`（11.17.2），本地文件加载失败再退 CDN；
+  CDN 在国内常常十几秒或被断开，只走 CDN 时整页的图都会降级。仍失败时降级为可折叠源码卡（不糊原文）。
   构建期把 `**…**` 预转 <strong>，绕开 CommonMark 与中文标点的强调定界冲突。
 - 仅用于本仓库自产的可信文档；不做 HTML sanitize，不要拿它渲染外部内容。
 - 样式按文档家族分层（都内嵌在本文件，无独立 CSS 文件——单文件 HTML 可携带、跨目录不断链）：
   · 基础层：暖纸色低饱和主题（护眼），全文档共用；目录 ≥1240px 常驻侧栏 + 阅读位置高亮
-  · PRD 层：EARS 徽章、来源芯片、句式分组工具条（模式命中才生效）
+  · PRD 层：EARS 徽章、来源芯片、句式分组工具条（模式命中才生效）；头部 `**原型**：[…](x.html)`
+    指向的本地原型文件存在时，在 §7 标题下 iframe 嵌入它（原型是手写 HTML，路径相对 PRD）
   · Plan/Epic/Story 层：文档头横幅（类型/epic/policy/status 芯片）、
-    D-ID/ACD/T/U/Story 令牌芯片、决策状态与 Confidence 芯片、表格斑马纹；
+    D-ID/ACD/Story 令牌芯片、决策状态与 Confidence 芯片、表格斑马纹；
     三区制分层（"合同区"h2 命中才生效）：合同区容器+角标、合同块语义色卡片、
     Must Hold 不变量卡、"N、导语。正文"概念段升格为编号卡片；
     用户旅程升格（表头签名"步骤/场景+页面+用户行为+系统响应+覆盖"命中才生效）：
@@ -24,10 +26,8 @@
     （目录型 epic 专属）。过期兜底：对应 sidecar `*.source-digest` 记录生成时的
     旅程章节摘要，构建时比对，不一致 → 页面警示横幅 + stderr warning
     （更新流程见 journey_embed docstring）
-  · Task packet 层（按文件名判族：T{NNN}-*.md / task-index.md，无需 frontmatter）：
-    头部元数据行（Epic/Unit/Depends/Wave + Execution note 的 Risk/UI class/Test policy）
-    升格 banner 芯片；Generated from 折叠为溯源卡；Task scope 升格警示 callout；
-    Read first / Write scope / Execution note / Stop conditions / DoD 复用合同块语义卡片
+  · 计划（frontmatter `type: plan`，vj-plan 产出）：横幅显示 policy 芯片；标题含"附录""验收对应的测试"
+    或"执行记录"的 h2 整节默认折叠——vj-work 追加的测试对照和执行流水不打扰人读计划
   按 frontmatter `type:`、内容特征与文件名自动判族，非对应文档零影响。
 
 用法：
@@ -40,12 +40,16 @@
 import hashlib
 import html
 import json
+import os
 import re
 import string
 import sys
 from pathlib import Path
 
-MERMAID_SCRIPT_TAG = '<script defer src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>'
+MERMAID_CDN = "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"
+# mermaid 优先用本地 vendor（按相对路径引用，不内联：3.5MB 内联进每个页面太重）；本地加载失败时 onerror 再拉 CDN，
+# 页面脚本等这个 Promise 落定后再判断要不要降级成源码卡
+VENDOR_MERMAID = Path(__file__).resolve().parent.parent / "vendor" / "mermaid.min.js"
 MARKED_CDN_TAG = (
     '<script defer src="https://cdn.jsdelivr.net/npm/marked@14/marked.min.js"></script>'
 )
@@ -78,6 +82,17 @@ def fix_cjk_strong(body: str) -> str:
             parts[i] = _STRONG_RE.sub(r"<strong>\1</strong>", parts[i])
         out_lines.append("`".join(parts))
     return "\n".join(out_lines)
+
+
+def mermaid_script_tag(out_path: Path) -> str:
+    cdn_loader = (
+        "window.__mermaidCdn=new Promise(function(r){var s=document.createElement('script');"
+        f"s.src='{MERMAID_CDN}';s.onload=s.onerror=r;document.head.appendChild(s);}});"
+    )
+    if not VENDOR_MERMAID.is_file():
+        return f'<script defer src="{MERMAID_CDN}"></script>'
+    rel = os.path.relpath(VENDOR_MERMAID, out_path.resolve().parent).replace(os.sep, "/")
+    return f'<script defer src="{html.escape(rel)}" onerror="{cdn_loader}"></script>'
 
 
 def marked_script_tag() -> str:
@@ -288,10 +303,7 @@ header.doc-banner .meta-row {
 .tok { font-weight: 600; }
 .tok-d    { background: var(--info-bg); color: var(--info); }
 .tok-acd  { background: var(--bad-bg); color: var(--bad); }
-.tok-t    { background: var(--good-bg); color: var(--good); }
-.tok-u    { background: #ece6f0; color: #6d5b7e; }
 .tok-story{ background: var(--warn-bg); color: var(--warn); }
-@media (prefers-color-scheme: dark) { .tok-u { background: #3d3545; color: #beadd0; } }
 /* —— 状态 / Confidence 芯片 —— */
 .st-assumed  { background: var(--warn-bg); color: var(--warn); }
 .st-pending  { background: var(--bad-bg); color: var(--bad); }
@@ -567,6 +579,9 @@ blockquote.takeaway p { margin: 0; }
 }
 /* archify 旅程图引用（journey.html 存在时替代泳道板） */
 .jmap-ref { margin: 1.15em 0; }
+.proto-ref { margin: 1em 0 1.4em; }
+.proto-embed { display: block; width: 100%; height: 66rem; border: 1px solid #e4ded0; border-radius: 12px; background: #fff; }
+.proto-ref .proto-open { font-size: .85em; margin-top: .4em; display: inline-block; }
 .jmap-stale {
   background: color-mix(in srgb, var(--warn-bg) 60%, var(--surface));
   border-left: 3px solid var(--warn);
@@ -631,29 +646,14 @@ blockquote.takeaway p { margin: 0; }
   font-size: 0.92em;
 }
 .exception-cover { color: var(--muted); }
-/* —— Task packet 族（按文件名判族命中才生效） —— */
-header.doc-banner .scope-line { color: var(--muted); font-size: 0.92rem; margin-top: 0.35rem; }
-#content p.task-meta-row { color: var(--muted); font-size: 0.86em; }
-#content p.task-meta-row strong { color: var(--muted); }
-details.gen-from {
+details.plan-appendix {
   background: var(--surface);
   border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 0.45rem 1rem;
-  margin: 0.9rem 0;
-  color: var(--muted);
-  font-size: 0.88rem;
+  border-radius: 12px;
+  padding: 0.5rem 1.1rem;
+  margin: 1.8em 0;
 }
-details.gen-from summary { cursor: pointer; }
-details.gen-from p { margin: 0.4rem 0 0.1rem; }
-.task-scope-callout {
-  background: color-mix(in srgb, var(--warn-bg) 45%, var(--surface));
-  border-left: 3px solid var(--warn);
-  border-radius: 0 10px 10px 0;
-  padding: 0.65em 1.1em;
-  margin: 0.9em 0;
-  font-size: 0.94em;
-}
+details.plan-appendix > summary { cursor: pointer; font-weight: 600; font-size: 1.12em; color: var(--muted); }
 /* mermaid 加载失败降级卡 */
 .mermaid-fallback {
   border: 1px dashed var(--border);
@@ -693,6 +693,7 @@ $frontmatter_block
 const MD_SOURCE = $md_json;
 const DOC_META = $doc_meta_json;
 const JOURNEY_EMBED = $journey_embed_json;
+const PROTOTYPE_EMBED = $prototype_embed_json;
 document.addEventListener("DOMContentLoaded", async () => {
   const contentEl = document.getElementById("content");
   if (typeof marked === "undefined") {
@@ -966,76 +967,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       p0.prepend(label);
     }
   }
-  // —— Task packet 族：机读投影的人读分层（判族命中才生效） ——
-  if (DOC_META._kind === "task") {
-    // 头部元数据段：Epic 行弱化（banner 已承载）；Generated from 折叠；Task scope 升格 callout
-    for (const p of [...contentEl.querySelectorAll("p")]) {
-      const first = p.firstElementChild;
-      if (!first || first.tagName !== "STRONG" || p.firstChild !== first) continue;
-      const label = first.textContent.trim();
-      if (label.startsWith("Epic:")) {
-        p.classList.add("task-meta-row");
-      } else if (label.startsWith("Generated from:")) {
-        // 相邻行会并入同一段：先把 "Task scope:" 起的节点拆出去
-        const scopeStrong = [...p.querySelectorAll("strong")]
-          .find((s) => s.textContent.trim().startsWith("Task scope:"));
-        let scopeBox = null;
-        if (scopeStrong) {
-          scopeBox = document.createElement("div");
-          scopeBox.className = "task-scope-callout";
-          const nodes = [];
-          let n = scopeStrong;
-          while (n) { const nx = n.nextSibling; nodes.push(n); n = nx; }
-          nodes.forEach((nd) => scopeBox.append(nd));
-        }
-        const det = document.createElement("details");
-        det.className = "gen-from";
-        const sum = document.createElement("summary");
-        sum.textContent = "溯源锚点（Generated from）";
-        const inner = document.createElement("p");
-        while (p.firstChild) inner.append(p.firstChild);
-        det.append(sum, inner);
-        p.replaceWith(det);
-        if (scopeBox) det.after(scopeBox);
-      } else if (label.startsWith("Task scope:")) {
-        const box = document.createElement("div");
-        box.className = "task-scope-callout";
-        while (p.firstChild) box.append(p.firstChild);
-        p.replaceWith(box);
+  // —— 计划族：附录、验收对应的测试和执行记录整节折叠，人先读计划正文 ——
+  if (DOC_META._kind === "plan") {
+    for (const h2 of [...contentEl.querySelectorAll("h2")]) {
+      if (!/附录|验收对应的测试|执行记录/.test(h2.textContent)) continue;
+      const det = document.createElement("details");
+      det.className = "plan-appendix";
+      const sum = document.createElement("summary");
+      sum.textContent = h2.textContent;
+      det.append(sum);
+      let node = h2.nextElementSibling;
+      h2.replaceWith(det);
+      while (node && node.tagName !== "H2") {
+        const next = node.nextElementSibling;
+        det.append(node);
+        node = next;
       }
     }
-    // 执行合同字段升格语义卡片（复用合同块样式）：先看哪、能改哪、怎么执行、何时停、何时算完
-    const cardKinds = [
-      [/^Read first/, "data"],
-      [/^Write scope/, "ui"],
-      [/^Execution note/, "api"],
-      [/^Stop conditions/, "risk"],
-    ];
-    for (const h3 of [...contentEl.querySelectorAll("h3")]) {
-      const hit = cardKinds.find(([re]) => re.test(h3.textContent.trim()));
-      if (!hit) continue;
-      const card = document.createElement("div");
-      card.className = "contract-block blk-" + hit[1];
-      h3.before(card);
-      let node = h3;
-      while (node) {
-        const next = node.nextElementSibling;
-        card.append(node);
-        node = next && !/^H[23]$$/.test(next.tagName) ? next : null;
-      }
-    }
-    const dodH2 = [...contentEl.querySelectorAll("h2")]
-      .find((h) => /Definition of Done/i.test(h.textContent));
-    if (dodH2) {
-      const card = document.createElement("div");
-      card.className = "contract-block blk-check";
-      dodH2.before(card);
-      let node = dodH2;
-      while (node) {
-        const next = node.nextElementSibling;
-        card.append(node);
-        node = next && next.tagName !== "H2" ? next : null;
-      }
+  }
+  // —— 原型嵌入（PRD 族）：头部 **原型** 链接指向的本地文件存在时，嵌到 §7 标题下 ——
+  if (PROTOTYPE_EMBED) {
+    const h7 = [...contentEl.querySelectorAll("h2")].find((h) => /^7\./.test(h.textContent.trim()));
+    if (h7) {
+      const wrap = document.createElement("div");
+      wrap.className = "proto-ref";
+      const frame = document.createElement("iframe");
+      frame.className = "proto-embed";
+      frame.src = PROTOTYPE_EMBED.src;
+      frame.loading = "lazy";
+      frame.title = "场景原型";
+      const open = document.createElement("a");
+      open.className = "proto-open";
+      open.href = PROTOTYPE_EMBED.src;
+      open.target = "_blank";
+      open.textContent = "在新窗口打开原型 ↗";
+      wrap.append(frame, open);
+      h7.after(wrap);
     }
   }
   // —— EARS 增强（PRD 族）：R 编号+句式徽章、来源标签+统计/过滤、Epic 标题 ——
@@ -1125,11 +1092,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   for (const h3 of contentEl.querySelectorAll("h3")) {
     if (h3.textContent.startsWith("Epic ")) h3.classList.add("epic-head");
   }
-  // —— Plan/Epic/Story 增强：ID 令牌芯片（D/ACD/T/U/Story），标题与代码块除外 ——
-  const tokRe = /\b(ACD\d+|D\d(?!\d)|T\d{3}|U\d(?!\d))\b|\bStory\s(\d+\.\d+)\b/g;
+  // —— Plan/Epic/Story 增强：ID 令牌芯片（D/ACD/Story），标题与代码块除外 ——
+  const tokRe = /\b(ACD\d+|D\d(?!\d))\b|\bStory\s(\d+\.\d+)\b/g;
   const tokClass = (t) =>
     t.startsWith("ACD") ? "tok-acd" : t.startsWith("Story") ? "tok-story" :
-    t[0] === "D" ? "tok-d" : t[0] === "T" ? "tok-t" : "tok-u";
+    "tok-d";
   const tokTest = new RegExp(tokRe.source); // 非全局副本：全局正则的 .test 有 lastIndex 状态坑
   const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -1177,7 +1144,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!h.id) h.id = slugify(h.textContent);
   }
   // —— 目录：≥1240px 常驻侧栏 + 阅读位置高亮；窄屏折叠不占首屏 ——
-  const heads = contentEl.querySelectorAll("h2, h3");
+  const heads = [...contentEl.querySelectorAll("h2, h3")].filter((h) => !h.closest("details.plan-appendix"));
   if (heads.length >= 5) {
     const toc = document.createElement("details");
     toc.className = "toc";
@@ -1230,6 +1197,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const mermaidDivs = [...contentEl.querySelectorAll(".mermaid")];
   if (mermaidDivs.length) {
     const sources = mermaidDivs.map((d) => d.textContent);
+    if (typeof mermaid === "undefined" && window.__mermaidCdn) await window.__mermaidCdn;
     if (typeof mermaid !== "undefined") {
       const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       mermaid.initialize({
@@ -1284,8 +1252,7 @@ DOC_KIND_LABEL = {
     "epic": "Epic",
     "story": "Story",
     "prd": "PRD",
-    "task": "Task Packet · 执行投影",
-    "task-index": "Task Index · 执行入口",
+    "plan": "计划",
 }
 
 
@@ -1309,44 +1276,18 @@ def parse_meta(frontmatter: str, body: str, md_path: Path) -> dict:
             meta[m.group(1)] = m.group(2)
     kind = meta.get("type", "")
     if not kind:
-        if md_path.name == "task-index.md":
-            kind = "task-index"
-        elif re.match(r"^T\d{3}(-|\.md$)", md_path.name):
-            kind = "task"
-        elif meta.get("epic_id") and meta.get("epic_name"):
+        if meta.get("epic_id") and meta.get("epic_name"):
             kind = "epic"
         elif re.match(r"^us\d{3}-", md_path.name) or re.search(
             r"^### Story \d+\.\d+", body, re.M
         ):
             kind = "story"
-        elif "EARS" in body[:2000]:
+        elif "EARS" in body[:2000] or re.search(r"^\*\*项目阶段\*\*", body[:2000], re.M):
             kind = "prd"
     meta["_kind"] = kind
+    if kind == "plan" and meta.get("policy") and not meta.get("execution_policy"):
+        meta["execution_policy"] = meta["policy"]
     meta["_kind_label"] = DOC_KIND_LABEL.get(kind, "")
-    # task 族：从模板固定格式的正文提取 banner 芯片素材（旧版 task 文档缺字段则跳过，不报错）
-    if kind == "task":
-
-        def grab_inline(label: str) -> str:
-            m = re.search(rf"\*\*{label}:\*\*\s*([^·\n]+)", body)
-            return m.group(1).strip() if m else ""
-
-        m = re.search(r"\*\*Epic:\*\*\s*\[([^\]]+)\]", body)
-        meta["_epic_name"] = m.group(1).strip() if m else ""
-        meta["_task_scope"] = grab_inline("Unit / Scope")
-        meta["_wave"] = grab_inline("Wave")
-        meta["_depends"] = grab_inline("Depends")
-        for fld, key in (
-            ("Test policy", "_test_policy"),
-            ("Risk class", "_risk"),
-            ("UI class", "_ui_class"),
-        ):
-            m = re.search(rf"^-\s*{fld}:\s*([^\n（(]+)", body, re.M)
-            if m and "{" not in m.group(1):
-                meta[key] = m.group(1).strip()
-    elif kind == "task-index":
-        m = re.search(r"\*\*Execution policy:\*\*\s*(fast|strict)", body)
-        if m and not meta.get("execution_policy"):
-            meta["execution_policy"] = m.group(1)
     return meta
 
 
@@ -1371,42 +1312,12 @@ def build_banner(meta: dict, title: str) -> str:
         chips.append(f'<span class="chip meta">{html.escape(meta["priority"])}</span>')
     if meta.get("date"):
         chips.append(f'<span class="chip meta">{html.escape(meta["date"])}</span>')
-    # task 族芯片（字段缺失即跳过，兼容旧版 task 文档）
-    if meta.get("_epic_name"):
-        chips.append(
-            f'<span class="chip meta">{html.escape(meta["_epic_name"])}</span>'
-        )
-    if meta.get("_wave"):
-        chips.append(
-            f'<span class="chip meta">Wave {html.escape(meta["_wave"])}</span>'
-        )
-    if meta.get("_depends"):
-        chips.append(
-            f'<span class="chip meta">Depends: {html.escape(meta["_depends"])}</span>'
-        )
-    risk = meta.get("_risk", "")
-    if risk:
-        cls = "pol-strict" if "strict" in risk else "pol-fast"
-        chips.append(f'<span class="chip {cls}">risk: {html.escape(risk)}</span>')
-    if meta.get("_ui_class"):
-        chips.append(
-            f'<span class="chip doc-status">UI: {html.escape(meta["_ui_class"])}</span>'
-        )
-    if meta.get("_test_policy"):
-        chips.append(
-            f'<span class="chip meta">{html.escape(meta["_test_policy"])}</span>'
-        )
-    scope_line = (
-        f'<div class="scope-line">{html.escape(meta["_task_scope"])}</div>'
-        if meta.get("_task_scope")
-        else ""
-    )
     meta_row = f'<div class="meta-row">{"".join(chips)}</div>' if chips else ""
     return (
         '<header class="doc-banner">'
         f'<div class="kicker">{html.escape(meta["_kind_label"])}</div>'
         f'<div style="font-size:1.05rem;font-weight:600">{html.escape(title)}</div>'
-        f"{scope_line}{meta_row}</header>"
+        f"{meta_row}</header>"
     )
 
 
@@ -1467,6 +1378,17 @@ def journey_embed(md_path: Path, body: str) -> dict | None:
     return {"src": html_path.name, "stale": stale}
 
 
+PROTOTYPE_META = re.compile(r"^\*\*原型\*\*[:：].*?\]\(([^)\s]+\.html)\)", re.M)
+
+
+def prototype_embed(md_path: Path, body: str) -> dict | None:
+    """PRD 头部 `**原型**：[…](x.html)` 指向的本地文件存在时返回 iframe 引用信息。"""
+    m = PROTOTYPE_META.search(body[:2000])
+    if not m or m.group(1).startswith(("http://", "https://")):
+        return None
+    return {"src": m.group(1)} if (md_path.parent / m.group(1)).is_file() else None
+
+
 def render_file(md_path: Path) -> Path:
     text = md_path.read_text(encoding="utf-8")
     frontmatter, body = split_frontmatter(text)
@@ -1474,6 +1396,7 @@ def render_file(md_path: Path) -> Path:
         frontmatter, body, md_path
     )  # 在 fix_cjk_strong 之前：**…** 正则要吃原文
     embed = journey_embed(md_path, body)  # 摘要基准取原文，须在 fix_cjk_strong 之前
+    proto = prototype_embed(md_path, body) if meta["_kind"] == "prd" else None
     body = fix_cjk_strong(body)
     title = extract_title(body, md_path.stem)
 
@@ -1501,10 +1424,11 @@ def render_file(md_path: Path) -> Path:
             banner_block=build_banner(meta, title),
             frontmatter_block=frontmatter_block,
             marked_script_tag=marked_script_tag(),
-            mermaid_script_tag=MERMAID_SCRIPT_TAG if "```mermaid" in body else "",
+            mermaid_script_tag=mermaid_script_tag(out_path) if "```mermaid" in body else "",
             md_json=js_json(body),
             doc_meta_json=js_json(meta),
             journey_embed_json=js_json(embed),
+            prototype_embed_json=js_json(proto),
         ),
         encoding="utf-8",
     )

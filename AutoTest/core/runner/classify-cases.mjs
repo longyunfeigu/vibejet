@@ -54,8 +54,21 @@ export function replaceFieldInRecord(rec, fieldIdx, newValue) {
   return rec.slice(0, fieldStart) + newValue + rec.slice(fieldEnd);
 }
 
+/**
+ * Decide the target class for one indexed case. Backend-Unit is preserved first
+ * (never rewritten to Automated; lint:bdd separately rejects a .feature tag on such
+ * a row), then already-automated cases are AUTO, then classify() decides.
+ * Returns { code, execType, bucket } where bucket is the tally key.
+ */
+export function decideCode(c) {
+  const r = classify(c.title, c.notes, c.executionType);
+  if (r.code === 'BACKEND') return { ...r, bucket: 'BACKEND' };
+  if (c.automated) return { code: 'AUTO', execType: EXEC_TYPE.AUTO, bucket: 'Automated' };
+  return { ...r, bucket: r.code };
+}
+
 /** Rewrite one CSV file's Execution Type column from a caseId->code map. */
-function patchCsv(file, codeById, write) {
+export function patchCsv(file, codeById, write) {
   const raw = fs.readFileSync(file, 'utf8');
   // Detect line ending used in this file (preserve it on output).
   const eol = raw.includes('\r\n') ? '\r\n' : '\n';
@@ -93,14 +106,12 @@ function main() {
   const WRITE = process.argv.includes('--write');
 
   const idx = buildCaseIndex();
-  const codeById = new Map(); // caseId -> class code ('AUTO'|'PROD'|'FAULT')
-  const tally = { AUTO: 0, PROD: 0, FAULT: 0, Automated: 0 };
+  const codeById = new Map(); // caseId -> class code ('BACKEND'|'AUTO'|'PROD'|'FAULT')
+  const tally = { BACKEND: 0, AUTO: 0, PROD: 0, FAULT: 0, Automated: 0 };
   const reportRows = [];
   for (const c of idx.cases) {
-    let code;
-    let execType;
-    if (c.automated) { code = 'AUTO'; execType = EXEC_TYPE.AUTO; tally.Automated++; }
-    else { const r = classify(c.title, c.notes); code = r.code; execType = r.execType; tally[r.code]++; }
+    const { code, execType, bucket } = decideCode(c);
+    tally[bucket]++;
     codeById.set(c.caseId, code);
     if (!c.automated) reportRows.push({ ...c, code, execType });
   }
@@ -112,6 +123,7 @@ function main() {
   const lines = ['# Automation Classification Baseline', '', `Generated from ${idx.total} cases; ${idx.automated} automated.`, '',
     `- Automated (with .feature): ${tally.Automated}`, `- AUTO (target, no .feature yet): ${tally.AUTO}`,
     `- PROD (prod-unsafe, manual): ${tally.PROD}`, `- FAULT (fault-injection, manual): ${tally.FAULT}`,
+    `- BACKEND (backend unit test, no .feature): ${tally.BACKEND}`,
     '', '## Un-automated cases', '',
     '| Case ID | Module | Class | Execution Type | Title |', '|---|---|---|---|---|'];
   for (const r of reportRows.sort((a, b) => a.module.localeCompare(b.module) || a.caseId.localeCompare(b.caseId))) {
@@ -120,7 +132,7 @@ function main() {
   const reportPath = path.join(AUTOTEST_ROOT, 'report/automation-classification.md');
   if (WRITE) { fs.mkdirSync(path.dirname(reportPath), { recursive: true }); fs.writeFileSync(reportPath, lines.join('\n')); }
 
-  console.log(`classify-cases: ${WRITE ? 'WROTE' : 'DRY-RUN'} — AUTO=${tally.AUTO} PROD=${tally.PROD} FAULT=${tally.FAULT} Automated=${tally.Automated}; CSV cells changed=${totalChanged}`);
+  console.log(`classify-cases: ${WRITE ? 'WROTE' : 'DRY-RUN'} — AUTO=${tally.AUTO} PROD=${tally.PROD} FAULT=${tally.FAULT} BACKEND=${tally.BACKEND} Automated=${tally.Automated}; CSV cells changed=${totalChanged}`);
   console.log(WRITE ? `Report: ${reportPath}` : 'Re-run with --write to apply.');
 }
 

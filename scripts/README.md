@@ -2,9 +2,9 @@
 
 仓库级脚本工具目录。当前没有活跃脚本。
 
-## Epic / Story 执行
+## 计划执行
 
-现行方式：`vj-epic-plan` 生成 task packets → `vj-work` 编排执行（自带波次并行、
+现行方式：`vj-plan` 出一份计划文档 → `vj-work` 按执行顺序拆子任务执行（自带并行、
 worktree 隔离与 verify/review gate），不再依赖外部 shell 编排脚本。
 
 > 早期的 `run-epic.sh` / `check-story-result.sh`（基于已移除的 `run-story` skill 的

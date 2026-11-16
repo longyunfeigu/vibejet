@@ -2,7 +2,9 @@
 /**
  * Report E2E automation coverage and enforce the production-safety gate.
  *
- * Coverage = (# case-IDs with an executable .feature tag) / (# documented cases).
+ * Coverage = (# case-IDs with an executable .feature tag) / (# documented cases,
+ * excluding Backend-Unit / 后端单测 rows — those are proven by backend tests, not a
+ * browser-automation gap, and are reported on a separate line).
  * Gate: a case classified P (prod-unsafe) or C (manual-only) MUST NOT have a feature.
  *
  * Usage:
@@ -24,19 +26,26 @@ if (min !== null && Number.isNaN(min)) {
 }
 
 const idx = buildCaseIndex(root);
-const pct = idx.total ? (100 * idx.automated) / idx.total : 0;
+const isBackend = (c) => classify(c.title, c.notes, c.executionType).code === 'BACKEND';
+const scored = idx.cases.filter((c) => !isBackend(c));
+const backendCount = idx.cases.length - scored.length;
+const automated = scored.filter((c) => c.automated).length;
+const pct = scored.length ? (100 * automated) / scored.length : 0;
 
 // Per-module table
 const byMod = new Map();
 for (const c of idx.cases) {
-  const m = byMod.get(c.module) || { total: 0, auto: 0 };
-  m.total++; if (c.automated) m.auto++;
+  const m = byMod.get(c.module) || { total: 0, auto: 0, backend: 0 };
+  if (isBackend(c)) m.backend++;
+  else { m.total++; if (c.automated) m.auto++; }
   byMod.set(c.module, m);
 }
-console.log(`Automation coverage: ${idx.automated}/${idx.total} = ${pct.toFixed(1)}%`);
+console.log(`Automation coverage: ${automated}/${scored.length} = ${pct.toFixed(1)}%`);
+if (backendCount) console.log(`后端单测 ${backendCount} 行（由后端测试覆盖，不计入）`);
 console.log('\nPer-module (auto/total, sorted by gap):');
 for (const [mod, m] of [...byMod].sort((a, b) => (b[1].total - b[1].auto) - (a[1].total - a[1].auto))) {
-  console.log(`  ${String(m.auto).padStart(3)}/${String(m.total).padStart(3)}  gap=${String(m.total - m.auto).padStart(3)}  ${mod}`);
+  const backendNote = m.backend ? `  （后端单测 ${m.backend} 行，不计入）` : '';
+  console.log(`  ${String(m.auto).padStart(3)}/${String(m.total).padStart(3)}  gap=${String(m.total - m.auto).padStart(3)}  ${mod}${backendNote}`);
 }
 
 // Production-safety gate: PROD/FAULT cases must not be automated.

@@ -30,16 +30,16 @@ python3 .agents/evals/vj-workflow/scripts/vj_eval.py list
 
 # 当前工作树候选版
 python3 .agents/evals/vj-workflow/scripts/vj_eval.py run \
-  --case router-epic --variant candidate --runner claude --trials 3
+  --case router-plan --variant candidate --runner claude --trials 3
 
 # 冻结的旧版；baseline root 内应含 skills/、AGENTS.md、ai-workflow.md
 python3 .agents/evals/vj-workflow/scripts/vj_eval.py run \
-  --case router-epic --variant baseline --runner claude --trials 3 \
+  --case router-plan --variant baseline --runner claude --trials 3 \
   --baseline-root /tmp/vibejet-vj-baseline-20260710
 
 python3 .agents/evals/vj-workflow/scripts/vj_eval.py summarize
 ```
 
-当前只有 routing case。artifact case（vj-epic-story / vj-epic-plan 产物）依赖一份 PRD 与 Epic
+当前只有 routing case。artifact case（vj-plan 产出的计划文档）依赖一份 PRD 或功能描述
 夹具，仓库里目前没有在轨产品，需要时随夹具一起显式新增。完整实现类 eval 必须显式新增 case，
 并使用测试 DB、隔离外部副作用和 `不要提交 commit` 的 prompt；不要拿主工作区充当 eval sandbox。

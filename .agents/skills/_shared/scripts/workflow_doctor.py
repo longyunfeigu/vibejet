@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-# input: `plan <review-pack-dir> [--for-execution [--research-only]]` or `runtime [repo-root]`
+# input: `plan <计划文件> [--for-execution]` or `runtime [repo-root] [--strict]`
 # output: semantic preflight findings + exit code (0=ready, 1=errors, 2=usage/path error)
-# pos: vj-epic-plan handoff and vj-work load gate, after plan_lint. Unlike plan_lint's structural
-#      checks, this validates shell syntax, tool/version-sensitive flags, planned paths, approval
-#      state, and runtime capability vocabulary. Once updated, update this header and the evals.
-"""Semantic preflight checks for vj workflow artifacts and runtime contracts."""
+# pos: vj-plan 交付前、vj-work 写完"验收对应的测试"后跑。先调 plan_lint 查结构；计划里有"验收对应的测试"
+#      表时再查表里每条检查命令能不能跑（工具在不在、工作目录对不对、Vitest reporter 是否支持）。测试文件此时
+#      还没写（先写测试），所以不查测试目标存在与否。runtime 子命令查 vj skill 里有没有写死厂商工具名。
+#      Once updated, update this header and the tests.
+"""Semantic preflight checks for vj plans and runtime contracts."""
 
 from __future__ import annotations
 
@@ -18,21 +19,9 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from plan_lint import parse_plan  # noqa: E402
 
-RUN_LINE = re.compile(r"^\s*run\s+(.+?)\s*$")
-BACKTICK_PATH = re.compile(r"`([^`]+)`")
-STATUS = re.compile(r"^status:\s*[\"']?([^\"'\s]+)", re.MULTILINE)
-EPIC_ID = re.compile(r"^epic_id:\s*[\"']?([^\"'\s#]+)", re.MULTILINE)
-OPEN_DECISION = re.compile(
-    r"^\|\s*D\d+\s*\|\s*"
-    r"(?:assumed|pending[- ]approval|evidence-required)"
-    r"(?:\s+\(Confidence:.*?\))?\s*\|",
-    re.MULTILINE | re.IGNORECASE,
-)
-OPEN_AC_DEVIATION = re.compile(
-    r"^\|\s*ACD\d+\s*\|.*\|\s*pending[- ]approval\s*\|\s*$",
-    re.MULTILINE | re.IGNORECASE,
-)
 REPORTER = re.compile(r"--reporter(?:=|\s+)([^\s\"']+)")
 VENDOR_TERMS = {
     "AskUserQuestion": "ask_user",
@@ -115,48 +104,6 @@ def find_repo_root(start: Path) -> Path:
     raise ValueError(f"cannot find repository root from {start}")
 
 
-def derive_work_dir(repo: Path, pack: Path) -> Path:
-    match = re.match(r"\d{4}-\d{2}-\d{2}-(epic-.+)$", pack.name)
-    name = match.group(1) if match else pack.name
-    return repo / "docs/work/tasks" / name
-
-
-def frontmatter_status(content: str) -> str | None:
-    if not content.startswith("---\n"):
-        return None
-    end = content.find("\n---", 4)
-    if end == -1:
-        return None
-    match = STATUS.search(content[4:end])
-    return match.group(1) if match else None
-
-
-def frontmatter_epic_id(content: str) -> str | None:
-    if not content.startswith("---\n"):
-        return None
-    end = content.find("\n---", 4)
-    if end == -1:
-        return None
-    match = EPIC_ID.search(content[4:end])
-    return match.group(1) if match else None
-
-
-def planned_catalog_markers(repo: Path, epic_id: str) -> list[str]:
-    markers: list[str] = []
-    epic = re.compile(rf"\bepic\s+{re.escape(epic_id)}\b", re.IGNORECASE)
-    for area in ("api", "data", "ui"):
-        root = repo / "docs/project" / area
-        if not root.is_dir():
-            continue
-        for path in sorted(root.rglob("*.md")):
-            for line_no, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
-            ):
-                if "planned" in line.lower() and epic.search(line):
-                    markers.append(f"{path.relative_to(repo)}:{line_no}")
-    return markers
-
-
 def run_capture(
     command: list[str], cwd: Path, timeout: int = 30
 ) -> subprocess.CompletedProcess[str]:
@@ -169,80 +116,6 @@ def run_capture(
     )
 
 
-def scoped_section_lines(content: str, prefixes: tuple[str, ...]) -> list[str]:
-    """Return only task sections that declare writable or newly tested paths."""
-    selected: list[str] = []
-    active_level: int | None = None
-    for line in content.splitlines():
-        heading = re.match(r"^(#{1,6})\s+(.+?)\s*$", line)
-        if heading:
-            level = len(heading.group(1))
-            title = heading.group(2)
-            if active_level is not None and level <= active_level:
-                active_level = None
-            if any(title.startswith(prefix) for prefix in prefixes):
-                active_level = level
-                continue
-        if active_level is not None:
-            selected.append(line)
-    return selected
-
-
-def collect_planned_paths(work_dir: Path, repo: Path) -> set[tuple[Path, bool]]:
-    paths: set[tuple[Path, bool]] = set()
-    for task in work_dir.glob("T*.md"):
-        content = task.read_text(encoding="utf-8")
-        write_lines = scoped_section_lines(content, ("Write scope",))
-        has_may_modify = any("May modify" in line for line in write_lines)
-        writable = not has_may_modify
-        selected: list[str] = []
-        for line in write_lines:
-            if "May modify" in line:
-                writable = True
-                continue
-            if "Do not modify" in line:
-                writable = False
-                continue
-            if writable:
-                selected.append(line)
-        selected.extend(scoped_section_lines(content, ("测试新增",)))
-        scoped = "\n".join(selected)
-        for raw in BACKTICK_PATH.findall(scoped):
-            if raw.startswith(("http://", "https://")) or any(
-                char in raw for char in "{}*|"
-            ):
-                continue
-            cleaned = raw.split("#", 1)[0].strip()
-            directory_hint = cleaned.endswith("/")
-            candidate = cleaned.rstrip("/")
-            if not candidate or candidate.startswith(("D", "ACD", "U", "T")):
-                continue
-            path = (repo / candidate).resolve()
-            paths.add((path, directory_hint or path.is_dir()))
-    return paths
-
-
-def extract_commands(verify: Path, report: Report) -> list[str]:
-    commands: list[str] = []
-    for line_no, line in enumerate(
-        verify.read_text(encoding="utf-8").splitlines(), start=1
-    ):
-        match = RUN_LINE.match(line)
-        if not match or line.lstrip().startswith("#"):
-            continue
-        try:
-            tokens = shlex.split(match.group(1))
-        except ValueError as exc:
-            report.invalid("CMD_PARSE", f"verify.sh:{line_no}: {exc}")
-            continue
-        if tokens[:2] == ["bash", "-c"] and len(tokens) >= 3:
-            commands.append(tokens[2])
-        else:
-            commands.append(shlex.join(tokens))
-    report.command_count = len(commands)
-    return commands
-
-
 def command_context(command: str, repo: Path) -> tuple[Path, str]:
     match = re.match(r"^cd\s+([^&;]+?)\s*&&\s*(.+)$", command)
     if not match:
@@ -253,39 +126,6 @@ def command_context(command: str, repo: Path) -> tuple[Path, str]:
 
 def is_within(path: Path, root: Path) -> bool:
     return path == root or root in path.parents
-
-
-def pytest_target(tokens: list[str]) -> str | None:
-    try:
-        start = tokens.index("pytest") + 1
-    except ValueError:
-        return None
-    options_with_value = {
-        "-c",
-        "-k",
-        "-m",
-        "--confcutdir",
-        "--durations",
-        "--ignore",
-        "--maxfail",
-        "--rootdir",
-        "--tb",
-    }
-    skip_next = False
-    for token in tokens[start:]:
-        if skip_next:
-            skip_next = False
-            continue
-        if token in {"&&", ";", "||"}:
-            break
-        if token == "--":
-            continue
-        if token.startswith("-"):
-            if token in options_with_value:
-                skip_next = True
-            continue
-        return token
-    return None
 
 
 def vitest_reporters(frontend: Path, report: Report) -> set[str]:
@@ -306,25 +146,10 @@ def vitest_reporters(frontend: Path, report: Report) -> set[str]:
     return {item.strip() for item in text.split(",") if item.strip()}
 
 
-def path_is_planned(
-    path: Path,
-    planned: set[Path] | set[tuple[Path, bool]],
-) -> bool:
-    for entry in planned:
-        if isinstance(entry, tuple):
-            item, is_directory = entry
-        else:
-            item, is_directory = entry, entry.is_dir()
-        if path == item or (is_directory and item in path.parents):
-            return True
-    return False
-
-
 def check_command(
     command: str,
     *,
     repo: Path,
-    planned_paths: set[Path] | set[tuple[Path, bool]],
     reporters: set[str],
     report: Report,
 ) -> None:
@@ -360,188 +185,38 @@ def check_command(
                 f"{', '.join(sorted(reporters))}",
             )
 
-    raw_target = pytest_target(tokens)
-    if raw_target:
-        raw = raw_target.split("::", 1)[0]
-        if raw.endswith(".py") or "/" in raw:
-            target = (cwd / raw).resolve()
-            if not is_within(target, repo):
-                report.invalid(
-                    "PYTEST_TARGET", f"pytest target escapes repository: {target}"
-                )
-            elif not target.exists() and not path_is_planned(target, planned_paths):
-                report.invalid(
-                    "PYTEST_TARGET",
-                    f"pytest target neither exists nor appears in task write scope: "
-                    f"{target.relative_to(repo)}",
-                )
 
-
-def research_tasks(work_dir: Path) -> list[Path]:
-    return [
-        task
-        for task in sorted(work_dir.glob("T*.md"))
-        if re.search(
-            r"^\s*-\s*Risk class:\s*research-only\b",
-            task.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-    ]
-
-
-def has_open_decisions(content: str) -> bool:
-    return bool(OPEN_DECISION.search(content) or OPEN_AC_DEVIATION.search(content))
-
-
-def research_write_paths(task: Path, repo: Path) -> set[Path]:
-    content = task.read_text(encoding="utf-8")
-    lines = scoped_section_lines(content, ("Write scope",))
-    paths: set[Path] = set()
-    writable = False
-    for line in lines:
-        if "May modify" in line:
-            writable = True
-            continue
-        if "Do not modify" in line:
-            writable = False
-            continue
-        if not writable:
-            continue
-        for raw in BACKTICK_PATH.findall(line):
-            cleaned = raw.split("#", 1)[0].strip().rstrip("/")
-            if cleaned:
-                paths.add((repo / cleaned).resolve())
-    return paths
-
-
-def check_research_scope(tasks: list[Path], repo: Path, report: Report) -> None:
-    allowed_roots = [
-        (repo / ".vj").resolve(),
-        (repo / "docs/reference/research").resolve(),
-    ]
-    for task in tasks:
-        paths = research_write_paths(task, repo)
-        if not paths:
-            report.error(
-                "RESEARCH_SCOPE", f"{task.name} has no explicit May modify path"
-            )
-        for path in paths:
-            if not any(is_within(path, root) for root in allowed_roots):
-                display = (
-                    str(path.relative_to(repo)) if is_within(path, repo) else str(path)
-                )
-                report.error(
-                    "RESEARCH_SCOPE",
-                    f"{task.name} may write production path: {display}",
-                )
-
-
-def check_plan(
-    pack: Path, *, as_json: bool, for_execution: bool, research_only: bool = False
-) -> int:
+def check_plan(path: Path, *, as_json: bool, for_execution: bool) -> int:
     report = Report()
-    if not pack.is_dir():
-        print(f"ERROR: review pack not found: {pack}")
+    if not path.is_file():
+        print(f"ERROR: plan not found: {path}")
         return 2
     try:
-        repo = find_repo_root(pack)
+        repo = find_repo_root(path)
     except ValueError as exc:
         print(f"ERROR: {exc}")
         return 2
-    work_dir = derive_work_dir(repo, pack)
-    verify = work_dir / "verify.sh"
 
     lint = repo / ".agents/skills/_shared/scripts/plan_lint.py"
     if lint.is_file():
-        proc = run_capture([sys.executable, str(lint), str(pack)], repo)
+        cmd = [sys.executable, str(lint), str(path)] + (["--for-execution"] if for_execution else [])
+        proc = run_capture(cmd, repo)
         if proc.returncode != 0:
             report.error("PLAN_LINT", proc.stdout.strip().replace("\n", " | ")[:800])
     else:
-        report.error(
-            "PLAN_LINT", f"missing structural linter: {lint.relative_to(repo)}"
-        )
+        report.error("PLAN_LINT", f"missing structural linter: {lint.relative_to(repo)}")
 
-    if not verify.is_file():
-        report.error("VERIFY_MISSING", f"missing {verify.relative_to(repo)}")
-        return report.render(as_json)
-    syntax = run_capture(["bash", "-n", str(verify)], repo)
-    if syntax.returncode != 0:
-        report.error("VERIFY_SYNTAX", syntax.stderr.strip())
-
-    readme = pack / "README.md"
-    if readme.is_file():
-        content = readme.read_text(encoding="utf-8")
-        status = frontmatter_status(content)
-        epic_id = frontmatter_epic_id(content)
-        if research_only:
-            if status != "research-ready":
-                report.error(
-                    "PLAN_STATUS",
-                    f"research-only execution requires status 'research-ready', got {status!r}",
-                )
-        elif for_execution:
-            if status != "ready":
-                report.error(
-                    "PLAN_STATUS",
-                    f"production execution requires status 'ready', got {status!r}",
-                )
-        elif status in {
-            "active",
-            "draft-unattended",
-            "draft",
-            "awaiting-approval",
-            "research-ready",
-        }:
-            report.warn(
-                "PLAN_STATUS", f"plan status is {status!r}; not production-ready"
-            )
-        if status == "completed" and epic_id:
-            planned = planned_catalog_markers(repo, epic_id)
-            if planned:
-                report.error(
-                    "CATALOG_NOT_ACTIVE",
-                    "completed plan still has planned catalog markers: "
-                    + ", ".join(planned[:8]),
-                )
-
-    decisions = pack / "decisions.md"
-    if decisions.is_file() and has_open_decisions(
-        decisions.read_text(encoding="utf-8")
-    ):
-        message = "decisions.md contains open or evidence-required decisions"
-        if for_execution and not research_only:
-            report.error("PENDING_DECISIONS", message)
-        elif research_only:
-            report.note(
-                "PENDING_DECISIONS", f"{message}; allowed for evidence collection"
-            )
-        else:
-            report.warn("PENDING_DECISIONS", message)
-
-    if research_only:
-        tasks = research_tasks(work_dir)
-        if not tasks:
-            report.error("RESEARCH_TASK", "no task declares Risk class: research-only")
-        else:
-            check_research_scope(tasks, repo, report)
-            report.note(
-                "RESEARCH_TASK",
-                "allowed research tasks: " + ", ".join(task.name for task in tasks),
-            )
-
-    planned_paths = collect_planned_paths(work_dir, repo)
-    reporters = vitest_reporters(repo / "frontend", report)
-    commands = extract_commands(verify, report)
+    plan = parse_plan(path.read_text(encoding="utf-8"))
+    commands = [
+        raw.strip()
+        for cells in plan.test_map or []
+        for cell in cells[2:]
+        for raw in re.findall(r"`([^`]+)`", cell)
+    ]
+    reporters = vitest_reporters(repo / "frontend", report) if commands else set()
     for command in commands:
-        check_command(
-            command,
-            repo=repo,
-            planned_paths=planned_paths,
-            reporters=reporters,
-            report=report,
-        )
-    if not commands:
-        report.warn("NO_COMMANDS", "verify.sh has no executable run commands")
+        report.command_count += 1
+        check_command(command, repo=repo, reporters=reporters, report=report)
     return report.render(as_json)
 
 
@@ -576,27 +251,15 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
     plan = sub.add_parser("plan")
-    plan.add_argument("pack", type=Path)
+    plan.add_argument("plan", type=Path)
     plan.add_argument("--for-execution", action="store_true")
-    plan.add_argument(
-        "--research-only",
-        action="store_true",
-        help="allow only research-only tasks while plan status is research-ready",
-    )
     runtime = sub.add_parser("runtime")
     runtime.add_argument("root", type=Path, nargs="?", default=Path.cwd())
     runtime.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
     if args.command == "plan":
-        if args.research_only and not args.for_execution:
-            parser.error("--research-only requires --for-execution")
-        return check_plan(
-            args.pack.resolve(),
-            as_json=args.json,
-            for_execution=args.for_execution,
-            research_only=args.research_only,
-        )
+        return check_plan(args.plan.resolve(), as_json=args.json, for_execution=args.for_execution)
     return check_runtime(args.root.resolve(), as_json=args.json, strict=args.strict)
 
 

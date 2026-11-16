@@ -1,0 +1,6 @@
+用例编号,需求/缺陷编号,模块,功能点,场景标题,用例类型,优先级,执行方式,前置条件,测试数据,测试步骤,预期结果,后置清理,BDD 标签,负责人,备注
+BE-DEMO-001,REQ-1,Demo,Feat,Render settings form,positive,P1,自动化测试,,,,,,@BE-DEMO-001 @smoke,qa,对应验收：A1；另由后端单测覆盖
+BE-DEMO-002,REQ-1,Demo,Feat,Show the empty state,positive,P1,自动化测试,,,,,,@BE-DEMO-002,qa,对应验收：A2
+BE-DEMO-003,REQ-1,Demo,Feat,Upload published agent as template,positive,P1,手工测试-产线高危,,,,,,,qa,
+BE-DEMO-004,REQ-1,Demo,Feat,Rollback on mid-way failure,negative,P0,手工测试-故障注入,,,,,,,qa,requires fault injection of the DB
+BE-DEMO-005,REQ-1,Demo,Feat,Every user table is purged,positive,P0,后端单测,,,,,,,qa,对应验收：A3；由后端单测覆盖：test_account_deletion.py::test_meta_every_user_table_is_purged

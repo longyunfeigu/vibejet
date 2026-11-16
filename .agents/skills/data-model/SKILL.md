@@ -121,19 +121,17 @@ docs/project/data/
 
 只有用户明确要求“完整数据模型设计文档”时，才扩展为完整章节。
 
-## 后置步骤：Codex 审查
+## 后置步骤：独立审查
 
-**仅当 Phase 0 判定需要更新且文档实际生成/写回后**，自动执行 `codex-review`：
-1. 调用 `codex-review` skill，传入刚生成或更新的数据模型文档
-2. Claude Code 自主判断 Codex 建议的采纳，修改文档后输出摘要
-3. 用户可说"跳过审查"跳过此步骤
+**仅当 Phase 0 判定需要更新且文档实际生成/写回后**，用 `doc-review` 审查刚生成或更新的数据模型文档：
+表述类意见直接改，改变契约取舍的意见交给用户决定；用户可说"跳过审查"跳过。
 
 如果 Phase 0 判定"本次无需更新数据模型文档"并停止，则不触发审查。
 
 ## 与其他 skill 的关系
 
-- `codex-review`：文档生成后自动触发，做独立审查闭环
-- `vj-epic-plan`：Epic 计划命中 schema / persistence delta 时直接同步模块文档，遵守本目录契约
+- `doc-review`：文档生成后做独立审查
+- `vj-plan` / `vj-work`：计划的关键设计写这次的数据变化；`vj-work` 做完后按本目录契约更新模块文档
 - `vj-work`：主实现 workflow。它不会自动强制运行本 skill；只有命中持久化模型变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 适配时，如果引入新的模型或一致性策略，再补 model delta。
 - `story-verify-fix`：验证行为是否通过，不替代模型设计说明。

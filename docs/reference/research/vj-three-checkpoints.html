@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vj 重组方案</title>
+<style>
+:root{
+  --paper:#F7F4EC; --sheet:#FFFDF8; --ink:#2A2620; --ink-2:#5E584D; --ink-3:#8C8577;
+  --line:#E4DED0; --line-2:#EFEADF;
+  --human:#A2543A; --human-2:#F5E4DC;
+  --ai:#4F6B4A; --ai-2:#E7EEE3;
+  --mach:#5B6478; --mach-2:#E6E9EF;
+  --amber:#9A6A1E; --amber-2:#F6EBD6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink)}
+body{font:15px/1.7 "PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:40px 24px 80px}
+@media (max-width:700px){.wrap{padding:24px 16px 56px}}
+h1,h2{font-family:"Songti SC","Noto Serif SC",Georgia,serif;font-weight:600;letter-spacing:.01em}
+h1{font-size:32px;line-height:1.3;margin:6px 0 12px}
+h2{font-size:21px;margin:52px 0 12px;padding-top:10px;border-top:1px solid var(--line)}
+@media (max-width:700px){h1{font-size:26px}}
+.meta{font-size:13px;color:var(--ink-3)}
+.lede{font-size:17.5px;background:var(--sheet);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:20px 0}
+.lede b{color:var(--human)}
+.muted{color:var(--ink-3)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink-2);margin:10px 0 18px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.flow{grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 12px}}
+@media (max-width:700px){.flow{grid-template-columns:1fr;gap:24px}}
+.stage{background:var(--sheet);border:1px solid var(--line);border-radius:14px;padding:14px 13px 16px;display:flex;flex-direction:column;gap:9px;position:relative}
+.stage .n{font-size:12px;color:var(--ink-3);letter-spacing:.08em}
+.stage h3{margin:0;font-size:15.5px}
+.stage.cp{border:2px solid var(--human);background:#FFFAF6}
+.stage.cp .badge{position:absolute;top:-11px;left:13px;background:var(--human);color:#fff;font-size:12px;border-radius:999px;padding:2px 10px}
+.lane{border-radius:10px;padding:8px 10px;font-size:12.8px;line-height:1.6}
+.lane b{display:block;font-size:11.5px;margin-bottom:2px;letter-spacing:.04em}
+.lane.h{background:var(--human-2);color:#6E3622}.lane.h b{color:var(--human)}
+.lane.a{background:var(--ai-2);color:#2F4A2B}.lane.a b{color:var(--ai)}
+.lane.m{background:var(--mach-2);color:#39404F}.lane.m b{color:var(--mach)}
+@media (min-width:1101px){.stage:not(:last-child)::after{content:"→";position:absolute;right:-12px;top:44%;color:var(--ink-3);font-size:16px;background:var(--paper);width:12px;text-align:center}}
+.loop{margin-top:12px;background:var(--sheet);border:1px dashed var(--line);border-radius:12px;padding:10px 14px;font-size:13.5px;color:var(--ink-2)}
+.loop b{color:var(--ai)}
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:780px){.tiers{grid-template-columns:1fr}}
+.tier{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tier h4{margin:0 0 4px;font-size:15px}
+.tier p{margin:4px 0;font-size:13.5px;color:var(--ink-2)}
+.dots{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.dots span{font-size:12px;border-radius:999px;padding:2px 9px;background:var(--line-2);color:var(--ink-3)}
+.dots span.on{background:var(--human-2);color:var(--human);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:780px){.two{grid-template-columns:1fr}}
+.box{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.box h4{margin:0 0 6px;font-size:15px}
+.box ul{margin:6px 0 0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+.box li{margin:5px 0}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:var(--sheet)}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+th{font-weight:600;color:var(--ink-2);background:#FBF8F1;font-size:13px}
+tr.grp td{background:#F8F4EA;font-weight:600;color:var(--ink);font-size:13px}
+td code{font-size:12.5px;background:var(--line-2);padding:1px 6px;border-radius:5px}
+.chip{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.k{background:var(--ai-2);color:var(--ai)}.s{background:var(--amber-2);color:var(--amber)}.mg{background:var(--mach-2);color:var(--mach)}
+.op{background:var(--line-2);color:var(--ink-2)}.td{background:var(--human-2);color:var(--human)}
+.decide{counter-reset:d;padding:0;margin:8px 0}
+.decide li{list-style:none;position:relative;padding:12px 0 12px 38px;border-bottom:1px solid var(--line-2)}
+.decide li::before{counter-increment:d;content:counter(d);position:absolute;left:0;top:12px;width:26px;height:26px;border-radius:50%;background:var(--human-2);color:var(--human);display:grid;place-items:center;font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="meta">vibejet · 工作流重组提案 · 草稿 v2 · 2026-11-12 · 未改动任何 skill</div>
+  <h1>vj 重组：人审关键的东西，AI 做剩下的</h1>
+  <div class="lede">原则：<b>守关卡，不守仪式。</b>人的注意力最贵，花在四件事上：定意图、审关键设计、审验收标准有没有缺项、验收真实产品。具体代码和过程记录交给 AI 互审和机器检查。人审的东西都压成一眼能审的形态——原型、图、覆盖表、验收包，而不是长篇 Markdown。</div>
+
+  <h2>新流程</h2>
+  <div class="legend"><span><i style="background:var(--human)"></i>人做判断</span><span><i style="background:var(--ai)"></i>AI 做事</span><span><i style="background:var(--mach)"></i>机器检查（会失败的检查）</span></div>
+  <div class="flow">
+    <div class="stage cp"><span class="badge">人审 ①</span><div class="n">01</div><h3>定意图</h3>
+      <div class="lane h"><b>人看什么</b>3-5 个本质不同的可点击方向原型，选一个或混搭；再看叙事式一页纸 PRD</div>
+      <div class="lane a"><b>AI 做什么</b>采访只有你知道的事；轻量竞品调研；做方向原型；写一页纸和行为合同</div>
+      <div class="lane m"><b>机器检查</b>PRD 机检；原型自动点击测试</div>
+    </div>
+    <div class="stage cp"><span class="badge">人审 ②</span><div class="n">02</div><h3>审关键设计</h3>
+      <div class="lane h"><b>人看什么</b>领域模型和实体关系图、状态图、关键流程图、改动影响清单；回不了头的决策做成决策卡</div>
+      <div class="lane a"><b>AI 做什么</b>只把这次新增和改动的部分标出来给人看，不给全景堆砌</div>
+      <div class="lane m"><b>机器检查</b>架构依赖规则；图的源和文档一致</div>
+    </div>
+    <div class="stage cp"><span class="badge">人审 ③</span><div class="n">03</div><h3>审验收标准</h3>
+      <div class="lane h"><b>人看什么</b>按用户旅程排的覆盖表：每一步测了哪些正常、边界、异常情况，空着的地方一眼可见</div>
+      <div class="lane a"><b>AI 做什么</b>拆 Story 和验收标准；把全局规则铺到每个相关 Story</div>
+      <div class="lane m"><b>机器检查</b>Story 机检（格式、上限、依赖方向）</div>
+    </div>
+    <div class="stage"><div class="n">04</div><h3>AI 执行</h3>
+      <div class="lane a"><b>AI 做什么</b>出执行包 → 写代码 → 另一个 AI 独立审查</div>
+      <div class="lane m"><b>机器检查</b>计划机检、类型 / lint / 测试 / 变异测试</div>
+      <div class="lane h"><b>人</b>不盯代码，只在真正的岔路被叫来</div>
+    </div>
+    <div class="stage"><div class="n">05</div><h3>证据</h3>
+      <div class="lane a"><b>AI 做什么</b>真实跑起来；端到端测试；截图；跑 eval；整理验收包</div>
+      <div class="lane m"><b>机器检查</b>测试全绿才算数；截图由独立审查者判</div>
+    </div>
+    <div class="stage cp"><span class="badge">人审 ④</span><div class="n">06</div><h3>验收</h3>
+      <div class="lane h"><b>人看什么</b>验收包：怎么打开、点哪几步、证据、剩余风险、一段可直接复制的验收 prompt</div>
+      <div class="lane a"><b>AI 做什么</b>按反馈修，再给新证据</div>
+    </div>
+  </div>
+  <div class="loop">↺ <b>收尾：把教训变成工作流的一部分。</b>这次踩的坑，写成规则、机检脚本或 skill 的一行修改，下次 AI 自动就做对。</div>
+
+  <h2>不同大小的活，经过不同的人审点</h2>
+  <div class="tiers">
+    <div class="tier"><h4>Patch：修 bug、小改动</h4><div class="dots"><span>①</span><span>②</span><span>③</span><span class="on">④</span></div><p>不写文档。AI 复现 → 修 → 测试；你只看验收包。改到数据或权限时自动升级。</p></div>
+    <div class="tier"><h4>Story：一个有边界的功能</h4><div class="dots"><span class="on">① 轻</span><span>②</span><span class="on">③</span><span class="on">④</span></div><p>半页意图，有界面就配原型；你看原型、验收覆盖表和验收包。</p></div>
+    <div class="tier"><h4>Epic：多个能力，或碰到回不了头的事</h4><div class="dots"><span class="on">①</span><span class="on">②</span><span class="on">③</span><span class="on">④</span></div><p>四个人审点都要过。关键设计只审这次的变化部分。</p></div>
+  </div>
+
+  <h2>人审的东西长什么样</h2>
+  <div class="two">
+    <div class="box"><h4>给人审：压成一眼能审的形态</h4><ul>
+      <li>① 方向原型（可点击）+ 叙事式一页纸</li>
+      <li>② 关键设计：实体关系图、状态图、流程图只画这次的变化，新增 / 修改 / 删除用固定颜色标出；改动影响清单；决策卡</li>
+      <li>③ 验收覆盖表：行是用户旅程的每一步，列是正常 / 边界 / 异常</li>
+      <li>④ 验收包</li>
+      <li class="muted">图的事实源是文档里的 Mermaid 文本，审阅和对外时用 archify 渲染成展示图</li>
+    </ul></div>
+    <div class="box"><h4>只给 AI：人不逐条读</h4><ul>
+      <li>具体代码、执行包、执行账本、运行状态</li>
+      <li>验收标准的具体写法和验证命令（人审的是覆盖表，不是逐条措辞）</li>
+      <li>质量靠三层兜底：机器检查 → 另一个 AI 独立审查 → 真实运行和测试证明</li>
+    </ul></div>
+  </div>
+
+  <h2>现有 skill 的去留</h2>
+  <div class="tablewrap"><table>
+    <tr><th style="width:22%">Skill</th><th style="width:12%">建议</th><th>理由</th></tr>
+    <tr class="grp"><td colspan="3">入口</td></tr>
+    <tr><td><code>vj</code></td><td><span class="chip k">保留</span></td><td>按风险分档是对的；改成按"这一档要经过哪几个人审点"路由</td></tr>
+    <tr class="grp"><td colspan="3">人审 ①　定意图</td></tr>
+    <tr><td><code>vj-product-requirements</code></td><td><span class="chip k">保留</span></td><td>已改成：采访 → 3-5 个方向原型 → 叙事式一页纸 → 行为合同</td></tr>
+    <tr><td><code>vj-feature</code></td><td><span class="chip mg">合并</span></td><td>和上面做的是同一件事，只是粒度小；并成"功能级"模式：半页意图 + 原型 + 直接出 Story</td></tr>
+    <tr><td><code>sharpen-idea</code></td><td><span class="chip op">可选</span></td><td>想法和成熟产品正面竞争、又说不出差异时才用</td></tr>
+    <tr class="grp"><td colspan="3">人审 ②　审关键设计</td></tr>
+    <tr><td><code>vj-architecture</code></td><td><span class="chip s">瘦身</span></td><td>不出整份架构文档，只出领域模型、系统架构图和决策卡；整份文档会过期（architecture.md 删掉后还有 10 处在引用它）</td></tr>
+    <tr><td><code>api-design</code> / <code>data-model</code></td><td><span class="chip k">保留</span></td><td>对外接口和数据结构是回不了头的决策；已经是"有变化才触发"；补上"变化部分着色"的图规范</td></tr>
+    <tr><td><code>vj-design-md-matcher</code></td><td><span class="chip k">保留</span></td><td>视觉方向是品牌级决策，要看真实像素来选</td></tr>
+    <tr><td><code>vj-mock-board</code></td><td><span class="chip op">降为可选</span></td><td>原型 + 设计规范已覆盖大部分；屏幕很多、需要逐屏反查接口时再用</td></tr>
+    <tr class="grp"><td colspan="3">人审 ③　审验收标准</td></tr>
+    <tr><td><code>vj-epic-story</code></td><td><span class="chip s">保留并加一步</span></td><td>写完后生成"按旅程排列的验收覆盖表"给人审，人审的是有没有缺项</td></tr>
+    <tr class="grp"><td colspan="3">AI 执行</td></tr>
+    <tr><td><code>vj-epic-plan</code></td><td><span class="chip s">瘦身</span></td><td>给人的部分只剩"关键设计变化图 + 影响清单 + 决策卡"（并入人审 ②）；其余只留给 AI 的执行包</td></tr>
+    <tr><td><code>vj-plan-review</code></td><td><span class="chip mg">合并</span></td><td>并进 vj-epic-plan 的自动审查，纯 AI 互审</td></tr>
+    <tr><td><code>vj-work</code></td><td><span class="chip k">保留</span></td><td>执行器；收尾多产出一份验收包</td></tr>
+    <tr><td><code>story-reference-impl</code></td><td><span class="chip k">保留</span></td><td>需要借鉴开源实现时的研究步骤</td></tr>
+    <tr><td><code>doc-review</code> / <code>review</code></td><td><span class="chip k">保留并加强</span></td><td>代码和文档都不是你亲手写的，独立审查比以前更重要</td></tr>
+    <tr class="grp"><td colspan="3">证据与人审 ④</td></tr>
+    <tr><td><code>vj-test</code></td><td><span class="chip k">保留</span></td><td>端到端测试 + 变异测试</td></tr>
+    <tr><td><code>story-verify-fix</code> / <code>diff-aware-qa</code></td><td><span class="chip s">待评估</span></td><td>两者都在"跑起来看"，可能合成一个验证入口</td></tr>
+    <tr class="grp"><td colspan="3">收尾</td></tr>
+    <tr><td><code>vj-compound</code></td><td><span class="chip s">改目标</span></td><td>从"写一篇经验文档"改成"把教训变成规则、检查脚本或 skill 修改"</td></tr>
+    <tr class="grp"><td colspan="3">另一套流程</td></tr>
+    <tr><td>delivery 七件套</td><td><span class="chip td">待你定</span></td><td>此前建议：吸收"找根因、谁依赖了这个 bug、类比排查、独立审查"四个思考动作，其余删掉</td></tr>
+  </table></div>
+
+  <h2>需要你拍板</h2>
+  <ol class="decide">
+    <li><b>认不认这个方向：</b>人审四处（意图、关键设计、验收标准覆盖、真实产品），代码和过程交给 AI 和机器。</li>
+    <li><b>vj-feature 并入 PRD skill、vj-plan-review 并入 vj-epic-plan：</b>减少入口，代价是一次性改动面较大。</li>
+    <li><b>vj-epic-plan 去掉给人读的 review pack，只保留"变化图 + 影响清单 + 决策卡"：</b>风险最大的一处，要先用真实 Epic 跑一遍再定。</li>
+    <li><b>delivery 七件套怎么处理。</b></li>
+  </ol>
+</div>
+</body>
+</html>

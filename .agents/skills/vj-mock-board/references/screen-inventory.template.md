@@ -25,8 +25,8 @@
 
 | 列 | 规则 |
 |----|------|
-| 屏名 | 从 PRD 的 EARS 条目 / 用户旅程 / Scenario 派生；一屏承载一个 Primary Job，不按技术组件拆屏 |
-| 来源条目 | PRD 中逼出这块屏的条目索引（如 `E1 R3`、`NFR 5.3`）；一屏可对应多条 |
+| 屏名 | 从 PRD §4 能力与场景、§1.2 用户旅程和场景原型派生；一屏承载一个 Primary Job，不按技术组件拆屏 |
+| 来源条目 | PRD 中逼出这块屏的条目索引（如 `C7`、`§12 R1`、`§6.1`）；一屏可对应多条 |
 | 屏型 | `front-of-house / operational / mixed`，判定按 `.agents/skills/_shared/ui-planning-contract.md` §1，本模板不复述；不确定标 `⚠️ 推断` |
 | P0 | 屏在 PRD 核心用户旅程（主流程 mermaid / 成功指标直接相关）上 → ✅；其余 `—` |
 | 状态集 | P0 屏：按 `ui-state-coverage` 的"必须补齐"清单（默认/加载/空/失败/禁用/完成/异常）对照 PRD 逐项取舍，PRD 点名的分支态（如"无法识别""服务不可用"）必收；非 P0 屏：只写 `默认` |
@@ -39,5 +39,4 @@
 ## 确认 gate 话术
 
 一次性列出全表 + 待拍板项（屏的增删 / 屏型 / P0 / 设备框 / 分区归属），让用户批量确认，
-不逐屏追问。无人值守 fallback 与 stop condition 见 `SKILL.md`（P1 与 Stop conditions 节），
-本模板不复述。
+不逐屏追问。无人值守 fallback 见 `SKILL.md` 的 P1，本模板不复述。

@@ -22,4 +22,4 @@ capabilities to its runtime primitives.
 3. Subagents are conditional: use them only for independent work with a clear return contract.
 4. Runtime artifacts and evaluation workspaces live under `.vj/` and are never committed.
 5. User instructions such as "do not commit" override workflow commit defaults. Record the skipped
-   commit policy in run state; do not reinterpret it as permission to omit verification.
+   commit policy in run state when the track has one (Epic); do not reinterpret it as permission to omit verification.

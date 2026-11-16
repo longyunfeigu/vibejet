@@ -1,47 +1,33 @@
 #!/usr/bin/env python3
-# input: vj-epic-plan 产出的 review pack 目录路径（docs/work/plans/{date}-epic-{N}-{slug}/），
-#        可选 --work-dir 覆盖默认推导（docs/work/tasks/epic-{N}-{slug}/）
-# output: 机检报告（stdout）+ exit code（0=全过，1=有 ERROR，2=用法/路径错误）
-# pos: vj-epic-plan Phase 5 写盘后必跑（exit!=0 不得 handoff）；vj-work Phase 1 装载前必跑。
-#      把 review pack / task packets 的确定性一致约束从模型自查清单换成机检；
-#      一旦我被更新，务必更新我的开头注释
-"""Lint a vj-epic-plan review pack + its task packets for mechanical consistency.
+# input: vj-plan 产出的计划文件路径（docs/work/plans/{date}-{slug}.md）[--for-execution]；
+#        frontmatter `after:` 里的前置计划按同目录的 {name}.md 找
+# output: 机检报告（stdout）+ exit code（0=无 ERROR，1=有 ERROR，2=用法/路径错误）
+# pos: vj-plan 交付前必跑；vj-work 写完"验收对应的测试"后带 --for-execution 跑。workflow_doctor.py 复用
+#      parse_plan 检查那张表里的命令能不能跑。一旦我被更新，务必更新我的开头注释
+"""Lint a vj-plan document: free-form body, three fixed sections that tools read.
 
-机检规则（对应 vj-epic-plan SKILL.md Phase 5 / 各模板契约）：
-  R1  review pack 三件套存在且非空：README.md / design.md / decisions.md
-  R2  README.md 有 Known Conflicts 段且非空壳（表格有行或明确写"无"）
-  R3  work_dir/task-index.md 存在；其中引用的每个 T{NNN} 都有对应 T{NNN}-*.md 文件
-  R4  work_dir 下每个 T*.md 都被 task-index.md 引用（孤儿 task → WARNING）
-  R5  task docs / design.md 引用的 D-ID / ACD-ID 在 decisions.md 中存在
-  R6  task docs 引用的 design.md#anchor 能解析到 design.md 标题（ERROR）；
-      锚到叙事区（非合同区块）标题 → WARNING（叙事区标题自由、不承载锚点）
-  R7  task docs 的 Read first 路径存在（ERROR）；
-      Write scope 路径不存在且其父目录也不存在 → WARNING（新文件正常，目录都没有才可疑）
-  R8  task-index 的 Unit→Task 映射引用的 Story 在 epics 目录能找到（找不到 → WARNING）
-  R9  模板占位残留（{N}/{slug}/YYYY-MM-DD/{U-ID}/T{NNN} 等字面残留）→ ERROR
-  R10 work_dir/verify.sh 存在、非空、含 all 入口；Unit→Task 映射中的每个 U-ID 有 case 分支
-      （缺 → WARNING，浏览器类验证可为 MANUAL）
-  R11 design.md 叙事区（合同区之前）每个 h2 小节开头必须是 `> 一句话：…` 导读行
-      （可跳读的人读主线；缺 → ERROR）
-  R12 pipe 表格表头行后必须紧跟 GFM 分隔行（|---|），否则整块渲染成纯文本 → ERROR
-      （检查 pack 三件套 + task-index + task docs，跳过 code fence）
-  R13 task doc 即执行包：Execution note 必含 Test policy / Risk class / UI class /
-      System-wide check / Verification 五个机读字段（缺 → ERROR；vj-work 不再二次蒸馏，
-      缺字段 = 执行包不完整）
-  R14 task-index.md 必含 Epic Execution Checklist 段且非空壳（缺 → ERROR）。推荐使用
-      C-ID / Severity / Applies to / Invariant / Source 结构化表：校验 ID、severity、task 引用、
-      source 与每个 task 的约束覆盖；旧编号列表仅保留兼容校验
-  R15 README.md 是 plan 状态唯一源，状态必须为 draft / awaiting-approval / ready /
-      research-ready / completed / blocked；design.md / decisions.md 不得复制 status
-      （缺失或重复 → ERROR）
+计划只有三节是固定的（标题含关键词即可，编号可有可无）：要你拍板的决定 / 验收清单 / 执行顺序。
+其余内容按这块工作的性质自由写，不检查。
+
+机检规则（对应 vj-plan/assets/plan.template.md 头注释）：
+  L1  frontmatter：type=plan；status ∈ awaiting-approval|ready|in-progress|done|blocked；policy ∈ fast|strict。
+      type=plan-overview（整份 PRD 的拆分总览）只查 L9 / L10
+  L2  三个固定节都在
+  L3  决定：编号 D<n> 唯一；状态 ∈ 待你定|待证据|上线前定|已定；"挡哪一步" ∈ 不挡 / 开工 / 第 N 步，
+      引用的步骤要在执行顺序里存在；已定 / 上线前定只能写不挡
+  L4  验收清单：至少一项；编号 A<n> 唯一；"怎么查" ∈ 自动测试|浏览器|人工；"要保证什么"非空
+  L5  执行顺序：至少一步（编号列表 1. 2. …）
+  L9  表格表头后紧跟 GFM 分隔行
+  L10 正文（代码块和注释之外）不残留模板占位 {…} / YYYY-MM-DD
+  L11 状态：有"待你定 / 待证据"的决定挡开工（或挡第 1 步，等于挡开工）时，状态不能是 ready / in-progress；
+      --for-execution 时状态必须是 ready 或 in-progress
+  L12 前置计划：after 列出的计划文件要存在；--for-execution 时它们必须已是 done
+  L14 frontmatter `cases:`（prd-to-bdd 生成用例的目录）写了就必须存在；用例和验收的逐条对应由 plan_case_trace.py 查
+  L13 --for-execution：vj-work 开工时写的"验收对应的测试"一节存在，每个"自动测试""浏览器"验收项都对应了测试，
+      表里引用的验收编号都存在
 
 Usage:
-    python3 plan_lint.py <review-pack-dir> [--work-dir <dir>] [--repo-root <dir>]
-
-Exit codes:
-    0 — 无 ERROR（WARNING 不阻塞）
-    1 — 存在 ERROR，禁止 handoff / 装载执行
-    2 — 用法或路径错误
+    python3 plan_lint.py <plan.md> [--for-execution] [--repo-root DIR]
 """
 
 from __future__ import annotations
@@ -49,95 +35,51 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 
-TASK_REF = re.compile(r"\bT(\d{3})\b")
-DECISION_REF = re.compile(r"\b(ACD\d+|D\d+)\b")
-DESIGN_ANCHOR = re.compile(r"design\.md#([A-Za-z0-9%_.\-]+)")
-PLACEHOLDER = re.compile(
-    r"\{date\}|\{N\}\b|\{slug\}|\{name\}|\{U-ID\}|\{story-id\}|\{epic-file\}"
-    r"|T\{NNN\}|YYYY-MM-DD|\{review-pack-path\}"
-)
-PATH_LINE = re.compile(r"^\s*-\s*(?:[^`]{0,40})`([^`]+)`")
-HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.MULTILINE)
-UNIT_ID = re.compile(r"\bU(\d+)\b")
-STORY_REF = re.compile(r"\b(\d+)\.(\d+)\b")
-FRONTMATTER_STATUS = re.compile(r"^status:\s*[\"']?([^\"'\s#]+)", re.MULTILINE)
-CONSTRAINT_ID = re.compile(r"C\d{2,}")
+STATUSES = {"awaiting-approval", "ready", "in-progress", "done", "blocked"}
+DECISION_STATUSES = {"待你定", "待证据", "上线前定", "已定"}
+OPEN_DECISION = {"待你定", "待证据"}
+CHECK_KINDS = {"自动测试", "浏览器", "人工"}
+FIXED_SECTIONS = {"decisions": "要你拍板的决定", "checks": "验收清单", "order": "执行顺序"}
+TEST_MAP_SECTION = "验收对应的测试"
+STEP_ITEM = re.compile(r"^(\d+)\.\s+\S", re.M)
+STEP_REF = re.compile(r"第\s*(\d+(?:\s*[、,，和]\s*\d+)*)\s*步")
 
 
-class Report:
-    def __init__(self) -> None:
-        self.errors: list[str] = []
-        self.warnings: list[str] = []
+@dataclass
+class Plan:
+    meta: dict[str, str]
+    sections: dict[str, str]
+    decisions: list[list[str]]
+    checks: list[list[str]]
+    steps: list[int]
+    test_map: list[list[str]] | None
+    body: str
 
-    def error(self, rule: str, msg: str) -> None:
-        self.errors.append(f"[{rule}] {msg}")
-
-    def warn(self, rule: str, msg: str) -> None:
-        self.warnings.append(f"[{rule}] {msg}")
-
-    def dump(self) -> int:
-        for w in self.warnings:
-            print(f"WARNING {w}")
-        for e in self.errors:
-            print(f"ERROR   {e}")
-        total = f"{len(self.errors)} error(s), {len(self.warnings)} warning(s)"
-        if self.errors:
-            print(f"RESULT: FAIL — {total}")
-            return 1
-        print(f"RESULT: PASS — {total}")
-        return 0
+    @property
+    def after(self) -> list[str]:
+        raw = self.meta.get("after", "").strip("[] ")
+        return [x.strip().removesuffix(".md") for x in re.split(r"[,，\s]+", raw) if x.strip()]
 
 
-def github_slug(heading: str) -> str:
-    """Approximate GitHub-style heading anchor."""
-    text = unicodedata.normalize("NFKC", heading).strip().lower()
-    text = re.sub(r"[^\w\s一-鿿-]", "", text)
-    return re.sub(r"\s+", "-", text)
+def strip_comments(text: str) -> str:
+    return re.sub(r"<!--.*?-->", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
 
 
-def frontmatter_status(content: str) -> str | None:
-    if not content.startswith("---\n"):
-        return None
-    end = content.find("\n---", 4)
+def split_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---\n"):
+        return {}, text
+    end = text.find("\n---", 4)
     if end == -1:
-        return None
-    match = FRONTMATTER_STATUS.search(content[4:end])
-    return match.group(1) if match else None
-
-
-def section_body(content: str, title_pattern: str) -> str | None:
-    """Return the body of the first section whose heading matches pattern."""
-    match = re.search(rf"^#{{1,6}}\s+.*{title_pattern}.*$", content, re.MULTILINE)
-    if not match:
-        return None
-    start = match.end()
-    nxt = re.search(r"^#{1,6}\s+", content[start:], re.MULTILINE)
-    return content[start : start + nxt.start()] if nxt else content[start:]
-
-
-def malformed_table_heads(content: str) -> list[str]:
-    """返回缺 GFM 分隔行的表头行（"L{行号}: 内容"），跳过 code fence。"""
-    sep = re.compile(r"\|[\s:|-]+\|?")
-    lines = content.splitlines()
-    in_fence = False
-    bad: list[str] = []
-    for i, ln in enumerate(lines):
-        s = ln.strip()
-        if s.startswith("```") or s.startswith("~~~"):
-            in_fence = not in_fence
-            continue
-        if in_fence or not s.startswith("|"):
-            continue
-        prev = lines[i - 1].strip() if i else ""
-        if prev.startswith("|"):
-            continue  # 表体行，只查表头
-        nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
-        if not sep.fullmatch(nxt):
-            bad.append(f"L{i + 1}: {s[:50]}")
-    return bad
+        return {}, text
+    meta = {}
+    for line in text[4:end].splitlines():
+        m = re.match(r"^([A-Za-z_]+):\s*[\"']?([^\"'#]*?)[\"']?\s*(?:#.*)?$", line)
+        if m:
+            meta[m.group(1)] = m.group(2).strip()
+    return meta, text[end + 4 :]
 
 
 def split_markdown_table_row(line: str) -> list[str]:
@@ -149,8 +91,7 @@ def split_markdown_table_row(line: str) -> list[str]:
         text = text[:-1]
     cells: list[str] = []
     current: list[str] = []
-    in_code = False
-    escaped = False
+    in_code = escaped = False
     for char in text:
         if escaped:
             current.append(char)
@@ -170,392 +111,233 @@ def split_markdown_table_row(line: str) -> list[str]:
     return cells
 
 
-def is_effectively_empty(body: str) -> bool:
-    """A section is an empty shell if it has no prose and no filled table row."""
-    for line in body.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith(">"):
+def table_rows(text: str, id_pattern: str) -> list[list[str]]:
+    rows = []
+    for line in text.splitlines():
+        if line.strip().startswith("|"):
+            cells = split_markdown_table_row(line)
+            if cells and re.fullmatch(id_pattern, cells[0]):
+                rows.append(cells)
+    return rows
+
+
+def h2_sections(body: str) -> list[tuple[str, str]]:
+    """[(标题, 正文)]，只切二级标题；代码块里的 ## 不算。"""
+    masked = re.sub(r"```.*?```", lambda m: re.sub(r"[^\n]", " ", m.group(0)), body, flags=re.S)
+    heads = list(re.finditer(r"^##\s+(.*)$", masked, re.M))
+    out = []
+    for i, h in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(body)
+        out.append((h.group(1).strip(), body[h.end() : end]))
+    return out
+
+
+def parse_plan(text: str) -> Plan:
+    meta, body = split_frontmatter(text)
+    body = strip_comments(body)
+    sections: dict[str, str] = {}
+    test_map: list[list[str]] | None = None
+    for title, content in h2_sections(body):
+        for key, word in FIXED_SECTIONS.items():
+            if word in title and key not in sections:
+                sections[key] = content
+        if TEST_MAP_SECTION in title:
+            test_map = table_rows(content, r"A\d+")
+    return Plan(
+        meta=meta,
+        sections=sections,
+        decisions=table_rows(sections.get("decisions", ""), r"D\d+"),
+        checks=table_rows(sections.get("checks", ""), r"A\d+"),
+        steps=[int(n) for n in STEP_ITEM.findall(sections.get("order", ""))],
+        test_map=test_map,
+        body=body,
+    )
+
+
+def malformed_table_heads(content: str) -> list[str]:
+    """返回缺 GFM 分隔行的表头行（"L{行号}: 内容"），跳过 code fence。"""
+    sep = re.compile(r"\|[\s:|-]+\|?")
+    lines = content.splitlines()
+    in_fence = False
+    bad: list[str] = []
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        if s.startswith("```") or s.startswith("~~~"):
+            in_fence = not in_fence
             continue
-        if re.fullmatch(r"\|[\s|:-]*\|?", stripped):  # header/separator/empty row
+        if in_fence or not s.startswith("|"):
             continue
-        if stripped.startswith("|"):
-            cells = [c.strip() for c in stripped.strip("|").split("|")]
-            if any(cells) and not all(re.fullmatch(r":?-+:?", c) for c in cells if c):
-                return False
+        prev = lines[i - 1].strip() if i else ""
+        if prev.startswith("|"):
             continue
-        return False
-    return True
+        nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if not sep.fullmatch(nxt):
+            bad.append(f"L{i + 1}: {s[:50]}")
+    return bad
+
+
+def blocked_steps(cell: str) -> tuple[str, list[int]] | None:
+    """解析"挡哪一步"：返回 ("不挡"|"开工"|"步骤", [步骤号])；不合法返回 None。"""
+    value = cell.strip()
+    if value == "不挡":
+        return "不挡", []
+    if value == "开工":
+        return "开工", []
+    m = STEP_REF.search(value)
+    if m:
+        return "步骤", [int(n) for n in re.findall(r"\d+", m.group(1))]
+    return None
+
+
+class Report:
+    def __init__(self) -> None:
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+
+    def error(self, rule: str, msg: str) -> None:
+        self.errors.append(f"[{rule}] {msg}")
+
+    def warn(self, rule: str, msg: str) -> None:
+        self.warnings.append(f"[{rule}] {msg}")
+
+    def dump(self) -> int:
+        for w in self.warnings:
+            print(f"WARNING {w}")
+        for e in self.errors:
+            print(f"ERROR   {e}")
+        total = f"{len(self.errors)} error(s), {len(self.warnings)} warning(s)"
+        print(f"RESULT: {'FAIL' if self.errors else 'PASS'} — {total}")
+        return 1 if self.errors else 0
+
+
+def lint_text_hygiene(body: str, rep: Report) -> None:
+    # L9 / L10
+    for bad in malformed_table_heads(body):
+        rep.error("L9", f"表格缺 GFM 分隔行: {bad}")
+    prose = re.sub(r"```.*?```", "", body, flags=re.S)
+    for ph in sorted(set(re.findall(r"\{[^{}\n]{1,40}\}|YYYY-MM-DD", prose)))[:5]:
+        rep.error("L10", f"残留模板占位: {ph}")
+
+
+def lint(plan: Plan, repo: Path, for_execution: bool, rep: Report, plans_dir: Path | None = None) -> None:
+    if plan.meta.get("type") == "plan-overview":
+        lint_text_hygiene(plan.body, rep)
+        return
+    # L1
+    if plan.meta.get("type") != "plan":
+        rep.error("L1", "frontmatter 缺 type: plan")
+    status = plan.meta.get("status", "")
+    if status not in STATUSES:
+        rep.error("L1", f"status 非法: {status!r}（只用 {' / '.join(sorted(STATUSES))}）")
+    if plan.meta.get("policy") not in {"fast", "strict"}:
+        rep.error("L1", f"policy 非法: {plan.meta.get('policy')!r}")
+    # L2
+    for key, word in FIXED_SECTIONS.items():
+        if key not in plan.sections:
+            rep.error("L2", f"缺固定节（二级标题应含\"{word}\"）")
+    # L5
+    if "order" in plan.sections and not plan.steps:
+        rep.error("L5", "执行顺序没有任何一步（写成编号列表 1. 2. …）")
+    # L3
+    decisions: dict[str, str] = {}
+    blocks_start: list[str] = []
+    for cells in plan.decisions:
+        did = cells[0]
+        if did in decisions:
+            rep.error("L3", f"决定编号重复: {did}")
+        state = cells[1] if len(cells) > 1 else ""
+        if state not in DECISION_STATUSES:
+            rep.error("L3", f"{did} 状态非法: {state!r}（只用 待你定 / 待证据 / 上线前定 / 已定）")
+        decisions[did] = state
+        if len(cells) < 6:
+            rep.error("L3", f"{did} 列数不对，应为 编号 | 状态 | 问题 | 不定会怎样 | 推荐 | 挡哪一步")
+            continue
+        parsed = blocked_steps(cells[5])
+        if parsed is None:
+            rep.error("L3", f"{did} 挡哪一步非法: {cells[5]!r}（只用 不挡 / 开工 / 第 N 步）")
+            continue
+        kind, nums = parsed
+        if state in {"已定", "上线前定"} and kind != "不挡":
+            rep.error("L3", f"{did} 是{state}，不挡开发，挡哪一步应写\"不挡\"")
+        for n in nums:
+            if n not in plan.steps:
+                rep.error("L3", f"{did} 挡第 {n} 步，但执行顺序里没有这一步")
+        first = min(plan.steps) if plan.steps else 1
+        if state in OPEN_DECISION and (kind == "开工" or first in nums):
+            blocks_start.append(did)
+    # L4
+    checks: dict[str, str] = {}
+    if not plan.checks:
+        rep.error("L4", "验收清单没有任何一项（编号 A1、A2…）")
+    for cells in plan.checks:
+        aid = cells[0]
+        if aid in checks:
+            rep.error("L4", f"验收编号重复: {aid}")
+        if len(cells) < 4:
+            rep.error("L4", f"{aid} 列数不对，应为 编号 | 要保证什么 | 怎么查 | 对应 PRD")
+            continue
+        if not cells[1]:
+            rep.error("L4", f"{aid} 没写要保证什么")
+        if cells[2] not in CHECK_KINDS:
+            rep.error("L4", f"{aid} 怎么查 非法: {cells[2]!r}（只用 自动测试 / 浏览器 / 人工）")
+        checks[aid] = cells[2]
+    lint_text_hygiene(plan.body, rep)
+    # L11
+    if blocks_start and status in {"ready", "in-progress"}:
+        rep.error(
+            "L11",
+            f"{'、'.join(blocks_start)} 还没定且挡开工，状态应为 awaiting-approval",
+        )
+    if for_execution and status not in {"ready", "in-progress"}:
+        rep.error("L11", f"开工要求状态为 ready 或 in-progress，当前是 {status!r}")
+    # L12
+    plans_dir = plans_dir or repo / "docs/work/plans"
+    for name in plan.after:
+        upstream = plans_dir / f"{name}.md"
+        if not upstream.is_file():
+            rep.error("L12", f"after 里的前置计划不存在: {name}.md")
+            continue
+        up_status = split_frontmatter(upstream.read_text(encoding="utf-8"))[0].get("status")
+        if for_execution and up_status != "done":
+            rep.error("L12", f"前置计划 {name} 还没做完（{up_status}），先做它")
+    # L14
+    cases = plan.meta.get("cases", "").strip()
+    if cases and not (repo / cases).is_dir():
+        rep.error("L14", f"cases 目录不存在: {cases}")
+    # L13
+    if for_execution:
+        if plan.test_map is None:
+            rep.error("L13", f"缺\"{TEST_MAP_SECTION}\"一节（vj-work 开工时先把验收项对应到测试）")
+            return
+        mapped = {cells[0] for cells in plan.test_map if len(cells) > 1 and cells[1].strip(" -—")}
+        for cells in plan.test_map:
+            if cells[0] not in checks:
+                rep.error("L13", f"{TEST_MAP_SECTION}引用了不存在的验收项 {cells[0]}")
+        for aid, kind in checks.items():
+            if kind != "人工" and aid not in mapped:
+                rep.error("L13", f"验收项 {aid}（{kind}）没有对应的测试")
+
+
+def find_repo_root(start: Path) -> Path:
+    for probe in [start, *start.parents]:
+        if (probe / ".git").exists():
+            return probe
+    return Path.cwd()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("pack", help="review pack directory")
-    parser.add_argument("--work-dir", default=None)
-    parser.add_argument("--repo-root", default=None)
+    parser.add_argument("plan", type=Path)
+    parser.add_argument("--for-execution", action="store_true")
+    parser.add_argument("--repo-root", type=Path, default=None)
     args = parser.parse_args()
-
-    pack = Path(args.pack).resolve()
-    if not pack.is_dir():
-        print(f"ERROR   review pack 目录不存在: {pack}")
+    path = args.plan.resolve()
+    if not path.is_file():
+        print(f"ERROR   计划文件不存在: {path}")
         return 2
-
-    repo_root = Path(args.repo_root).resolve() if args.repo_root else None
-    if repo_root is None:
-        probe = pack
-        while probe != probe.parent:
-            if (probe / ".git").exists():
-                repo_root = probe
-                break
-            probe = probe.parent
-        else:
-            repo_root = Path.cwd()
-
-    # derive work_dir from pack name {date}-epic-{N}-{slug}
-    if args.work_dir:
-        work_dir = Path(args.work_dir).resolve()
-    else:
-        m = re.match(r"\d{4}-\d{2}-\d{2}-(epic-.+)$", pack.name)
-        work_dir = (
-            repo_root / "docs" / "work" / "tasks" / (m.group(1) if m else pack.name)
-        )
-
+    repo = args.repo_root.resolve() if args.repo_root else find_repo_root(path.parent)
     rep = Report()
-
-    # R1 review pack completeness
-    docs: dict[str, str] = {}
-    for name in ("README.md", "design.md", "decisions.md"):
-        f = pack / name
-        if not f.is_file() or not f.read_text(encoding="utf-8").strip():
-            rep.error("R1", f"review pack 缺失或为空: {f.relative_to(repo_root)}")
-        else:
-            docs[name] = f.read_text(encoding="utf-8")
-
-    # R2 Known Conflicts present and not an empty shell
-    if "README.md" in docs:
-        body = section_body(docs["README.md"], r"Known Conflicts")
-        if body is None:
-            rep.error("R2", "README.md 缺 Known Conflicts 段")
-        elif is_effectively_empty(body) and "无" not in body:
-            rep.error(
-                "R2", 'README.md Known Conflicts 是空壳：要么列冲突，要么明确写"无"'
-            )
-
-    # R9 placeholder residue in pack docs
-    for name, content in docs.items():
-        for ph in sorted(set(PLACEHOLDER.findall(content))):
-            rep.error("R9", f"{name} 有模板占位残留: {ph!r}")
-
-    # R15 one plan status source
-    if "README.md" in docs:
-        status = frontmatter_status(docs["README.md"])
-        allowed_statuses = {
-            "draft",
-            "awaiting-approval",
-            "research-ready",
-            "ready",
-            "completed",
-            "blocked",
-        }
-        if status is None:
-            rep.error("R15", "README.md frontmatter 缺 plan status")
-        elif status not in allowed_statuses:
-            rep.error("R15", f"README.md plan status 非法: {status!r}")
-    for name in ("design.md", "decisions.md"):
-        if name in docs and frontmatter_status(docs[name]) is not None:
-            rep.error("R15", f"{name} 不得复制 plan status；唯一源是 README.md")
-
-    # R12 malformed pipe tables in pack docs
-    for name, content in docs.items():
-        for bad in malformed_table_heads(content):
-            rep.error("R12", f"{name} 表格缺 GFM 分隔行（渲染成纯文本）: {bad}")
-
-    # task packets
-    index_file = work_dir / "task-index.md"
-    task_files = (
-        {p.name: p for p in work_dir.glob("T*.md")} if work_dir.is_dir() else {}
-    )
-    index_content = ""
-    if not index_file.is_file():
-        rep.error("R3", f"缺 task-index.md: {index_file}")
-    else:
-        index_content = index_file.read_text(encoding="utf-8")
-        for ph in sorted(set(PLACEHOLDER.findall(index_content))):
-            rep.error("R9", f"task-index.md 有模板占位残留: {ph!r}")
-        for bad in malformed_table_heads(index_content):
-            rep.error("R12", f"task-index.md 表格缺 GFM 分隔行（渲染成纯文本）: {bad}")
-        referenced = {f"T{n}" for n in TASK_REF.findall(index_content)}
-        for tid in sorted(referenced):
-            if not any(
-                name.startswith(f"{tid}-") or name == f"{tid}.md" for name in task_files
-            ):
-                rep.error(
-                    "R3", f"task-index 引用 {tid} 但 {work_dir.name}/ 下无对应 T 文档"
-                )
-        # R14 Epic Execution Checklist present and constraints cover their target tasks.
-        checklist = section_body(index_content, r"Epic Execution Checklist")
-        if checklist is None:
-            rep.error(
-                "R14",
-                "task-index.md 缺 Epic Execution Checklist 段（subagent 注入约束的来源）",
-            )
-        else:
-            table_rows = [
-                split_markdown_table_row(line)
-                for line in checklist.splitlines()
-                if line.strip().startswith("|")
-            ]
-            structured = bool(
-                table_rows
-                and table_rows[0][:5]
-                == [
-                    "C-ID",
-                    "Severity",
-                    "Applies to",
-                    "Invariant",
-                    "Source",
-                ]
-            )
-            if structured:
-                known_tasks = {
-                    re.match(r"T\d{3}", name).group(0)
-                    for name in task_files
-                    if re.match(r"T\d{3}", name)
-                }
-                seen: set[str] = set()
-                covered: set[str] = set()
-                for cells in table_rows[2:]:
-                    if not cells or all(re.fullmatch(r":?-+:?", c) for c in cells):
-                        continue
-                    if len(cells) != 5:
-                        rep.error(
-                            "R14",
-                            f"Checklist 表格必须恰好 5 列: {' | '.join(cells)[:80]}",
-                        )
-                        continue
-                    cid, severity, applies, invariant, source = cells
-                    if not CONSTRAINT_ID.fullmatch(cid):
-                        rep.error("R14", f"Checklist C-ID 非法: {cid!r}")
-                    elif cid in seen:
-                        rep.error("R14", f"Checklist C-ID 重复: {cid}")
-                    seen.add(cid)
-                    if severity not in {"blocking", "advisory"}:
-                        rep.error("R14", f"{cid} Severity 非法: {severity!r}")
-                    targets = set(re.findall(r"\bT\d{3}\b", applies))
-                    if "global" in applies.lower():
-                        targets |= known_tasks
-                    if not targets:
-                        rep.error("R14", f"{cid} Applies to 未声明 global 或 T-ID")
-                    for unknown in sorted(targets - known_tasks):
-                        rep.error(
-                            "R14", f"{cid} Applies to 引用不存在的 task: {unknown}"
-                        )
-                    covered |= targets & known_tasks
-                    if not invariant or invariant in {"-", "TODO"}:
-                        rep.error("R14", f"{cid} Invariant 为空")
-                    if not source or source in {"-", "TODO"}:
-                        rep.error("R14", f"{cid} Source 为空")
-                if not seen:
-                    rep.error("R14", "Epic Execution Checklist 结构化表没有约束行")
-                for tid in sorted(known_tasks - covered):
-                    rep.error("R14", f"{tid} 未被任何 Epic constraint 覆盖")
-            else:
-                items = [
-                    ln
-                    for ln in checklist.splitlines()
-                    if re.match(r"^\s*\d+\.\s+\S", ln)
-                ]
-                if not items:
-                    rep.error(
-                        "R14",
-                        "task-index.md Epic Execution Checklist 是空壳：至少列 1 条带 source pointer 的硬约束",
-                    )
-                for ln in items:
-                    if "Source:" not in ln:
-                        rep.error(
-                            "R14",
-                            f"Epic Execution Checklist 条目缺 source pointer（需 `Source:` 标记）: {ln.strip()[:60]}",
-                        )
-        # R4 orphan task docs
-        for name in sorted(task_files):
-            tid = name.split("-")[0].removesuffix(".md")
-            if tid not in referenced:
-                rep.warn("R4", f"孤儿 task 文档未被 task-index 引用: {name}")
-
-    decisions_ids: set[str] = set()
-    if "decisions.md" in docs:
-        decisions_ids = set(DECISION_REF.findall(docs["decisions.md"]))
-
-    design_slugs: set[str] = set()
-    if "design.md" in docs:
-        design_slugs = {github_slug(h) for h in HEADING.findall(docs["design.md"])}
-
-    for name, tf in sorted(task_files.items()):
-        content = tf.read_text(encoding="utf-8")
-
-        # R9 placeholders
-        for ph in sorted(set(PLACEHOLDER.findall(content))):
-            rep.error("R9", f"{name} 有模板占位残留: {ph!r}")
-
-        # R12 malformed pipe tables
-        for bad in malformed_table_heads(content):
-            rep.error("R12", f"{name} 表格缺 GFM 分隔行（渲染成纯文本）: {bad}")
-
-        # R5 decision anchors resolve
-        if decisions_ids:
-            for did in sorted(set(DECISION_REF.findall(content))):
-                if did not in decisions_ids:
-                    rep.error("R5", f"{name} 引用 {did}，但 decisions.md 中不存在")
-
-        # R6 design anchors resolve；且只允许锚合同区块（叙事区标题自由、不稳定）
-        contract_slugs = (
-            "api-delta",
-            "data-delta",
-            "ui-surface-delta",
-            "must-hold",
-            "risks",
-            "reviewer-checklist",
-            "术语表",
-            "contracts",
-        )
-        for anchor in sorted(set(DESIGN_ANCHOR.findall(content))):
-            slug = anchor.lower()
-            if (
-                design_slugs
-                and slug not in design_slugs
-                and not any(slug in s or s in slug for s in design_slugs)
-            ):
-                rep.error(
-                    "R6", f"{name} 引用 design.md#{anchor} 解析不到 design.md 标题"
-                )
-            elif not any(c in slug for c in contract_slugs):
-                rep.warn(
-                    "R6",
-                    f"{name} 锚了 design.md 叙事区标题 #{anchor}（不稳定，应改锚合同区块或 decisions D/ACD）",
-                )
-
-        # R13 execution packet fields in Execution note
-        note = section_body(content, r"Execution note")
-        if note is None:
-            rep.error("R13", f"{name} 缺 Execution note 段（执行包机读字段的落点）")
-        else:
-            for field in (
-                "Test policy:",
-                "Risk class:",
-                "UI class:",
-                "System-wide check:",
-                "Verification:",
-            ):
-                if field not in note:
-                    rep.error("R13", f"{name} Execution note 缺执行包字段: {field}")
-
-        # R7 path existence for Read first / Write scope
-        for section in ("Read first", "Write scope"):
-            body = section_body(content, section)
-            if body is None:
-                continue
-            for line in body.splitlines():
-                # 一行多路径守卫：R7 每行只检查首个路径，塞多个 = 后面的全是盲区
-                if "Do not modify" not in line:
-                    slashed = [t for t in re.findall(r"`([^`]+)`", line) if "/" in t]
-                    if len(slashed) >= 2:
-                        rep.warn(
-                            "R7",
-                            f"{name} {section} 一行含 {len(slashed)} 个路径（只有首个被检查），应一行一路径",
-                        )
-                pm = PATH_LINE.match(line)
-                if not pm:
-                    continue
-                raw = pm.group(1).split("#")[0].strip()
-                if not raw or raw.startswith(("http", "{", "docs/work")):
-                    continue
-                p = repo_root / raw
-                if section == "Write scope":
-                    # 新文件/新模块目录正常；父目录和祖父目录都不存在才可疑
-                    if (
-                        not p.exists()
-                        and not p.parent.exists()
-                        and not p.parent.parent.exists()
-                    ):
-                        rep.warn(
-                            "R7",
-                            f"{name} write scope 路径及其上两级目录均不存在: {raw}",
-                        )
-                elif not p.exists():
-                    rep.error("R7", f"{name} {section} 路径不存在: {raw}")
-
-    # R8 Unit→Story mapping stories exist
-    if index_content:
-        mapping = section_body(
-            index_content, r"Unit to Task Mapping|Unit → Task|Unit→Task"
-        )
-        epics_dir = repo_root / "docs" / "work" / "epics"
-        if mapping and epics_dir.is_dir():
-            for line in mapping.splitlines():
-                if not line.strip().startswith("|") or "---" in line:
-                    continue
-                cells = [c.strip() for c in line.strip("|").split("|")]
-                if len(cells) >= 2 and re.fullmatch(r"\d+\.\d+", cells[1]):
-                    n, m = cells[1].split(".")
-                    # 平铺模式文件名 story-N.M*.md，展开模式 us{NNN}-*.md 内含 "### Story N.M"
-                    hits = list(epics_dir.rglob(f"story-{n}.{m}*.md"))
-                    if not hits and not any(
-                        f"Story {n}.{m}" in f.read_text(encoding="utf-8")
-                        for f in epics_dir.rglob("*.md")
-                    ):
-                        rep.warn(
-                            "R8", f"task-index 引用 Story {n}.{m}，epics 目录未找到"
-                        )
-
-    # R11 design.md 叙事区每个 h2 小节开头有导读行（> 一句话：…）
-    if "design.md" in docs:
-        d = docs["design.md"]
-        contract_pos = re.search(r"^##\s+合同区", d, re.MULTILINE)
-        narrative = d[: contract_pos.start()] if contract_pos else d
-        for hm in re.finditer(r"^##\s+(.+?)\s*$", narrative, re.MULTILINE):
-            first_line = ""
-            in_comment = False
-            for ln in narrative[hm.end() :].splitlines():
-                s = ln.strip()
-                if not s:
-                    continue
-                if in_comment:
-                    if "-->" in s:
-                        in_comment = False
-                    continue
-                if s.startswith("<!--"):
-                    if "-->" not in s:
-                        in_comment = True
-                    continue
-                first_line = s
-                break
-            if not first_line.startswith("> 一句话："):
-                rep.error(
-                    "R11",
-                    f"design.md 叙事小节「{hm.group(1)}」缺导读行"
-                    "（h2 后第一行应为 `> 一句话：…`）",
-                )
-
-    # R10 verify.sh：每个 Unit 有函数且接进 ALL_UNITS（all 入口靠遍历 ALL_UNITS，漏加=静默漏跑）
-    verify = work_dir / "verify.sh"
-    if not verify.is_file() or not verify.read_text(encoding="utf-8").strip():
-        rep.warn("R10", f"缺 verify.sh（Unit verification 可执行入口）: {verify}")
-    else:
-        vs = verify.read_text(encoding="utf-8")
-        all_units_match = re.search(r'^ALL_UNITS="([^"]*)"', vs, re.MULTILINE)
-        if "all" not in vs or not all_units_match:
-            rep.warn("R10", "verify.sh 缺 all 入口或 ALL_UNITS 清单")
-        wired = set(all_units_match.group(1).split()) if all_units_match else set()
-        if index_content:
-            units = set(UNIT_ID.findall(index_content))
-            for u in sorted(units, key=int):
-                if not re.search(rf"\bunit_U{u}\b", vs):
-                    rep.warn("R10", f"verify.sh 缺 unit_U{u} 函数")
-                elif f"U{u}" not in wired:
-                    rep.error(
-                        "R10",
-                        f"verify.sh 定义了 unit_U{u} 但未接进 ALL_UNITS（all 会静默漏跑）",
-                    )
-
+    lint(parse_plan(path.read_text(encoding="utf-8")), repo, args.for_execution, rep, path.parent)
     return rep.dump()
 
 

@@ -9,7 +9,7 @@ description: Use when the user has a vague or rough product idea ("我想做个X
 
 把模糊的产品想法磨成尖锐的定位。核心原理:**通用工具很难赢,用户买单的不是功能,而是被解决的恐惧和焦虑。**
 
-流程:三层需求判断 → 横向切分人群 → 纵向深挖场景 → 价值重构。产出一个重构后的产品概念,然后交棒给 `validate-idea` 验证付费意愿。
+流程:三层需求判断 → 横向切分人群 → 纵向深挖场景 → 价值重构。产出一个重构后的产品概念,然后做付费意愿验证,再交给 `vj-product-requirements` 写 PRD。
 
 本 skill 全程用中文与用户对话,**一次只问一个问题**,像教练一样逼问,而不是替用户编造答案。
 
@@ -19,7 +19,7 @@ description: Use when the user has a vague or rough product idea ("我想做个X
 - 用户的想法是一个功能(记账、番茄钟、卡路里识别),市面上已有成熟产品
 - 用户不确定点子是否值得投入
 
-**不要用于:** 已有清晰细分定位、只差验证付费意愿的点子(直接用 validate-idea);纯技术选型或实现问题。
+**不要用于:** 已有清晰细分定位、只差验证付费意愿的点子(直接做付费验证,见 Step 5);纯技术选型或实现问题。
 
 ## 流程
 
@@ -79,7 +79,7 @@ description: Use when the user has a vague or rough product idea ("我想做个X
 
 重构完成 ≠ 验证通过。明确告诉用户下一步:
 
-> 概念磨好了,但"用户会不会真掏钱"只能用钱验证。建议接着运行 `/validate-idea` 做付费验证(10 个用户访谈 + 定金测试,定金转化率 >10% 才值得投入),之后用 `/mvp` 规划最小可行产品。
+> 概念磨好了,但"用户会不会真掏钱"只能用钱验证。建议先做付费验证(10 个用户访谈 + 定金测试,定金转化率 >10% 才值得投入),通过后再用 `vj-product-requirements` 写 PRD 并规划最小可行版本。
 
 ## Quick Reference
 
@@ -96,5 +96,5 @@ description: Use when the user has a vague or rough product idea ("我想做个X
 | 直接照搬 reference.md 里的示例结论(如记账APP→留学生家长) | 示例仅作格式参考,人群和场景必须由用户真实推导得出 |
 | 一次抛出全部问题 | 一次一个问题,等回答再继续 |
 | 在 Step 1 就否决痒点想法 | 痒点经过细分常变成某人群的痛点,先走完横切再下结论 |
-| 重构后直接建议开始开发 | 必须交棒 validate-idea,付费验证前不写代码 |
+| 重构后直接建议开始开发 | 先做付费验证(Step 5),验证前不写代码 |
 | 用"你会用这个产品吗"提问 | 假阳性率极高,用 reference.md 里的行为提问法 |

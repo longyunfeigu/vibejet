@@ -43,7 +43,7 @@ Read `resources/backend-constitution.md` first, then:
 | `backend/infrastructure/models/`, `backend/infrastructure/repositories/`, `backend/infrastructure/database.py`, `backend/infrastructure/unit_of_work.py` | `resources/infrastructure-repositories.md` |
 | `backend/infrastructure/security/`, JWT helpers, token signing/parsing, password/security utilities | `resources/security-jwt.md` |
 | `backend/core/config.py`, settings, environment parsing | `resources/configuration.md` |
-| Tests under `backend/tests/`, or task-doc bare `tests/...` paths in a backend Unit | `resources/testing.md` |
+| Tests under `backend/tests/`, or bare `tests/...` paths in a backend Story's execution block | `resources/testing.md` |
 | `backend/core/exceptions.py`, response/error/logging/metrics/tracing/middleware error flow | `resources/errors-observability.md` |
 
 Controller policy: controller is not a default layer in this repo. Routes normally delegate directly to application services. Add a controller only when an existing module already uses that pattern or a reviewed design explicitly requires a separate HTTP orchestration layer.

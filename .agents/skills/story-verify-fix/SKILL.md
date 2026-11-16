@@ -1,6 +1,6 @@
 ---
 name: story-verify-fix
-description: 从 Story 文件或 Story 描述启动“环境启动 → Story 验证 → 前后端联调 → 设计图对齐检查 → 自动修复重试”的 workflow。适用于需要同时验证后端、前端、集成行为和 UI 对齐的复杂 Story。
+description: 从计划里的一个任务（或一段功能描述）启动“环境启动 → Story 验证 → 前后端联调 → 设计图对齐检查 → 自动修复重试”的 workflow。适用于需要同时验证后端、前端、集成行为和 UI 对齐的复杂 Story。
 ---
 
 # story-verify-fix
@@ -141,8 +141,7 @@ description: 从 Story 文件或 Story 描述启动“环境启动 → Story 验
 ```
 
 如果 AC 没有 `验证:` 标注：
-- **新 Story**（由 vj-epic-story 生成）：视为 **blocking 问题**，停止验证并要求补充 `验证:` 标注
-- **存量 Story**（无 `验证:` 标注的历史 AC）：根据 AC 内容推断验证方式，但在报告中标记为 `⚠️ 推断` 并建议回填
+- 根据 AC 内容推断验证方式，在报告中标记为 `⚠️ 推断` 并建议回填；输入是 `vj-plan` 计划时，验收项的检查方式以计划任务里的检查命令为准
 
 #### Step 2: 逐条执行验证
 
@@ -352,13 +351,13 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 后端 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/work/epics/epic-03-agent-execution.md#story-3.2，只启动后端并验证验收标准。
+使用 story-verify-fix，处理 docs/work/plans/2026-11-13-agent-execution.md 的任务 T2，只启动后端并验证它覆盖的验收项。
 ```
 
 前后端联调 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/work/epics/epic-03-agent-execution.md#story-3.5。
+使用 story-verify-fix，处理 docs/work/plans/2026-11-13-agent-execution.md 的任务 T5。
 后端启动命令是 uvicorn main:app --reload --port 8000
 前端启动命令是 npm run dev -- --port 3000
 需要做前后端联调验证。
@@ -367,7 +366,7 @@ sqlite3 backend/dev.db "SELECT id, phone, is_active FROM users WHERE phone='1380
 带设计图对齐检查的 Story：
 
 ```text
-使用 story-verify-fix，处理 docs/work/epics/epic-04-console.md#story-4.1。
-启动前后端，并验证页面与 Story 中的设计参考图是否对齐。
+使用 story-verify-fix，处理 docs/work/plans/2026-11-13-console.md 的任务 T1。
+启动前后端，并验证页面与计划里的设计参考图是否对齐。
 最多自动修复 2 轮。
 ```

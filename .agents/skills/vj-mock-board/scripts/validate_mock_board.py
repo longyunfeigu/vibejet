@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """vj-mock-board P4 机检：mock board HTML 的确定性约束校验。
 
-检查项（对应 SKILL.md 铁律）：
+检查项（对应 SKILL.md「约束」）：
   1. anchors        — screen-inventory.md 锚点列的每个 id 在板内存在且唯一
   2. colors         — 裸色值只允许出现在 :root 块内，且值 ∈ DESIGN.md 色值集合；
                       正文只允许 var(--token)。rgba() 为阴影/遮罩白名单（设计决策，

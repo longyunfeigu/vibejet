@@ -1,68 +1,129 @@
-# vj skill 家族约定（编写 / 修订 checklist）
+# vj skill 写作约定
 
-新建或大改 `.agents/skills/` 下的 vj 系 skill 时逐条对照。目的：让所有 skill 在
-无人值守行为、失败兜底、真相源指向和验证方式上保持同一代水平，避免再出现
-"某个 skill 落后一代"的漂移。
+新建或修改 `.agents/skills/` 下的 vj 系 skill 时按这份约定写。依据：Anthropic
+[Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+与 [Prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)。
+
+## 一条判断标准
+
+每句话都问：**删掉它，模型在这个仓库里会犯一个具体的错吗？** 会才留。模型本来就会的事不写；
+写了不但费 token，还会被当成必须执行的额外步骤，拖慢执行。
+
+## 该写什么
+
+- **仓库私有事实**：路径、产物合同、脚本命令、真相源在哪。
+- **做过的决策和被拒绝的方案**：一句话说清为什么，必要时注明出事的那次（如 RC1、epic-1）。
+- **用户的判断标准**：审美锚点、验收口径这类模型推不出来的东西。
+- **窄桥步骤**：不可逆或高风险的操作（迁移、鉴权、提交、覆盖用户文件）写清固定步骤。
+- **脚本**：能确定性判定的约束写成 `scripts/` 机检（exit code 拦截），skill 里只写怎么跑。
+
+## 不该写什么
+
+- 通用工程常识（INVEST 释义、怎么做 code review、测试金字塔）。
+- 替模型安排思考顺序的剧本、"先想 A 再想 B"。
+- 做完自查清单。机检能覆盖的交给脚本，语义判断交给独立审查；新模型会自己验证，
+  多写的自查只会造成重复验证。
+- 版本叙事（"v3 相对 v2"）。历史放 git log。
+- 跨 skill 重复的规则：写在一处，其他地方只放指针。
+- 每个 skill 都重复一遍的上下游链路图（链路只在 `docs/reference/guides/ai-workflow.md` 维护）。
+- 示例对话、没有程序消费的 YAML 配置块、和 description 重复的触发示例。
+
+## 语气
+
+- 用普通祈使句加一句理由。"必须 / 禁止 / STOP"只留给机检兜底或不可逆的动作；
+  新模型会严格执行这类词，堆多了会让它过度谨慎、反复停下。
+- 规则的例外写进规则本身，不另起一条"但是……"。
+- 需要用户批准的动作，点名到具体动作；没点名的就是不需要批准。
+
+## 人工关卡与无人值守
+
+- 执行和规划类 skill 最多一个用户关卡，只在**会改变可观察行为或长期边界的未决选择**上停。
+  需求清楚、改动可逆时直接做，不做形式确认。
+- 一个关卡里可以一问一答问多题（如 `vj-plan` 的开场追问：一次一个、每问带推荐、用户随时可以说"剩下按推荐"），
+  只要它是写计划前的同一轮。
+- 例外：以产出产品决策为目的的 skill，关卡本身就是它的工作，可以有多个。例如
+  `vj-product-requirements` 的采访、选方向和最后一次拍板、`vj-design-md-matcher` 的参考确认和像素选方向
+  （用户要看到成品才能选）。修订这类 skill 时不要为了"一个关卡"删掉它们。
+- 无法提问（subagent / 无人值守）时：按最合理假设继续，把假设标为
+  "假设待审批 + Confidence: H/M/L"。只有 skill 里点名的硬停（机检 ERROR、strict 审批）才停。
+
+## 子代理
+
+只在两种情况派：工作真正独立且能并行，或需要隔离上下文。派发时给齐任务、写入范围、验证命令和
+返回格式；运行时没有子代理能力就在主上下文顺序做，不算失败。能力名按
+`_shared/runtime-contract.md` 写（`spawn_agent`、`ask_user` 等），不写具体工具名——
+`workflow_doctor.py runtime --strict` 会拦。
 
 ## 结构
 
-- [ ] SKILL.md 只留：适用/不适用场景、铁律、Phase 骨架、触发示例；长模板、展示格式示例、
-      派生技术表下沉 `references/` 按需读（参照 `vj-epic-plan` 的结构）
-- [ ] frontmatter `description` 包含用户会说的触发短语（中文口语 + 英文关键词）
-- [ ] 与上下游 skill 的协作链显式声明，且**引用的 skill 必须真实存在**
-      （交付前 `rg` 验证，杜绝 run-story 式断链）
+- SKILL.md 放：什么时候用、关键决策、步骤骨架、指针。长模板、展示格式、派生表放
+  `references/`，从 SKILL.md 直接链接（只链一层，不要 reference 再链 reference）。
+- frontmatter `description` 写清做什么、什么时候用、用户会说的触发短语（中文口语 + 英文关键词）。
+- 引用其他 skill 前用 `rg` 确认它真实存在。
 
-## 行为
+## 真相源（只写一处，其余放指针）
 
-- [ ] **无人值守 fallback**：每个 user gate（确认/审批/提问）都定义无法提问时的行为——
-      写最合理假设 + `Confidence: H/M/L`，标"假设待审批"，不阻塞、不静默拍板、不静默跳过
-      （口径源：`vj-epic-plan` Phase 3）
-- [ ] **失败模式与兜底表**：列出真实会卡住的场景（触发条件 / 一线修复 / 仍失败兜底），
-      不假设用户配合、网络可用、路径可写（格式参照 `vj-product-requirements`）
-- [ ] **Stop conditions**：同一确认 gate 反馈 ≥3 次不收敛 → 弹"继续 / 重审上游 / 放弃"，
-      防死循环
-- [ ] **后置审查钩子**：文档产出类 skill 收尾自动触发独立审查（PRD/架构 → `codex-review`；
-      epic plan → `vj-plan-review`），用户可说"跳过审查"
+| 内容 | 真相源 |
+|------|--------|
+| strict 触发条件 | `AGENTS.md`「Plan 规范」 |
+| 设计方向用的 UI 合同（屏型、双轨） | `_shared/ui-planning-contract.md` |
+| 实现期前端出口闸（富度 R / 工艺 C / A/B 轨） | `.claude/rules/frontend.md` |
+| 设计 token 数值 | `docs/project/DESIGN.md` |
+| 当前数据 / 接口 / 页面的样子（跨计划） | `docs/project/api|data|ui/`，`vj-work` 收尾时更新 |
+| 一块工作的计划、进度和验收说明 | 那份计划文件（`docs/work/plans/{date}-{slug}.md`）的 frontmatter 状态和末尾的执行记录、验收说明 |
+| 学习沉淀 | 写端 `vj-compound`（`docs/solutions/`）；读端是 `vj-plan/scripts/scout.py` 列出的候选 |
+| 文档 HTML 视图（`.md` 是事实源，`.html` 是同一内容的网页版、不进 git、不手编） | `_shared/scripts/render_doc_html.py` 头注释 |
 
-## 真相源（只写一处，其余指针）
+## 给人看的文档怎么写
 
-- [ ] 规划期 UI 合同规则 → `.agents/skills/_shared/ui-planning-contract.md`
-- [ ] 实现期前端出口闸（富度 R / 工艺 C / A/B 轨）→ `.claude/rules/frontend.md`
-- [ ] 设计 token 数值 → `docs/project/DESIGN.md`
-- [ ] 跨 Epic 稳定契约 → `docs/project/api|data|ui/` catalog（architecture.md 不重复维护
-      端点/表级细节）
-- [ ] Epic/Story 编号 → `vj-epic-story/scripts/allocate_ids.py` 从文件派生；产品状态 →
-      Epic frontmatter（独立 Story 格式有 frontmatter 时同步）；执行状态 →
-      `.vj/runs/*/run-state.json`
-- [ ] 学习飞轮：写端 `vj-compound`（`docs/solutions/`），读端 Agent D 模板
-      （`vj-epic-plan/references/research-agents.md`）
-- [ ] 文档 HTML 视图（`.md`=唯一事实源，`.html`=派生、不进 git、永不手编）→
-      `.agents/skills/_shared/scripts/render_doc_html.py` 头注释；文档产出类 skill
-      收尾跑它生成人读视图（PRD / epic / review pack / task packets 已接入，
-      新的人读文档产出照此办理；新文档族的判族与增强注册在渲染器单文件内做）
-- [ ] 新 skill 不复述以上任何一处的规则条目；引用格式："按 {路径} §N 执行，本 skill 不复述"
+给人看的内容（PRD 正文、计划、验收说明、对照报告）按这几条写。AI 读同一份文档，不另写一份
+给 AI 的版本——写给人看清楚了，AI 也读得懂；只给机器的细节（改哪些文件、跑什么命令）放进文档末尾的附录，
+网页里默认折叠。同一个"写成了给 AI 看"的问题在 PRD 和对照报告上各出现过一次，所以写成共用规则。
 
-## 验证
+1. **先说"所以呢"**：第一屏回答结论是什么、对读者意味着什么、要读者决定什么。
+2. **一个具体场景贯穿全文**：用"小林说'晚上吃火锅'会发生什么"讲机制，不用抽象分类讲。
+3. **每个差别讲到后果**：没有它会怎样，具体到时间、钱或 bug。读者靠后果判断轻重。
+4. **只讲最重要的两三件**：其余放进可展开的附录，不和重点平铺在一起。
+5. **生词有预算**：能换成大白话就换；换不掉的第一次出现时用一句话解释，并马上落回场景。
+   主语是人和产品，不是文件名和行号。
+6. **段落讲因果，表格只放真正可并列比较的东西**；不用 A/B 这类要读者在脑子里翻译的代号。
 
-- [ ] 可确定性判定的约束写成 `scripts/` 机检脚本（exit code 拦截），不靠模型自查清单
-      （参照 `vj-epic-story/scripts/validate_story.py`、`vj-compound/scripts/validate-frontmatter.py`）
-- [ ] 判定权独立：质量闸的 pass/fail 不得由产出方自评（参照 frontend.md A5/B5）
-- [ ] 图形默认 Mermaid；仅纯文本终端环境降级 ASCII
+写完自测：读者读完能不能用三句话复述给别人听。复述不出来就是没写清楚。
 
-## archify 出图约定（vj-epic-story journey 图 / vj-epic-plan diagrams 共用）
+## 图规范（各 skill 出图共用）
 
-- [ ] **首轮过检三规则**：①CJK 标签按双宽计——默认宽节点 label ≈ ≤4 个汉字，细节下沉
-      sublabel/tag/cards；②边标签能省则省（信息进 cards），必须的标签先给 labelDx/labelDy
-      避让；③同 lane 内避免 1↔2、3↔4 紧邻列放默认宽节点（workflow 模式列距坑）
-- [ ] 产物必须过 renderer 布局校验 + `check-render-output.mjs`；修碰撞只改源 JSON，
-      不改渲染器
-- [ ] **多图并行**：≥2 张图时每张派一个 subagent 闭环完成（写 JSON → 渲染 → 自修碰撞 →
-      输出机检 → 只回报产物路径），**硬超时 ≈3 分钟**，到点击杀降级主上下文串行——
-      质量由机检判定，与执行者无关，并行不损质量
-- [ ] journey 图的按文件名寻图 / digest sidecar 契约见
-      `_shared/scripts/render_doc_html.py` 的 `journey_embed` docstring
+图要既能审、又能对外沟通，所以含义按业界标准、长相用 archify 渲染：
+
+| 图 | 回答什么 | 放在哪 | 记法 / archify 模式 |
+|----|----------|--------|---------------------|
+| 用户旅程 | 用户怎么一步步达成目标 | PRD §1.2、计划"做什么、为什么" | 流程 / `workflow` |
+| 领域模型、实体关系图 | 有哪些东西、谁属于谁、谁能看谁 | 长期版本放 `docs/project/data/`；这次的变化放计划关键设计 | 鸦脚记法 / `er` |
+| 状态图 | 一个东西有哪些状态、能怎么变、不能怎么变 | 核心对象放架构；新增的放计划关键设计 | 状态机 / `lifecycle` |
+| 系统架构图 | 系统由哪几块组成、怎么连 | 架构 | C4 分层（一层一张）/ `architecture` |
+| 改造前后对比 | 这次改动让系统从什么样变成什么样 | 计划方案总览（只在改动现有系统时） | 前后两张组件级流程图 / `architecture` |
+| 时序图、关键流程 | 一次请求经过哪些环节、失败了怎么办 | 计划关键设计 | 时序 / `sequence`、`workflow` |
+| 改动影响清单 | 这次改动碰到哪些已有功能、哪些旧假设要变 | 计划"改到哪些已有东西、风险和回滚" | 表格，不画图 |
+
+- **事实源是文档里的 Mermaid 文本**（AI 读写、改动可对比）；给人审阅和对外时用 archify 渲染成展示图，
+  图是派生物，源变了要重新渲染。
+- **一张图只回答一个问题**，标题就写成那个问题；节点多到看不清就拆。必须有图例。
+- **审"这次改了什么"时只画变化**：受影响的部分加直接相邻的部分，新增 / 修改 / 删除用固定颜色和
+  `+` / `~` / `−` 标出（archify `er` 模式的 `change` 字段内置这套颜色）。
+- Mermaid `erDiagram` 的中文显示名只能写在实体声明处（`USER["用户"] { }`），写在关系行里（`USER["用户"] ||--o{ …`）
+  Mermaid 11 解析失败、整张图降级成源码（食衡计划 epic-1 / 2a / 2c 三张图都踩过）。
+- 名词用业务语言，和 PRD 一致；不写代码类名。不用渐变、3D、装饰图标；精致感来自留白、对齐和克制的配色。
+
+## archify 出图约定（PRD、计划、架构出展示图时共用）
+
+- 首轮过检三规则：①CJK 标签按双宽计，默认宽节点 label 约 ≤4 个汉字，细节放
+  sublabel/tag/cards；②边标签能省则省，必须的先给 labelDx/labelDy 避让；③同 lane 内避免
+  1↔2、3↔4 紧邻列放默认宽节点。
+- 产物要过 renderer 布局校验和 `check-render-output.mjs`；修碰撞只改源 JSON，不改渲染器。
+- 两张以上的图可以每张派一个子代理闭环（写 JSON → 渲染 → 修碰撞 → 机检 → 回报路径），
+  约 3 分钟不返回就收回主上下文串行做。质量由机检判定，并行不影响质量。
+- journey 图按文件名寻图和 digest sidecar 的约定见 `render_doc_html.py` 的 `journey_embed` docstring。
 
 ## 红线
 
-- [ ] 敏感数据：不写真实 secrets、客户数据、业务原文进任何产物
-- [ ] 不做投机抽象：skill 只解决当前工作流的真实卡点，不为"以后可能"加配置项
+- 产物里不写真实 secrets、客户数据、业务原文。
+- 只解决当前工作流的真实卡点，不为"以后可能"加配置项。

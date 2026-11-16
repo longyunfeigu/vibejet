@@ -1,6 +1,6 @@
 ---
 name: review
-description: 对当前分支、工作区或指定文件做 pre-landing code review。优先发现 DDD 分层违规、权限边界缺失、并发/事务风险、trust boundary 问题和缺失测试。默认基于 diff 做两轮审查，并使用 docs/reference/guides/review-checklist-python-fastapi.md 输出 findings-first 结果。
+description: 对当前分支、工作区或指定文件做 pre-landing code review。优先发现 DDD 分层违规、权限边界缺失、并发/事务风险、前端异步状态竞态、trust boundary 问题和缺失测试。默认基于 diff 做两轮审查；给了计划/设计文档时额外对照它审；使用 docs/reference/guides/review-checklist-python-fastapi.md 输出 findings-first 结果，并附审查覆盖表。
 ---
 
 # review
@@ -40,6 +40,10 @@ description: 对当前分支、工作区或指定文件做 pre-landing code revi
 
 如果该文档缺失或无法读取，应停止并直接报告，不要假装按标准审查。
 
+diff 涉及 `frontend/src/` 时，还要读 `.agents/skills/frontend-dev-guidelines/SKILL.md` 的 New Component Checklist 和三态规则（清单 3.8 引用它，不在本 skill 重复）。
+
+可选输入：计划或设计文档（`docs/work/plans/*.md`、`docs/work/delivery/**/design.md`）。用户或调用方给了就读，没给不要自己去猜是哪份。
+
 ## Workflow
 
 ### Step 1: Determine Scope
@@ -59,6 +63,15 @@ Review: No changes to review.
 3. 不要在只看局部片段时提前下结论。
 4. 如果问题已经在同一 diff 中被修掉，不要重复报。
 
+### Step 2.5: 对照计划（仅在给了计划/设计文档时）
+
+diff 只告诉你“实际做了什么”，计划告诉你“本来打算做什么”。只看 diff，发现不了做偏了、做漏了、多做了。
+
+- **对账**：计划说要改的和 diff 实际改的对一遍。计划外的实质改动，确认是必要的连带改动还是范围膨胀；计划里有、diff 里没有的，报出来。
+- **关键设计是否落地**：计划里已定的设计和决定，逐条找到实现它的代码，看做法是否一致。违背验收清单或数据 / 接口契约的按 Blocking。
+
+计划是当初的打算，不是正确性的证明：代码“和计划一致”只说明没做偏，计划里的做法本身也可能有漏洞，照样按清单审。计划本身的取舍不在这里重新评审（那是 vj-plan 的事），但发现它会导致 bug 时，作为 Open question 提出。
+
 ### Step 3: Two-Pass Review
 
 严格按两轮执行，避免风格问题淹没真正风险。
@@ -74,6 +87,7 @@ Review: No changes to review.
 - 外部输入 / SDK / LLM trust boundary
 - 不安全持久化与查询
 - 默认安全配置过宽
+- 前端异步状态（清单 2.8）
 
 **安全加检**（当改动涉及认证、授权、用户输入、外部集成时）：
 - 读取 `references/security-checklist.md`，重点检查 A.2-A.5 节
@@ -92,6 +106,8 @@ Review: No changes to review.
 - 测试缺口
 - 性能与资源使用
 - 魔法值与重复实现
+- 前端规范、数据兼容、可维护性（清单 3.8–3.10）
+- 当前状态文档与代码一致（清单 4.5）
 
 **性能加检**（当改动涉及数据库操作、列表查询、外部调用、文件处理时）：
 - 读取 `references/performance-checklist.md`，重点检查 B.1-B.3 节
@@ -104,9 +120,13 @@ Review: No changes to review.
 1. `Blocking`
 2. `Non-blocking`
 3. `Open questions / assumptions`
-4. 可选的简短 change summary
+4. `计划对照`（仅在给了计划时：计划外改动、计划内遗漏、关键设计逐条是否落地——已作为问题报出的只写一句指向）
+5. `审查覆盖`（必填）
+6. 可选的简短 change summary
 
 不要先写概述，再把问题放到后面。
+
+**审查覆盖**：把 diff 里的文件按“完整读过 / 只扫过 / 跳过”列出来（可按目录合并）。目的是让读报告的人知道结论覆盖到哪里、哪里没人看过——没列出来的盲区，等于对外宣称“审过了”。“看起来风险低”不是跳过生产代码的好理由：凭直觉判断的低风险文件，往往正是问题藏身之处（例：被当成展示层跳过的表单组件里有竞态）。生成文件、纯格式化这类可以跳过并注明。
 
 建议格式：
 
@@ -123,6 +143,16 @@ Non-blocking:
 
 Open questions / assumptions:
 - ...
+
+计划对照:（给了计划时）
+- 计划外改动：...
+- 计划内遗漏：...
+- 关键设计：D1 ✓ 落在 path:line；D3 ✗ 见 Blocking 第 1 条
+
+审查覆盖: 改动文件 N 个
+- 完整读过：...
+- 只扫过：...
+- 跳过（理由）：...
 ```
 
 要求：
@@ -158,7 +188,9 @@ Review: No issues found.
 ## 与其他 skills 的关系
 
 - `vj-work`
-  - Story/Unit 实现完成后，可用本 skill 做 pre-landing review（strict 模式默认触发）
+  - 收尾时用本 skill 做 pre-landing review（strict 模式默认触发），并把计划文件路径一起交给本 skill，走 Step 2.5
+- `delivery-code-review`
+  - 实验链里配合 `design.md` 使用的另一套审查；两者共用本清单作为检查标准
 - `story-reference-impl`
   - 复杂 Story 在 verify-fix 通过后，再用本 skill 做结构化审查
 - `story-verify-fix`
@@ -198,7 +230,6 @@ Review: No issues found.
 - 改动涉及数据库查询但没有检查 N+1 和分页
 - diff 中出现 `allow_origins=["*"]` 或硬编码 secret 但未报 blocking
 - 输出"No issues found"但没有附 residual risk 说明
-
 ## 示例
 
 审查当前分支：
@@ -217,4 +248,10 @@ Review: No issues found.
 
 ```text
 使用 review，审查 story 3.5 的实现，优先找 blocking 问题和缺失测试。
+```
+
+对照计划审查：
+
+```text
+使用 review，审查当前分支相对 main 的改动，计划是 docs/work/plans/2026-11-13-epic-1-daily-target.md。
 ```

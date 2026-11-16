@@ -79,7 +79,6 @@ def workflow_fingerprint(root: Path) -> str:
             "vj-skill-conventions.md",
             "scripts/plan_lint.py",
             "scripts/workflow_doctor.py",
-            "scripts/workflow_state.py",
         ):
             path = shared / name
             if path.is_file():

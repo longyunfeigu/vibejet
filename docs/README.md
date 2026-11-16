@@ -14,7 +14,7 @@ platform is quarantined under `product/` so the two never mix.
 | Data contracts | [project/data/README.md](project/data/README.md) | Current persistent schema documentation status |
 | Product intent | [product/](product/) | PRD and product-specific intent for the app built on this platform |
 | Reference guides | [reference/](reference/) | Repo-local workflow guides, review rules, and ADRs |
-| Delivery workflow | [work/](work/) | Epic, Story, plan review pack, and task packet conventions |
+| Delivery workflow | [work/](work/) | One plan document per piece of work |
 | Solutions knowledge base | [solutions/](solutions/) | Solved problems and established decisions (written via `vj-compound`) |
 | Archive | [archive/](archive/) | Historical/downstream product docs that are not current baseline requirements |
 | AI workflow | [reference/guides/ai-workflow.md](reference/guides/ai-workflow.md) | Repo-local skill selection and implementation workflow |
@@ -41,9 +41,7 @@ docs/
 |- solutions/
 `- work/
    |- README.md
-   |- epics/
-   |- plans/
-   `- tasks/
+   `- plans/
 ```
 
 ## Ownership Rules
@@ -52,8 +50,7 @@ docs/
 - Put archived historical/downstream-product material under `docs/archive/`.
 - Put durable technical decisions under `docs/reference/adrs/`.
 - Put reusable workflow and review guidance under `docs/reference/guides/`.
-- Put temporary execution plans under `docs/work/plans/`, and executable task packets plus
-  execution records under `docs/work/tasks/`.
+- Put plans (one file per piece of work, including execution log and acceptance notes) under `docs/work/plans/`.
 - Put solved-problem and decision learnings under `docs/solutions/` (written via `vj-compound`).
 - Put product intent (PRD, personas, launch materials, product-specific research) under
   `docs/product/` — never under `docs/project/`, which holds only platform facts and

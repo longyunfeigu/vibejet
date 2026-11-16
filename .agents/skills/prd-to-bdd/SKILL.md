@@ -15,7 +15,7 @@ description: Use when generating test cases from delivery or PRD docs under docs
 `prd-to-bdd` is the only authoritative workflow for:
 
 - case generation standards
-- execution-type decision (`Automated` / `Manual-Prod-Unsafe` / `Manual-Fault-Injection`)
+- execution-type decision (`Automated` / `Manual-Prod-Unsafe` / `Manual-Fault-Injection` / `Backend-Unit`)
 - case-to-BDD conversion rules
 
 
@@ -102,7 +102,7 @@ Before Phase 2 (BDD conversion), ensure all three gates pass:
   - **Permission Boundaries**: Test access control (Admin vs. Read-Only user vs. Unauthorized).
   - **Data Boundary Conditions**: Test empty states, max limits, and invalid inputs.
   - **Error States & Recovery**: Test how the system handles and recovers from expected failures.
-- **Gate B - Execution Decision**: every case has an explicit execution type (`Automated`, `Manual-Prod-Unsafe`, or `Manual-Fault-Injection`) with rationale.
+- **Gate B - Execution Decision**: every case has an explicit execution type (`Automated`, `Manual-Prod-Unsafe`, `Manual-Fault-Injection`, or `Backend-Unit`) with rationale.
 - **Gate C - Traceability**: each scenario in feature files can be traced back to exactly one Case ID row.
 
 ---
@@ -268,22 +268,24 @@ Examples:
 
 **vibejet feature code registry (use these exact codes; add a line when you create a feature):**
 - `AUTH-LGN` = `auth/login`
-- `HOME-DSH` = `home/dashboard`
+- `DIET-PRF` = `diet/profile`
+- `DIET-LOG` = `diet/meal-log`
 
 > The Case ID in the csv is the tracking ID. The corresponding BDD scenario gets a `@{CASE_ID}` tag (e.g., `@VA-SHL-001`). Record the Case ID tag in the **BDD Tag** column (column 14) alongside the execution tag (e.g., `@VA-SHL-001 @smoke`).
 
 **Test Data column for parameterized cases (Rule P1)**: when a case merges same-flow data variants per Case Packaging Rule P1 (`case-generate.md` §5), column 10 (Test Data) MUST enumerate the variant matrix (e.g. `provider ∈ {Deepgram, Cartesia, ElevenLabs, WIZ}`). Phase 2 converts such a row into a single `Scenario Outline` with one `Examples` row per variant.
 
 **Case Type values** (EN/CN): `Smoke/冒烟`, `Regression/回归`, `Runtime/Slow/回归`, `Negative/负向`  
-**Execution Type values** — canonical 3-value vocabulary enforced by `npm run lint:bdd`; vibejet's case file is Chinese, so use the CN values:
+**Execution Type values** — canonical 4-value vocabulary enforced by `npm run lint:bdd`; vibejet's case file is Chinese, so use the CN values:
 
-| File | Automated | Manual (prod-unsafe / hard-to-observe) | Manual (fault injection) |
-|------|-----------|----------------------------------------|--------------------------|
-| `manual-test-cases-cn.csv` | `自动化测试` | `手工测试-产线高危` | `手工测试-故障注入` |
+| File | Automated | Manual (prod-unsafe / hard-to-observe) | Manual (fault injection) | Backend unit test |
+|------|-----------|----------------------------------------|--------------------------|-------------------|
+| `manual-test-cases-cn.csv` | `自动化测试` | `手工测试-产线高危` | `手工测试-故障注入` | `后端单测` |
 
 - `Automated` / `自动化测试`: standard UI/API flows automatable via Playwright
 - `Manual-Prod-Unsafe` / `手工测试-产线高危`: mutates shared/global/cross-env state (upload/publish/taxonomy/global config), needs physical audio/video or complex visual verification, RBAC accounts not provisioned in CI, or 3rd-party auth outside our control
 - `Manual-Fault-Injection` / `手工测试-故障注入`: requires injecting a failure or unavailable dependency (wrong endpoint URL, revoked DB grant, upstream timeout) that CI cannot safely and deterministically produce
+- `Backend-Unit` / `后端单测`: the expected result can only be checked inside the backend — neither the page nor the public API can observe it (e.g. "every table has zero rows for the deleted user", "a new table not wired into deletion makes the test fail") — and it is proven by a backend unit / integration test, not by a person and not by Playwright. Used when a plan requires every acceptance item to appear in the case file. Notes must name the backend test that covers it (file and test name, or "由后端单测覆盖：<测试文件>"). Not scored by the matrix below; no Gherkin is generated for it.
 
 > Legacy values `AutoTest` / `Manual` / `手工测试` are INVALID — lint:bdd rejects them.
 
@@ -409,7 +411,7 @@ with open('modules/{module}/{feature}/cases/manual-test-cases-cn.csv', newline='
 ```
 
 ### 2.1 Rules (CRITICAL)
-- **Generate Gherkin scenarios only for rows where "Execution Type" is `自动化测试`.** Manual cases (`Manual-Prod-Unsafe` / `Manual-Fault-Injection`) must stay in the CSV file as documentation and MUST NOT be written to the `.feature` files.
+- **Generate Gherkin scenarios only for rows where "Execution Type" is `自动化测试`.** Manual cases (`Manual-Prod-Unsafe` / `Manual-Fault-Injection`) and backend-unit cases (`Backend-Unit` / `后端单测`) must stay in the CSV file as documentation and MUST NOT be written to the `.feature` files.
 - **feature 内容来自 csv，不是直接从 delivery docs 推导**
 - **English `.feature` is the execution source** — playwright-bdd runs this file only
 - **Do NOT create a `.cn.feature` companion** — feature files are English-only; case docs live in `cases/manual-test-cases-cn.csv`

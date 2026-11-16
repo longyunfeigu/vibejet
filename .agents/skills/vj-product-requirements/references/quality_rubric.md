@@ -1,101 +1,44 @@
-# PRD Quality Rubric
+# PRD 评分标准
 
-Use this rubric for `review` mode and Phase 4 in `create` / `update` modes.
+用于 `review` 模式。`create` / `update` 不打分：语义问题交给第 6 步 `doc-review` 独立审查。满分 100，低于 75 不进入 `vj-architecture`。
 
-Score the PRD out of 100. A PRD below 75 must not proceed to `vj-architecture`. Fix or clarify the blocking areas first.
+## 放行规则
 
-## Gate Rules
+- `>= 85`：可以交给 `vj-architecture`。
+- `75-84`：没有 critical blocker 时有条件放行，列出后续风险。
+- `< 75`：不放行，回到采访或重写。
 
-- `>= 85`: Ready for `vj-architecture`.
-- `75-84`: Conditionally ready only if no critical blockers remain; list follow-up risks.
-- `< 75`: Not ready for `vj-architecture`; return to clarification or rewrite.
+critical blocker 优先于分数：只要存在一个，分数再高也不放行。
 
-Critical blockers override the score. If any critical blocker exists, the PRD is not ready even if the score is 75 or higher.
+## Critical blockers
 
-Critical blockers:
-- No clear target user or role definitions.
-- No concrete user problem or counterfactual workaround.
-- Functional requirements are not testable.
-- Major requirements are unlabeled or indistinguishable between user input, research, and inference.
-- Non-goals are missing for a broad or ambiguous product.
-- Architecture Handoff is empty when the product has security, compliance, data, integration, scale, or reliability constraints.
-- Epic Decomposition Notes are missing when downstream Story generation is expected.
+- 没有明确的目标用户或角色定义。
+- 没有具体的用户问题，或说不出用户现在怎么应付。
+- 新产品回答不了"为什么选我们"。
+- 核心痛点和范围互相矛盾（例如痛点是"坚持不下去"，范围里却没有任何让人坚持的设计）。
+- 主要判断没有来源标注，分不清用户说的、调研来的和推断的。
+- 范围宽泛或模糊的产品缺少非目标。
+- 产品有安全、合规、数据、集成、规模或可靠性约束，Architecture Handoff 却是空的。
+- 下游要拆 Story，Epic Decomposition Notes 却缺失。
 
-## Scoring
+## 评分
 
-### 1. Problem, User, and Evidence: 15
+| 维度 | 分值 | 满分标准 |
+|------|------|----------|
+| 1. 问题、用户与证据 | 15 | 用户、场景、现在怎么应付、证据和成功结果都具体 |
+| 2. 押注与留存 | 15 | "为什么选我们"有明确押注、成立理由和最大风险；"第二次为什么回来"有具体设计；新产品有调研支撑 |
+| 3. 范围与非目标 | 10 | MVP、延后能力、明确排除项和范围模式都清楚 |
+| 4. 能力与场景 | 10 | §4 按用户目标分 Epic，每条能力写用户得到什么，场景具体，可以拆成 Story |
+| 5. 原型与验证 | 10 | 做过 3-5 个本质不同的方向原型，选定方向有理由；原型可点击、关键状态可演示；eval 写清样本和过线标准，开发前就能跑 |
+| 6. 约束与依赖 | 10 | 性能、可用性、安全、合规里真正相关的几条写成可测的数字 |
+| 7. 来源与假设 | 10 | 用户输入、调研、推断、假设、待决事项分开标注，§8 每条都有验证方式或决策人 |
+| 8. Architecture Handoff | 10 | 产品约束、外部依赖、数据与权限边界、影响架构的开放问题都写到 |
+| 9. Epic Decomposition Notes 与行为合同 | 5 | 拆解顺序、依赖、不可拆散的能力、验收重点齐全；§12 只写高风险行为，句式分对 |
+| 10. 一致性与可读性 | 5 | 没有矛盾、占位符、模糊词或没有依据的下游假设；§1-§7 读起来有一条主线，成段讲因果，不是标签清单 |
 
-| Points | Criteria |
-|--------|----------|
-| 0-5 | User, problem, or usage context is vague. |
-| 6-10 | User and problem are named, but evidence, frequency, or current workaround is weak. |
-| 11-15 | Target users, scenarios, current workaround, evidence, and success outcomes are concrete. |
+各维度：明显缺失给 0-1/3，部分到位给中间分，全部到位给满分。
 
-### 2. Scope and Non-Goals: 15
-
-| Points | Criteria |
-|--------|----------|
-| 0-5 | Scope is open-ended; non-goals are absent or generic. |
-| 6-10 | Scope is mostly clear, but MVP/deferred boundaries need sharpening. |
-| 11-15 | MVP, deferred capabilities, explicit exclusions, and scope mode are clear. |
-
-### 3. Functional Requirements Quality: 20
-
-| Points | Criteria |
-|--------|----------|
-| 0-7 | Requirements are vague, solution-biased, or not testable. |
-| 8-14 | Most requirements are testable, but some lack actors, triggers, or outcomes. |
-| 15-20 | EARS requirements have clear actors, triggers, outcomes, sources, and acceptance-ready behavior. |
-
-### 4. Epic Structure: 10
-
-| Points | Criteria |
-|--------|----------|
-| 0-3 | Epics are grouped by pages, components, or technical layers. |
-| 4-7 | Epics are mostly user-value oriented but have unclear boundaries or overlap. |
-| 8-10 | Epics are organized by user goals or business capabilities and can be decomposed into Stories. |
-
-### 5. Non-Functional Requirements and Constraints: 10
-
-| Points | Criteria |
-|--------|----------|
-| 0-3 | NFRs are missing or generic. |
-| 4-7 | Relevant NFRs are present but not measurable or tied to product risk. |
-| 8-10 | Performance, usability, security, compliance, reliability, and operational constraints are specific where relevant. |
-
-### 6. Traceability, Assumptions, and Evidence: 10
-
-| Points | Criteria |
-|--------|----------|
-| 0-3 | Sources and assumptions are unclear. |
-| 4-7 | Sources are labeled, but inferred requirements or validation tasks are incomplete. |
-| 8-10 | User input, research, inference, assumptions, dependencies, and validation tasks are clearly separated. |
-
-### 7. Architecture Handoff: 10
-
-| Points | Criteria |
-|--------|----------|
-| 0-3 | Handoff is absent, technical-solution-heavy, or repeats the PRD. |
-| 4-7 | Handoff lists some constraints but misses data, permission, dependency, or open-question impact. |
-| 8-10 | Handoff clearly captures product constraints, external dependencies, data/permission boundaries, and architecture-impacting open questions. |
-
-### 8. Epic Decomposition Notes: 5
-
-| Points | Criteria |
-|--------|----------|
-| 0-1 | Notes are absent or technical-task oriented. |
-| 2-3 | Notes provide some ordering or dependency guidance. |
-| 4-5 | Notes define MVP order, dependencies, non-splittable user capabilities, deferred scope, and Story acceptance focus. |
-
-### 9. Internal Consistency and Readiness: 5
-
-| Points | Criteria |
-|--------|----------|
-| 0-1 | Contradictions, placeholders, or unresolved ambiguity remain. |
-| 2-3 | Minor inconsistencies or weak wording remain. |
-| 4-5 | No material contradictions, placeholders, ambiguous terms, or unsupported downstream assumptions. |
-
-## Review Output Format
+## 审查输出格式
 
 ```text
 ## PRD Quality Review
@@ -120,23 +63,14 @@ Gate: Ready / Conditionally Ready / Not Ready
 - ...
 ```
 
-## Phase 4 Checks
+## 语义检查
 
-**Mechanical checks are owned by `scripts/validate_prd.py`** — the single source of truth
-for the machine-checkable rule list (placeholders, section integrity, EARS block legality,
-source-label presence, R-number uniqueness, §1.5 mermaid template placeholders, §8
-presence; plus WARNINGs for If/While misuse heuristics and common vague words). Run it
-first; any ERROR blocks scoring and downstream handoff. Do not restate its rules here.
+机械检查归 `scripts/validate_prd.py`，先跑它，有 ERROR 就不评分。脚本之外再看：
 
-Semantic checks (human/model judgment, after the script passes):
-- Stated non-goals are not contradicted by requirements.
-- Quality claims beyond the script's vague-word list are measurable (e.g. "fast",
-  "seamless" must carry a testable definition).
-- `If` is reserved for genuinely unwanted events/failures; ongoing states use `While`;
-  environment/config differences are explicit `Where` requirements — downstream derives
-  Error ACs from `If` and state/environment Edge ACs from `While`/`Where`.
-- Requirement subjects: default "系统"; user-observable surfaces only when placement is
-  itself a product decision; never internal component names (architecture vocabulary).
-- Architecture Handoff avoids implementation decisions (database tables, API paths,
-  framework choices, deployment topology).
-- Epic Decomposition Notes do not split work by frontend/backend/database layers.
+- §1-§7 像一本好教科书：没参加讨论的人能顺着读懂，先问题后概念，后一段建立在前一段上。
+- 需求没有违反 §9 非目标。
+- 脚本模糊词表之外的质量描述（"快""顺畅"）都有可测的定义。
+- §12 里 `If` 只用于真正的失败；持续状态用 `While`；环境差异用 `Where`。
+- 主语默认"系统"；只有位置本身是产品决策时才点名界面；不写内部组件名。
+- §10 不写实现决策（表、API 路径、框架、部署拓扑）。
+- §11 不按前端 / 后端 / 数据库拆。

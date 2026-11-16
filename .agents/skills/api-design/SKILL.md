@@ -121,19 +121,17 @@ docs/project/api/
 
 只有用户明确要求“完整 API 设计文档”时，才扩展为完整章节。
 
-## 后置步骤：Codex 审查
+## 后置步骤：独立审查
 
-**仅当 Phase 0 判定需要更新且文档实际生成/写回后**，自动执行 `codex-review`：
-1. 调用 `codex-review` skill，传入刚生成或更新的 API 设计文档
-2. Claude Code 自主判断 Codex 建议的采纳，修改文档后输出摘要
-3. 用户可说"跳过审查"跳过此步骤
+**仅当 Phase 0 判定需要更新且文档实际生成/写回后**，用 `doc-review` 审查刚生成或更新的 API 设计文档：
+表述类意见直接改，改变契约取舍的意见交给用户决定；用户可说"跳过审查"跳过。
 
 如果 Phase 0 判定"本次无需更新 API 契约文档"并停止，则不触发审查。
 
 ## 与其他 skill 的关系
 
-- `codex-review`：文档生成后自动触发，做独立审查闭环
-- `vj-epic-plan`：Epic 计划命中 API delta 时直接同步模块文档，遵守本目录契约
+- `doc-review`：文档生成后做独立审查
+- `vj-plan` / `vj-work`：计划的关键设计写这次的接口变化；`vj-work` 做完后按本目录契约更新模块文档
 - `vj-work`：主实现 workflow。它不会自动强制运行本 skill；只有命中 API 契约变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 研究/适配 workflow。只有当参考实现引入新的接口契约时，才补 API delta。
 - `story-verify-fix`：验证实现是否符合验收标准，不替代 API 契约设计。

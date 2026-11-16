@@ -1,282 +1,98 @@
 ---
 name: vj-work
-description: 消费 vj-epic-plan 产出的 Epic 实现计划并落地为已实现、已验证、已记录的代码。用户说"执行这个 plan""做 epic X""跑实现""把计划落地""vj-work"时使用。在 vj-epic-plan 之后使用；普通单 Story 走 vj Story track，不触发本 skill。
+description: 按 vj-plan 产出的计划文档把这块工作做完：开工时一次问完挡路的决定、起好运行环境、把验收清单变成测试，按执行顺序的切片派子任务（接口先定、前后端并行），每个子任务一个干净的会话、先写测试、检查命令跑通才算完成，页面做出来就激活并真跑它的端到端用例，收尾全量回归、代码审查、发布前短清单，进度写回同一份计划。用户说"执行这个计划""开始做""跑实现""vj-work"时使用。在 vj-plan 之后；一两个文件的小改动直接改，不用本 skill。
 ---
 
-# vj-work — Epic 执行器 v3
+# vj-work — 把计划做完
 
-把 `vj-epic-plan` 产出的 task packets 落地成"已实现、已验证、已记录"的代码。
-工作流位置：在 vj-epic-plan（及其自动的 vj-plan-review）之后；完整链条见 `docs/reference/guides/ai-workflow.md` §1。
+输入是一份计划文件（`docs/work/plans/{date}-{slug}.md`）：做什么、怎么设计、要拍板的决定、验收清单、执行顺序。
+计划不写改哪些文件——那要等你开工时读了真实代码才写得准，由你来拆。做完把结果写回同一份文件，人还是打开这一个网页看。
 
-v3 核心变化（相对 v2）：**task doc 即执行包**——废弃 `_execution_context.md` 二次蒸馏层，
-Epic Execution Checklist 与 packet 字段由 vj-epic-plan 在 plan-time 一次做对；并行成为同波次
-默认派发策略；人在环审批集中到 Phase 2 一次处理；验证按 task 定向 → Unit 收口 → Epic 全量
-分层去重。mode 判定与执行档案记入 `_ledger.md`。
+为什么不让 AI 一口气照着计划写：对话越长 AI 越容易忘事、前后矛盾；"做完了"要有跑过的测试作凭据；
+中途断了要能接着做。所以一个任务一个干净的会话，检查跑通才算完成，进度记在文件里。
 
-## 第一性原理
+## 开工前
 
-质量来自：①清楚的任务规格（task doc）②相关约束足够近（packet 内联 + Epic Checklist，不靠
-全文重读 guideline）③真实反馈回路（Verification 是 done signal）④风险正确升级（strict
-triggers）⑤UI 按 Screen 体验闭环交付，不按 Story 碎片堆砌 ⑥orchestrator 上下文卫生（重活
-下沉 subagent，主 session 只编排与审计）。速度来自：同一信息只蒸馏一次（plan-time）、
-同一材料只读一次（精准指针代替全文）、可并行的事不串行、等人的事集中一次等。
+1. `after:` 里的前置计划没做完不开工。
+2. **挡路的决定一次问完**：把还挡着执行顺序里任何一步的 `待你定` / `待证据` 列出来，用 `ask_user` 一次问完；
+   用户说"按推荐"就按推荐定下，状态改 `已定`、推荐列开头写"按推荐，未逐条确认"。`待证据` 照常由证据步骤回答。
+   问完状态是 `ready` 才往下；执行中途不再停下来等决定（食衡 Epic 1 视觉方向在开工后才问，前端停下等人）。
+   无法提问时按推荐定下并在执行记录里写明。
+3. 读计划、相关代码和 `docs/project/api|data|ui/` 里前置计划更新过的合同。计划里的设计和真实代码对不上
+   （前置计划实际做出来的和这份计划假设的不一样）时，改的是范围或行为就停下回 `vj-plan` 改计划，只是命名不同就照真实代码做。
+4. 在 `.vj/worktrees/` 下开隔离的 worktree，从当前 `HEAD` 开，不直接在主工作区写业务代码。
+   用户说"不要 commit"时，所有 commit 都跳过，验证和记录照做；做完按文件清单把改动带回主工作区。
+5. **起环境、跑基线**：按 `AutoTest/AGENTS.md` 的步骤在 worktree 里把数据库、存储、后端、前端起起来（数据库用独立容器名和端口，
+   不碰本机已有容器），跑一遍后端测试、前端测试和现有端到端模块作为基线，记进执行记录。环境问题在这里一次暴露、一次修，
+   不拖到收尾（食衡 Epic 1 的残缺环境、缺 `index.html`、存储没配置都是到很后面才发现）。
+6. 在计划末尾加 `## 验收对应的测试`：每个"自动测试""浏览器"验收项一行，`| 验收 | 测试 | 检查命令 |`，
+   测试名用你打算写的真实测试名，检查命令写真实能跑的命令（如 `cd backend && uv run pytest tests/test_x.py -q`）。
+   计划有 `cases:` 时，"浏览器"项的测试列写 `prd-to-bdd` 生成的用例编号（如 `DIET-PRF-005`），检查命令写激活后要跑的
+   AutoTest 命令。然后跑 `python3 .agents/skills/_shared/scripts/plan_lint.py <计划> --for-execution` 和
+   `python3 .agents/skills/_shared/scripts/workflow_doctor.py plan <计划>`，有 ERROR 修完再往下。
+7. 读"执行记录"：已完成的子任务跳过，从断点接着做。计划状态改成 `in-progress`。
 
-## 铁律
+## 拆子任务、排顺序
 
-1. **Task packets 是执行入口**。`task-index.md` + `T{NNN}.md` 即执行包；review pack 的
-   design/decisions 只在 anchors、strict trigger、歧义或冲突时按小节回读。不改 review pack
-   正文；README 是 plan 状态唯一源。`research-ready` 只允许 research-only task，完成后转
-   `awaiting-approval`；生产执行只走 `awaiting-approval -> ready -> completed|blocked`。
-2. **Verification 是 done signal**。task 定向命令必须实际跑通，未跑通不得标 completed；
-   验证分层：task 定向 → Unit 收口 `verify.sh {U-ID}` → Phase 4 Epic 全量，同层不重复跑。
-3. **worktree 隔离**。改代码一律从当前 `HEAD` 开执行 worktree，不在主仓库工作树写业务代码。
-4. **当前非默认分支即 integration base**。只读分支名与工作区状态；不翻 commit 历史猜 base；
-   仅默认分支或未提交改动歧义才停下问人。
-5. **上下文可回溯**。Epic Checklist 与 packet 约束是 attention guide 不是完整规范，每条带
-   source pointer；`DESIGN.md`、catalog、layer skill 原文仍是真相源，碰到清单外风险面按
-   指针展开对应小节，不无差别全文重读。
-6. **Backend by capability, frontend by experience**。前端按 Screen/Route 整体实现
-   （Screen context 住 task doc 注入块 + `docs/project/ui/` catalog）；禁止孤立 UI 片段、
-   脱离 Screen Contract 的单页/卡片堆/表单堆；合同稳定即可开工，不等后端 100%。
-7. **前端出口闸以 `.claude/rules/frontend.md` 为唯一真相源**（A/B 轨、富度 R、工艺 C），
-   本 skill 不复述。整屏交付（frontend-composition）与 UI class = critical 的屏，pass/fail
-   判定权独立于实现者：orchestrator commit 前必须真看截图或派独立 visual-auditor，实现
-   subagent 自评 "passes" 不构成过闸（协议见 `references/ui-execution.md`）；
-   functional 局部改动走 targeted check，不需独立审计。
-8. **subagent 任务自包含**。显式传 task doc path + 适用于当前 T-ID 的 Checklist 行 + write scope +
-   Verification + return contract（完整契约见 `references/subagent-dispatch.md`）；
-   orchestrator 只 ingest 结构化小结，绝不 Read 子代理 transcript / `.output`
-   （UI 截图 artifact 例外——必须看）。
-9. **高风险自动 strict**。命中 strict trigger 不得为速度降级；不确定风险等级按 strict
-   或精准补读 source pointer。
-10. **plan 声明的复用 / 高风险流程 / 禁 fallback 约束是执行合同**。执行期发现必须违背时
-    不得自行改口径：切 strict，仍无法满足则 STOP。KISS/YAGNI：只实现 task 要求。
-11. **完成整个 feature**。不留 80% 半成品；blocked 必须说明阻塞点、已试方案、下游影响。
-12. **用户 commit policy 优先**。用户说“不要 commit”时，run state 记
-    `disabled-by-user`，所有 docs-context / per-task / feature commit 都跳过；不得因此跳过
-    ledger、验证、review 或最终状态更新。
+- **一个切片一个子任务**：计划"执行顺序"的每一步就是一个切片（一块能单独证明做对的能力），默认一步派一个子任务，
+  不再往细里拆；同一模块、数据库迁移前后紧挨着的两步合成一个子任务。子任务清单记在"执行记录"开头，断了能接着做。
+- **照标注排顺序，不现场分析**：计划每步标了会不会加迁移、会不会改共享注册文件、可和哪步并行。加迁移的子任务之间、
+  改同一个注册文件的子任务之间串行，共用一个 worktree，下游才看得到上游的代码；其余并行，各开一个 worktree，做完合回来。
+- **接口先定、前后端并行**：计划有"接口约定"时，第一个子任务先把它落成代码里的数据结构（后端的请求 / 返回模型和错误码登记）；
+  之后前端子任务照这份数据结构用模拟数据做，和后端子任务同时跑，最后联调一次。联调发现约定和实现对不上时，以约定为准改实现，
+  约定本身错了回 `vj-plan`。
+- 证据步骤照常做，只写 `.vj/` 和 `docs/reference/research/`；结论写进对应决定的"推荐"里，状态留给用户改。
 
-真相源按维度划分：Story AC 管可观察行为；用户明确批准的 `decisions.md` 管设计取舍；catalog
-管精确 API/Data/UI 合同；`design.md` 管 delta 理由与跨层不变量；task packet 是执行投影。
-跨维度冲突必须 STOP 回到来源修正，不能靠线性优先级静默覆盖。
+## 每个子任务
 
-## 输入与配置
+用 `spawn_agent` 派一个子代理（没有这个能力就自己在主上下文做），每个子任务一个干净的会话，交代齐全，不靠它猜：
 
-```text
-vj-work docs/work/plans/2026-06-01-epic-1-.../   # review pack 目录
-vj-work epic-1
-vj-work                                            # 取 plans_dir 下最新 review pack
-```
+- 计划文件路径，这个子任务做什么，它覆盖的验收项原文和"验收对应的测试"里那几行，关键设计里相关的段落；
+- **前面切片的产出**：新建了哪些文件和接口、迁移排到第几号、和计划不一致的地方，直接从执行记录和上一个子代理的交接里取——
+  让它照着扩展，不用从零摸索；
+- **硬要求写成明确的句子**：涉及安全、数据删除、权限、一致性的要求不让子代理自己推断（如"每张表都要显式删，不能靠外键级联"），
+  食衡 Epic 1 第一次删除账户就是因为交代里没写这句而漏删、返工了一轮；
+- 允许改哪些文件（你读代码后定的范围）；鉴权、响应信封、API client 这类已有实现必须复用；
+- **先写测试**：先把覆盖的验收项写成"验收对应的测试"里的那些测试，跑一次，确认它因为"功能还没有"而失败，
+  再写实现到通过；纯配置、纯样式、纯文案可以不先写；
+- 回来交：改了哪些文件、第一次失败的输出、检查命令的输出、和计划不一致的地方及原因，以及一段**给下一个切片的交接**
+  （它新增了什么、下一个切片该知道什么）。
 
-```yaml
-epic_work_executor:
-  plans_dir: docs/work/plans/
-  work_dir: docs/work/tasks/epic-{N}-{slug}/
-  worktree_root: .vj/worktrees/
-  execution_mode: auto          # auto | fast | strict
-  approval_gate: auto           # auto | true | false
-  commit_granularity: auto      # auto: fast=feature/wave, strict=per-task
-  commit_policy: auto           # auto | enabled | disabled-by-user
-  learnings_skill: vj-compound  # optional post-run prompt
-```
+子代理说做完不算数：你自己再跑一遍这个子任务的检查命令，通过才在"执行记录"记一行
+`- T3 完成（日期）：检查通过，<一句话说做了什么>；交接：<下一个切片要知道的>`；失败最多修 3 次，还不行就记
+`- T3 卡住：<最后的报错、试过什么、挡住了哪些任务>`，接着做不受影响的任务。
 
-## Mode 与 strict triggers
+**前端切片**另外三件事：
 
-| Mode | 目标 | 行为 |
-|------|------|------|
-| `fast` | 普通 AI coding 吞吐 | 最小读集、收尾统一记录、风险触发 QA/review；commit 仅在 policy 允许时 |
-| `strict` | 高风险交付审计 | 审批门、逐 task ledger、完整 UI QA、完整 review/trace；commit 仅在 policy 允许时 |
-| `auto`（默认） | 先判 strict triggers | 命中即 strict，否则 fast；执行中命中新 trigger 立即升级 |
+- **开工前先对用例**：计划有 `cases:` 时，先拿用例表里这些页面的步骤和计划"页面怎么交互"对一遍；对不上（如用例要点"保存"，
+  而交互设计在"算一下"时就拦下）一次列给用户裁决，不改用例迁就代码，也不按用例改交互（食衡 Epic 1 的 DIET-PRF-007 拖到收尾才发现）。
+- **页面做出来就跑它的端到端用例**：按 `prd-to-bdd` 的激活流程（它的 `activation.md`）把这些页面对应的待激活场景移进正式 feature，
+  对着真实页面补页面对象和步骤，用 `run-test` 跑这几条。激活只补"怎么点"，不改用例表里人审过的场景、数据和预期。
+  失败先分清是谁的错：功能没做对 → 这个子任务里修代码；测试本身的问题（定位器、等待）→ 交给 `test-self-heal`，它只修测试、
+  只重跑修过的几条；用例的预期和计划对不上 → 停下回 `vj-plan`。食衡 Epic 1 前端 78 个单元测试全过后，端到端仍抓出 3 个功能问题，
+  早跑早改。
+- **截图你亲自看**，或派一个只看截图、不看代码的子代理判断（出口标准见 `.claude/rules/frontend.md`，参考图和多屏一致性见
+  `references/ui-execution.md`）。实现者自己说"好看"不算。
 
-Strict triggers（细化自 AGENTS.md「Plan 规范」，冲突以 AGENTS.md 为准）——命中任一即 strict：
-auth/session/permission/ownership/tenant；DB schema/migration/backfill/破坏性更新；公共 API
-契约/DTO envelope/错误码/向后兼容；payment/crypto/secrets/安全敏感依赖；事务/UoW/幂等/并发/
-domain event/Celery/外部副作用；app shell/navigation/theme/DESIGN.md 全局 token/UI 架构；
-预计 diff 跨子系统 ≥400 行或总计 ≥1000 行；用户明确要求 strict/audit/审批/逐 task commit；
-执行包引不出必需 source pointer 或歧义会改变行为；执行看起来必须违背 plan 显式约束
-（复用声明、高风险流程、禁 fallback/mock/简化实现）。
-非 trigger 的 CRUD、DTO、字段映射、局部 UI data binding、文案/样式修正默认 fast。
+发现必须违背计划（要改范围外的文件、要绕过声明复用的实现、碰到计划没写的 strict 触发条件）时停下，
+记进"执行记录"，回 `vj-plan` 改计划或问用户，不自己拍板。
 
-## Phase 0：定位与 branch gate
+## 收尾
 
-1. 按输入解析 review pack 目录；空参取最新。
-2. Branch gate：只跑 `git branch --show-current` + `git status --short`。非默认分支直接视为
-   integration base；默认分支也不因分支名制造审批，仍在隔离 workspace 执行。有未提交用户
-   改动且无法判断是否应进入执行快照时才 STOP，让用户选择“包含当前快照 / 仅 HEAD / 暂停”；
-   `disabled-by-user` 时不得建议用 commit/stash 绕过该选择。
-3. `commit_policy=disabled-by-user`：从当前获准快照创建 `.vj/` 下单一隔离 working copy，
-   禁用依赖 branch commit 的并行 merge；在隔离区串行或 batch 执行、验证后按文件清单回放
-   到主工作区，回放前校验源文件 digest，冲突即 STOP。不得直接在主工作区写业务代码。
-4. 不 checkout 主仓库到其他分支。
-
-## Phase 1：装载（不再二次蒸馏）
-
-1. 跑 `python3 .agents/skills/_shared/scripts/plan_lint.py <review-pack-dir>`，再跑
-   `python3 .agents/skills/_shared/scripts/workflow_doctor.py plan <review-pack-dir>`。任一 exit != 0
-   → STOP 回 `vj-epic-plan` 修正。doctor 只做语义预检，不执行尚未实现的测试。
-2. 读 `task-index.md`（唯一默认全读文件）：Required gates、**Epic Execution Checklist**、
-   Unit/Task DAG、波次 + Batch 列、Execution lanes、共享文件冲突表。
-   为每个 task 从 Checklist 派生 `global` 或 `Applies to` 命中当前 T-ID 的 C-ID 行；不把整表
-   注入每个执行者。结构化表缺失或 task 无覆盖由 plan_lint R14 阻塞。
-3. task docs 已存在 → 直接装载；缺失 → 按 `vj-epic-plan/references/task-doc.template.md`
-   （唯一副本）从 design/decisions/task-index + catalog 回退投影生成，写明 Generated from +
-   anchors，不重新发明 HOW。执行包字段不完整（Execution note 五字段、UI task 的 Screen
-   context）且非 trivial → STOP 回 vj-epic-plan，不在执行期自由发挥。
-4. Mode 判定：只读各 task 的 Execution note / Risk class 与 task-index Required gates，
-   不读 task 全文；结果与理由写入 `_ledger.md` Mode Decision（按
-   `references/ledger.template.md` 初始化）。
-5. Run state：优先复用调用方传入的 `run-state.json`；没有则用
-   `_shared/scripts/workflow_state.py init` 创建 Epic run（source=review pack、policy=Mode、commit
-   policy=本轮值），并迁移到 `planned`。后续 gate、执行和证据只更新这一份 state。
-
-v2 的 epic-level layer scan 与 `_execution_context.md` 生成已废弃：Epic Checklist 由
-plan-time 产出，orchestrator 不再全文扫读 layer skill。
-
-## Phase 2：波次计划与集中审批
-
-- **Evidence gate**：README 为 `research-ready` 时，先跑
-  `workflow_doctor.py plan <review-pack-dir> --for-execution --research-only`。只执行
-  `Risk class: research-only` 的 task；write scope 只能在 `.vj/` 与
-  `docs/reference/research/`。完成定向 Verification 后，把 README 改回
-  `awaiting-approval`，提交证据供 reviewer 更新 decisions；本轮到此停止，不进入生产波次。
-- research-only task 缺真实输入、provider 凭据或预注册阈值时 fail closed。不得用 mock、合成
-  真值或提前修改生产 adapter 来让 spike 跑通。
-
-- 波次直接消费 task-index 的 Task DAG / Batch / lanes，不重算；缺 Task DAG 才按
-  Files + Depends 回退补算一次。
-- 前端 Epic 无 lanes 但多个 UI Unit 共享同一路由 → 生成临时 Screen 分组记入 `_ledger.md`，
-  按 Screen 串行执行，避免并行写坏 UI。
-- **参考图批量前置闸**（前端 Epic，fast/strict 均不豁免）：开工前一次处理全部 UI-critical
-  屏——已有已批参考图或可继承屏型金标准的直接登记；缺的一次性渲染全部候选并**一次审批全批**；
-  执行中不再逐屏 STOP。完整协议与降级规则见 `references/ui-execution.md`。
-- Approval gate：`true` → 总是 STOP；`false` → 不审批（hard strict trigger 仍需用户决策）；
-  `auto` → fast 输出短执行摘要后继续，strict 一次 STOP（waves + strict reason + 参考图候选
-  一并展示）。无人值守且 strict 审批不可达 → fail closed：不执行 strict 面 task，输出阻塞
-  报告。批图审批与 strict 执行审批是两个不同 gate：参考图闸的降级路径只适用于非 strict 面
-  的 UI task，同屏命中 strict trigger 时 fail closed 优先。
-- 需要审批时 run state 先迁移到 `awaiting_approval`，通过后到 `approved`；无需审批从
-  `planned` 直接进入 `running`。已批准的 run 在 Phase 3 前从 `approved` 迁移到 `running`。
-- 审批通过后把 README `status` 改为 `ready`，立即跑
-  `workflow_doctor.py plan <review-pack-dir> --for-execution`；未通过不得进入 Phase 3。已经是
-  `ready` 的 plan 不重复索要相同批准。用户明确禁止 commit 时记录到 run state，跳过下面所有
-  docs-context/per-task/feature commit，不影响验证与 review。
-- Docs-context commit：仅 `commit_policy=enabled` 时，fast 若依赖未提交 task docs /
-  `_ledger.md` 自动创建，strict 动代码前提交；`disabled-by-user` 时不得以“隔离需要”为由
-  创建临时 commit。
-
-## Phase 3：执行
-
-Unit 是验收边界，task 是执行边界。派发模式按序判定：
-
-| 模式 | 条件 | worktree |
-|------|------|----------|
-| **batch dispatch**（plan 显式标注优先于下两行） | task-index Batch 同组；或执行期发现相邻小 task（同 lane、合计 diff <300 行、共享 pattern） | 一次派发多 task，共享 worktree |
-| **parallel-isolation**（同波次默认） | 同 wave + 冲突表写集无交集 + 无依赖 + 未标 Batch | 各 task 独立 worktree，完成后按 DAG merge |
-| **serial-isolation** | 依赖链 / 共享文件 / owner task | 共享执行 worktree，按 DAG 串行派发 |
-| **inline** | 无 subagent 运行时 / task trivial / 上下文已加载过半 | 执行 worktree，记录原因 |
-
-关键：依赖型 / 共享文件 task 绝不各开隔离 worktree（下游看不到上游代码）。派发字段、
-return contract、worktree/ingest 细则见 `references/subagent-dispatch.md`。
-
-**subagent 默认读集（冷读瘦身）**：task doc 全文 + prompt 内注入的适用 C-ID 约束 + 目标
-文件 + ≤3 pattern files。guideline / `DESIGN.md` 全文不进默认读集——只按 task doc Read
-first 的精准指针、或执行中碰到清单外风险面时展开对应小节；找不到可靠 source → 切 strict
-或 STOP。
-
-wave 推进顺序：contract/barrier → backend capability fan-out → frontend screen
-composition → integration/E2E polish。backend wave 允许为前端提供类型、mock adapter 或
-最小探针，不顺手搭完整页面；frontend wave 按 Screen/Route 一次性完成布局区域、主任务、
-关键状态与关联 UI AC。
-
-### Task Loop：fast
-
-```text
-read T{NNN}.md 全文（含 Execution note packet 字段 + UI 注入块）
-if UI task: read Screen context 指向的 catalog 小节 + 同屏 sibling + 现有 route/component
-read 目标文件 + pattern files（≤3）
-若已满足 Verification：标 skipped/completed 附证据
-按 Test policy 实现；frontend-composition = 整屏 scope，不做 Story 碎片
-跑 task 定向 Verification（禁全量套件）；失败修复，最多 3 次
-Unit 收口 task 另跑 bash verify.sh {U-ID}
-按 System-wide check 字段做邻域检查（none | direct-neighbors | risk-triggered-two-hop）
-return 结构化小结（changed files / verification / deviations / risks）
-```
-
-fast 不逐 task 回写 ledger（收尾统一 append）、不 per-task commit；task 文档任何时候不回写。
-
-### Task Loop：strict（在 fast 基础上追加）
-
-- `test-first` 先写失败测试确认红灯再实现；禁 fallback 的 task 先确认真实依赖/权威实现
-  可用，不可用 STOP 不写替代实现。
-- 每 task 完成即 append `_ledger.md` 变更叙事；`commit_policy=enabled` 时再 commit（代码 +
-  ledger），禁 commit 时保留同等 evidence 但不提交。
-- UI-critical 完整桌面+移动截图；frontend-composition 记录 Screen Contract 覆盖情况。
-
-### Test policy（task doc Execution note 未明确时按风险判定）
-
-`test-first`：bugfix、权限、安全、领域规则、事务、并发、迁移、数据一致性。
-`test-with-implementation`：CRUD、DTO、字段映射、简单 API、UI data binding。
-`verification-only`：纯配置、纯样式、小文案、小重命名。
-fast 只有 trivial/plumbing 可降级且收尾 summary 说明；strict 遵守 plan 标注不降级。
-
-### UI QA（按 task doc 的 UI class 字段）
-
-- `critical`（新页面、app shell、theme、front-of-house 屏默认）：对照 Phase 2 已批参考图
-  实现；桌面截图 + frontend.md 对应轨闸 + 独立视觉审计（见 `references/ui-execution.md`）；
-  移动端截图仅当 responsive 是 AC 或屏型合同要求。
-- `functional`：Screen-level 或 targeted browser check，验证实际相关状态。
-- `trivial`：typecheck/test/lint 即可，不强制截图。
-- UI-critical 缺设计合同（`DESIGN.md` 与 fallback 均缺）→ STOP。
-- 进入 frontend-composition task 前核对：Screen 合同字段完整、参考图已批或继承 golden、
-  目标 route/component 已读（不存在则明确新建位置与路由注册）、Screen done 可浏览器验证。
-  不满足不要"先随便做 UI"，回 Phase 1 步骤 3 的 STOP 路径。
-- Cross-screen visual polish：≥3 屏派独立 pass，≤2 屏 orchestrator 逐屏审计时顺手核对
-  （见 `references/ui-execution.md`）。
-
-### 边做边简化
-
-每完成一个 wave 或 2-3 个 Unit，检查新增重复与明显复杂化，只做低风险整理；strict 在
-ledger 记录整理原因。
-
-## 失败模式与兜底
-
-| 场景 | 一线处理 | 仍失败 |
-|------|---------|--------|
-| Verification 失败 | 修复 ≤3 次 | STOP：报最后输出、已试方案、阻塞的下游 Unit |
-| 复用/高风险流程/禁 fallback 冲突 | 切 strict | STOP 回 vj-epic-plan / 用户决策；禁把 mock/简化当成功路径 |
-| subagent 报错/超时/空小结 | 重派 1 次 | 该 task blocked，不合并其分支，报下游影响 |
-| 参考图无法渲染 / 审批不可达 | 降级屏型金标准 + 文字契约，记 ledger | 不静默跳过；不阻塞非 UI task |
-| merge 冲突 | rebase 到 integration base 重跑 Verification | STOP；禁 `-X ours/theirs` 盲猜 |
-| worktree 创建失败 | 确认 `.vj/` 已忽略，重试 1 次 | STOP 或 fallback 当前树 docs-only 操作，不改主仓库代码 |
-| plan_lint 不可用 | 人工核对 T 文档齐全 + packet 五字段 | 缺关键字段且非 trivial → STOP 回 plan |
-| strict 审批不可达（无人值守） | fail closed：不执行 strict 面 task | 输出阻塞报告，列已完成/未执行清单 |
-
-## Phase 4：收尾
-
-1. 先把 run state 从 `running` 迁移到 `verifying`，再做全量验证（只在此处跑一次）：
-   `bash <work_dir>/verify.sh all`（缺失或与 Story AC 冲突以
-   story 为准逐 Unit 手跑并报差异）；前端逐屏 Screen done + 截图证据，确认 cross-screen
-   漂移清单清零或记录残留原因；跑项目 lint/typecheck/test（按 backend/frontend 命中面）。
-2. Review gate：fast 仅 strict trigger、敏感面、大 diff 或用户要求时跑 `review` skill；
-   strict 跑完整 diff review。blocking findings 必修；non-blocking 记录不阻塞 fast。
-3. Compact trace：`R-ID -> Unit/file/verification`、`Deferred -> resolution`、
-   `Scope boundary -> checked`；strict 可展开完整核对。
-4. Catalog activation：全部 Unit verification 与 review gate 通过后，逐项比对本 Epic 的
-   `planned (Epic N)` catalog 与实现；一致才把状态翻为 `active` 并补实际 migration revision。
-   发现合同漂移则 STOP，先修实现或回到 plan/decision 修订，不得直接把漂移后的事实静默写成 active。
-5. 记录与提交：fast 一次性 append `_ledger.md`（全部 task 条目 + Final Execution Profile）；
-   strict 确认逐 task 记录完整。仅 `commit_policy=enabled` 时创建 feature/wave 或 docs-only
-   收尾 commit；`disabled-by-user` 时全部跳过并在 run state 记录。翻转 review pack
-   `README.md` status 为 `completed`；阻塞退出则写 `blocked`。
-6. 必需 evidence 全绿后把 run state 迁移到 `completed`；任何必需检查失败则记录 fail evidence
-   并迁移到 `blocked`。清理 worktree / 临时分支；如有可复用经验提示 `vj-compound` 沉淀。
-
-## 不做什么
-
-- 不做计划级语义深审（`vj-plan-review` 职责）；不重算正常 plan 的波次/依赖。
-- 不重写 AC、不改 epic.md、不改 review pack 正文。
-- 不生成 `_execution_context.md`——task doc 即执行包；执行包不完整回 `vj-epic-plan` 修正，
-  不在执行期自建蒸馏层。
-- 不让 subagent 全文重读 guideline / `DESIGN.md`，也不让 subagent 跑全量测试套件。
-- 不让 subagent 靠父上下文猜任务；所有派发必须自包含。
-- 不在主仓库工作树直接写业务代码。
+1. 把"验收对应的测试"里的检查命令全部再跑一遍；按改动面跑项目的 lint / typecheck / 测试。
+2. 计划有 `cases:` 时：还没激活的场景按上面的做法激活；跑这个模块的全部端到端用例和受影响的其他模块（全量回归）；
+   跑 `python3 .agents/skills/_shared/scripts/plan_case_trace.py <计划>` 确认验收和用例仍逐条对得上。
+3. 按 `AGENTS.md` 的 review 触发条件跑 `review` skill，并把本计划文件路径交给它（让它对照计划审）；`policy: strict` 一律跑。Blocking 修完再收尾。
+4. 关键设计里改了数据表、接口或页面的，把现在的样子更新到 `docs/project/data|api|ui/`，下一份计划开工前会读它。
+5. 在计划末尾追加 `## 验收说明`，写给人看（按 `_shared/vj-skill-conventions.md`「给人看的文档怎么写」）：
+   - 怎么启动、第一次使用从哪进、按什么顺序试；
+   - 验收清单里每项的结果：自动和浏览器项附检查输出或截图路径；端到端用例按用例编号列通过 / 失败（附 `run-test` 报告路径）；
+   - **发布前清单**：测试管功能对不对，这张清单管这次变更能不能安全发出去。机器能查的先变成检查跑掉（迁移升级后再回滚、
+     全量测试、依赖方向检查），结果写进来；剩下机器做不了的，针对这次改动列 5–10 项，由用户逐项打勾签字——部署顺序（先迁移
+     还是先上代码）、不可逆的操作和回滚方式、日志里有没有个人信息、改了哪些旧行为、要盯的报错或监控。只写这次特有的，不抄通用模板；
+   - **要你亲手试的**：验收清单里"人工"的那几项，每项写清步骤和预期；
+   - 没做的子任务（在等哪个决定）、没验证到的部分；"上线前定"的决定；
+   - 一段可以直接复制给另一个 agent 的验收 prompt。
+6. 状态改成 `done`；有子任务卡住或在等决定就写 `blocked` 并在验收说明里列清楚。重渲染网页，停掉起的服务和容器、清理 worktree
+   （用户还要亲手试时先留着，说明怎么关）。有值得记下的经验时提示用 `vj-compound`。别的计划 `after:` 写着本计划的，
+   告诉用户它现在可以开工了；本计划实际做出来的和那份计划假设的不一样时（表、接口、返回值），一并列出来。

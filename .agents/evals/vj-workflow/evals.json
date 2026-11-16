@@ -4,7 +4,7 @@
   "cases": [
     {
       "id": "router-patch",
-      "revision": 2,
+      "revision": 3,
       "stage": "routing",
       "prompt": "使用 vj 工作流处理：登录页按钮文案有一个错别字，只改这一处并验证。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Patch；不要修改文件。",
       "timeout_sec": 300,
@@ -15,7 +15,7 @@
         },
         {
           "type": "final_not_contains",
-          "value": "vj-epic-plan"
+          "value": "vj-plan"
         }
       ]
     },
@@ -33,15 +33,15 @@
       ]
     },
     {
-      "id": "router-epic",
-      "revision": 2,
+      "id": "router-plan",
+      "revision": 3,
       "stage": "routing",
-      "prompt": "使用 vj 工作流处理：新增团队空间，包含成员邀请、角色权限、资源归属迁移和新的数据库表。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Epic；不要修改文件。",
+      "prompt": "使用 vj 工作流处理：新增团队空间，包含成员邀请、角色权限、资源归属迁移和新的数据库表。不要提交 commit。只输出你选择的交付轨、理由，并在最后单独输出 VJ_EVAL_ROUTE: Plan；不要修改文件。",
       "timeout_sec": 300,
       "assertions": [
         {
           "type": "final_regex",
-          "pattern": "^VJ_EVAL_ROUTE:\\s*Epic\\s*$"
+          "pattern": "^VJ_EVAL_ROUTE:\\s*Plan\\s*$"
         },
         {
           "type": "final_contains",

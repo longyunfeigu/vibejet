@@ -5,100 +5,53 @@ description: 根据产品需求文档（PRD）生成单文件 UI mock board（mo
 
 # vj-mock-board — PRD → 单文件 UI Mock Board
 
-把 PRD 变成一张可浏览的单文件 mock board：按 Epic 分区平铺全部屏幕×关键状态，
-每屏带"这块 UI 逼出来的 API/设计决策"注记，用于在动代码前对齐产品长相、反查接口与架构遗漏。
+把 PRD 画成一张可浏览的单文件 mock board：按 Epic 分区平铺全部屏幕和关键状态，每屏附一个注记框，
+写这块 UI 逼出来的 API 和设计决策。用途是在写代码前对齐产品长相，并反查接口和架构的遗漏——
+注记框是板的核心价值，不是装饰。
 
-**工作流位置**：PRD 定稿后、`vj-epic-story` 之前；对已有 PRD 可随时跑。
+不做：可点击的多页原型、React 或生产代码、更新 `docs/project/ui/surfaces.md`（那是 `vj-work`
+做完计划后的事，计划可以引用板）、多方案风格探索（属 `vj-design-md-matcher`）、实现期使用（实现期以计划关键设计里的页面字段为准）。
 
-```text
-vj-product-requirements → vj-mock-board → vj-epic-story → vj-epic-plan → vj-work
-                             ↑ 缺 DESIGN.md 时先路由 vj-design-md-matcher
-```
-
-## Boundary（适用 / 不适用）
-
-做：
-- 解析 PRD（EARS 条目 / 用户旅程 / NFR）→ Screen Inventory → 按 `docs/project/DESIGN.md`
-  双轨 token 生成单文件 mock board（HTML）
-- 产出是 **PRD 快照**：板头标注来源 PRD 版本 + 生成日期；PRD 变更后整板幂等重跑覆盖
-
-不做：
-- 不是可点击多页原型，不产 React/生产代码，不建前端工程
-- 不更新 `docs/project/ui/surfaces.md`（那是 `vj-epic-plan` 的职责；它可反向引用板作结构参考）
-- 不发明风格：token 唯一来源 `docs/project/DESIGN.md`，缺失/明显过期即路由
-  `vj-design-md-matcher`，不临时自选
-- 不在 `vj-work` / story 实现期使用（实现期以 `docs/project/ui/surfaces.md` Screen Contract 为准）
-- 不做多方案/多保真度变体探索（方向探索属 `vj-design-md-matcher` 轨）
-
-## 产物合同
+## 产物
 
 | 项 | 约定 |
 |----|------|
-| 板 | `docs/reference/research/designs/prd-{slug}/ui-mock-board.html`（单文件自包含） |
-| 清单 | 同目录 `screen-inventory.md`（机检输入 + 反查索引），格式见 `references/screen-inventory.template.md` |
-| 分区 | 按 Epic 分区平铺；每屏 = 屏名 + 状态标签 + 注记框 |
-| 状态粒度 | P0 屏（核心旅程）按 `ui-state-coverage` 必补清单画全；其余屏只画默认态 |
-| 设备框 | 手机框 390px 或桌面框，按 PRD 使用场景判定；不确定标 `⚠️ 推断` 由 Inventory gate 定 |
+| 板 | `docs/reference/research/designs/prd-{slug}/ui-mock-board.html`，单文件自包含 |
+| 清单 | 同目录 `screen-inventory.md`，格式见 `references/screen-inventory.template.md` |
+| 状态 | P0 屏（核心旅程）按 `ui-state-coverage` 的必补清单画全；其余屏只画默认态 |
+| 设备框 | 手机 390px 或桌面，按 PRD 使用场景定；不确定标 `⚠️ 推断` |
 
-## 铁律
+板是 PRD 的快照：板头写来源 PRD 版本和生成日期；它属于研究产物，不承载跨 Epic 合同。
 
-- **token 唯一来源 `docs/project/DESIGN.md`**：正文颜色只允许 `var(--token)`；`:root` 变量值
-  必须 ∈ DESIGN.md 色值集合（`scripts/validate_mock_board.py` 机检兜底）。屏型→轨道
-  （front-of-house / operational）判定按 `.agents/skills/_shared/ui-planning-contract.md` §1
-  执行，本 skill 不复述。
-- **单文件自包含**：无 CDN、无外链字体、无 `http(s)://` 资源引用（机检兜底），
-  不假设打开板的人有网络。
-- **先 golden 屏定视觉语法，后批量**：骨架 + 1 个 P0 屏先行；分区 agent 只允许用骨架
-  公共 CSS 类 + `var()` 颜色，不得自造调色板。
-- **每屏必带注记框**（机检兜底）：写这块 UI 逼出来的 API / 设计决策，用于反查
-  架构与接口设计遗漏——这是板的核心价值，不是装饰。
-- **mock 不是合同**：板属研究产物（`docs/reference/research/`），不承载跨 Epic 稳定契约；
-  推断出的屏型 / 分区 / 状态标 `⚠️ 推断`，由用户在 gate 确认。
-- **机检不过 = 本 skill 未完成**，不得交付。
+## 约束（`scripts/validate_mock_board.py` 机检兜底）
 
-## 输入
+- token 只来自 `docs/project/DESIGN.md`：正文颜色只用 `var(--token)`，`:root` 的值必须是 DESIGN.md 里的色值。
+  屏型到轨道（front-of-house / operational）的判定按 `_shared/ui-planning-contract.md` §1。
+- 单文件自包含：没有 CDN、外链字体或 `http(s)://` 资源，打开的人可能没网。
+- 每屏必须有注记框。
+- 机检不过就是没完成，不交付。
 
-```text
-vj-mock-board                                    # 默认读 docs/product/requirements.md
-vj-mock-board docs/product/requirements.md       # 指定 PRD 路径
-vj-mock-board <PRD 路径> --wireframe             # 降级中性线框板（仅兜底场景，见失败表）
-```
+## 步骤
 
-## 工作流（6 Phase）
+**P0 前置**：PRD 缺失就路由 `vj-product-requirements`（用户只给口头描述时可基于描述继续，全程标
+`Confidence: L`）。`DESIGN.md` 缺失或明显过期就先路由 `vj-design-md-matcher`，有了再回来。
+重跑时，若 `shasum <PRD> | cut -c1-16` 等于 `screen-inventory.md` 里记录的 PRD digest 且整板机检通过，
+直接跳到 P5 并注明"PRD 未变"；不一致就只重生成受 PRD 改动影响的分区，新 digest 写回清单。
 
-### P0 前置检查
+**P1 Screen Inventory**：按模板从 PRD 生成清单（屏名 / 来源条目 / 屏型 / 是否 P0 / 状态集 / 设备框 / 锚点 ID）。
+屏的增删、屏型、P0 判定、设备框有多个合理选择时，合并成一次确认；无人值守时按最合理假设继续，
+标 `⚠️ 推断 + Confidence`，板头写"清单假设待审批"。超过 20 屏时提示裁剪；无人值守就裁到核心旅程屏并在板头注明。
+PRD 没有 Epic 结构时按用户旅程聚类分区，标 `⚠️ 推断`。
+PRD 头部链接了场景原型（`vj-product-requirements` 第 4 步产出）时，屏幕和流程以原型为结构参考；原型只是临时视觉，
+本板负责用正式 DESIGN.md 把所有屏幕画全。
 
-1. PRD 缺失 → 路由 `vj-product-requirements`；用户只给了口头描述 → 基于描述继续并全程标
-   `Confidence: L`。
-2. `docs/project/DESIGN.md` 缺失或明显过期（判定口径同 `vj-design-md-matcher` 触发条件）→
-   先路由 `vj-design-md-matcher`，产出 DESIGN.md 后回到本流程。
-3. **幂等短路（重跑场景）**：`shasum <PRD> | cut -c1-16` 与既有 `screen-inventory.md` 记录的
-   `来源 PRD digest` 一致，且整板机检（P4 命令）通过 → 不重新生成 P1–P3，直接进 P5
-   验证态并在报告注明"PRD 未变，幂等短路"；digest 不一致 → 正常重跑，仅重生成受
-   PRD delta 影响的分区（其余分区保留），新 digest 随 P1 写回 inventory。
+**P2 骨架 + golden 屏**：按 `references/board-skeleton.md` 从 DESIGN.md 抽双轨 token 编进 `:root`，写板头和
+公共 CSS 类，然后精做 1 个 P0 屏作为视觉语法样板。用户在场时可以先请其快速看一眼。
 
-### P1 Screen Inventory
+**P3 分区**：屏数超过 6 时，按 `references/subagent-dispatch.md` 每个 Epic 派一个子代理生成分区片段，
+只许用骨架公共类和 `var()` 颜色，不自造调色板；否则在主上下文顺序生成。
 
-按 `references/screen-inventory.template.md` 解析 PRD 生成清单表（屏名 / 来源条目 / 屏型 /
-P0 判定 / 状态集 / 设备框 / 锚点 ID），写入产物目录的 `screen-inventory.md`。
-**Intent Gate**：屏的增删、屏型、P0 判定、设备框若存在多个合理产品选择，合并成一次确认；
-无人值守 → 按最合理假设继续，逐项标 `⚠️ 推断 + Confidence: H/M/L`，板头标"清单假设待审批"，
-不阻塞、不静默拍板。
-
-### P2 骨架 + golden 屏
-
-按 `references/board-skeleton.md`：从 DESIGN.md 抽双轨 token 编译进板内 `:root`，
-写板头（来源 PRD 版本 + 生成日期 + 用法说明）与公共 CSS 类，然后精做 1 个 P0 屏做
-golden 样例定视觉语法。有用户在场可请其快看一眼 golden 屏；无人值守直接继续。
-
-### P3 分区生成
-
-按 `references/subagent-dispatch.md` 每 Epic 派一个 subagent 生成该分区 HTML 片段。
-清单总屏数 ≤6 或无 subagent 能力时，降级为主上下文顺序生成（标注 "dispatch inline fallback"）。
-
-### P4 装配 + 机检
-
-拼装整板后跑：
+**P4 装配 + 机检**：
 
 ```bash
 python3 .agents/skills/vj-mock-board/scripts/validate_mock_board.py \
@@ -107,39 +60,13 @@ python3 .agents/skills/vj-mock-board/scripts/validate_mock_board.py \
   --design docs/project/DESIGN.md
 ```
 
-exit != 0 → 对应分区回炉重写（不整板重跑）；回炉一次仍 fail → 主上下文亲自修该分区。
+失败只重写出问题的分区；重写一次还失败就自己修。
 
-### P5 收尾
+**P5 收尾**：用 `web-access` 打开板，按分区截图，对同一批截图过一遍：不滥用渐变、不堆 emoji 项目符号、
+状态可辨、不空屏，以及 `ui-visual-consistency-audit` 的九维一致性（色彩、字体、间距、圆角、阴影、图标、
+卡片、按钮层级、装饰；每屏实心 accent 不超过 1 个）。要改的就地改，再跑 P4。这一步是建议性的，P4 机检才是硬闸；
+用户可说"跳过审查"或要求用 `ui-visual-consistency-audit` 深审。`web-access` 不可用就跳过，板头注明"未做浏览器视觉验证"。
+最后报告产物绝对路径和打开方式。
 
-1. **单次浏览器视觉验收（双审合一）**：用全局 `web-access` skill 打开板、按分区分段截图，
-   对同一批截图跑**合并清单**一次过——①富度/反 AI-slop 自查（无渐变滥用、无 emoji 项目
-   符号堆砌、状态可辨、不空屏）+ ②视觉一致性九维（口径取自 `ui-visual-consistency-audit`：
-   色彩/字体/间距/圆角/阴影/图标/卡片/按钮层级/装饰，逐帧核对"每屏实心 accent ≤1"）。
-   发现必须改项就地修正并重跑 P4 机检。同批截图不做第二遍独立审查——P4 机检才是唯一
-   硬闸（判定权独立），本步是 advisory 视觉验收；用户可说"跳过审查"，或显式要求
-   `ui-visual-consistency-audit` 做深审。
-2. 报告产物绝对路径 + 浏览器打开方式；提示下游：`vj-epic-story` 拆解时可引用板，
-   `vj-epic-plan` 可将其登记为 Screen Contract 的 Design source。
-
-## 失败模式与兜底
-
-| 触发条件 | 一线修复 | 仍失败兜底 |
-|----------|----------|------------|
-| DESIGN.md 缺失且 `vj-design-md-matcher` 跑不了（无网络 / 用户明确拒绝） | 以 `--wireframe` 降级中性灰线框板，板头标"风格待 DESIGN.md 定稿后重染" | 交付线框板并在收尾报告中标注 |
-| 清单屏数 >20 | 提示裁剪（P1 屏减态 / 只画核心 Epic），用户确认 | 无人值守自动裁到核心旅程屏，板头标注裁剪范围 + `⚠️ 推断` |
-| 分区片段机检 fail | 该分区回炉一次 | 主上下文亲自修该分区 |
-| `web-access` 不可用 | 跳过 P5 浏览器视觉验收（机检硬闸不受影响） | 板头标"未做浏览器视觉验证"，收尾报告注明 |
-| PRD 无 Epic 结构（自由格式需求） | 按用户旅程聚类自建分区，标 `⚠️ 推断` | Inventory gate 让用户定分区 |
-| 产物目录不可写 | 先创建目录再写 | 输出板全文到对话，请用户确认落盘路径 |
-
-## Stop conditions
-
-- Inventory 确认 gate 反馈 ≥3 轮不收敛 → 弹"继续（按当前清单出板）/ 重审 PRD / 放弃"，
-  不进入死循环。
-
-## 触发示例
-
-- "根据 PRD 出一版 mock，看看产品长什么样"
-- "把 requirements.md 画成界面 mock board"
-- "PRD 更新了，重跑 mock board"
-- "给这个需求出个 UI mock / wireframe / mockup"
+`DESIGN.md` 缺失且 `vj-design-md-matcher` 跑不了（没网或用户拒绝）时，用 `--wireframe` 出中性灰线框板，
+板头标"风格待 DESIGN.md 定稿后重染"。

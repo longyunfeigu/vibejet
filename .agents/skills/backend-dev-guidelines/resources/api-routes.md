@@ -27,7 +27,7 @@ Use this for `backend/api/routes/`, `backend/api/dependencies.py`, route registr
 ## Auth
 
 - New business endpoints are protected by default.
-- Public endpoints must be visibly intentional in code or task docs.
+- Public endpoints must be visibly intentional in code or the plan's key design.
 - Use `get_current_user` for authenticated actor and `require_role(*roles)` for role gates when available.
 - Ownership checks belong in `application` services when they require resource data.
 

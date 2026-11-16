@@ -27,3 +27,42 @@ test('counts controlledWait/workaroundSleep calls, ignores comments', () => {
   ].join('\n');
   assert.equal(countControlledWaits(src), 2);
 });
+
+// ── Check G / Check J: Backend-Unit (后端单测) execution type ──────────────
+
+import { EXEC_TYPES_CN, collectFeatureCaseIds, findBackendUnitViolations } from '../../core/runner/lib/guardrails.mjs';
+
+test('Check G vocabulary: adds 后端单测, keeps the original three, legacy values stay invalid', () => {
+  for (const v of ['自动化测试', '手工测试-产线高危', '手工测试-故障注入', '后端单测']) {
+    assert.ok(EXEC_TYPES_CN.includes(v), v);
+  }
+  assert.equal(EXEC_TYPES_CN.length, 4);
+  for (const legacy of ['AutoTest', 'Manual', '手工测试', '手动测试', 'Backend-Unit']) {
+    assert.ok(!EXEC_TYPES_CN.includes(legacy), legacy);
+  }
+});
+
+test('collectFeatureCaseIds reads case-ID tags from feature source', () => {
+  const src = '  @DIET-PRF-001 @smoke\n  Scenario: a\n  @DIET-PRF-018 @negative\n  Scenario: b\n';
+  assert.deepEqual([...collectFeatureCaseIds(src)].sort(), ['DIET-PRF-001', 'DIET-PRF-018']);
+});
+
+test('Check J: 后端单测 row tagged in a .feature or without a test pointer is flagged', () => {
+  const tagged = new Set(['DIET-PRF-031']);
+  const row = (exec, notes, caseId = 'DIET-PRF-031') => ({ where: 'x.csv:2', caseId, exec, notes });
+  const ok = '对应验收：A27；由后端单测覆盖：test_account_deletion.py::test_failure_rolls_back';
+  assert.equal(findBackendUnitViolations(row('后端单测', ok), tagged).length, 1); // has a feature tag
+  assert.deepEqual(findBackendUnitViolations(row('后端单测', ok, 'DIET-PRF-099'), tagged), []);
+  assert.deepEqual(findBackendUnitViolations(row('后端单测', '对应验收：A27；见 test_account_deletion.py', 'DIET-PRF-099'), tagged), []);
+  const noPointer = findBackendUnitViolations(row('后端单测', '对应验收：A27', 'DIET-PRF-099'), tagged);
+  assert.equal(noPointer.length, 1);
+  assert.match(noPointer[0], /Notes do not name the backend test/);
+  assert.equal(findBackendUnitViolations(row('后端单测', '对应验收：A27'), tagged).length, 2);
+});
+
+test('Check J regression: original three values are never flagged, feature tag or not', () => {
+  const tagged = new Set(['DIET-PRF-018']);
+  for (const exec of ['自动化测试', '手工测试-产线高危', '手工测试-故障注入']) {
+    assert.deepEqual(findBackendUnitViolations({ where: 'x', caseId: 'DIET-PRF-018', exec, notes: '' }, tagged), []);
+  }
+});
