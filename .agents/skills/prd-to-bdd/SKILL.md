@@ -268,8 +268,7 @@ Examples:
 
 **vibejet feature code registry (use these exact codes; add a line when you create a feature):**
 - `AUTH-LGN` = `auth/login`
-- `DIET-PRF` = `diet/profile`
-- `DIET-LOG` = `diet/meal-log`
+- `HOME-DSH` = `home/dashboard`
 
 > The Case ID in the csv is the tracking ID. The corresponding BDD scenario gets a `@{CASE_ID}` tag (e.g., `@VA-SHL-001`). Record the Case ID tag in the **BDD Tag** column (column 14) alongside the execution tag (e.g., `@VA-SHL-001 @smoke`).
 

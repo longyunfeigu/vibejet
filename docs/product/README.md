@@ -1,9 +1,8 @@
 # Product Documentation
 
-Product intent for an application built on top of the vibejet platform. `vj-product-requirements`
-writes the PRD (`requirements.md`) into this directory. It currently holds a sample PRD (食衡, a
-diet-tracking web app) used to exercise and compare the vj workflow; its scenario prototype lives in
-`docs/reference/research/designs/prd-diet/`. Whether it stays as a long-term sample is undecided.
+Product intent for an application built on top of the vibejet platform. No product is
+currently tracked here; `vj-product-requirements` writes the PRD (`requirements.md`) into this
+directory when one starts.
 
 ## Boundary
 

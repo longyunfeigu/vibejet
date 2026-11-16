@@ -263,17 +263,17 @@ class PlanCaseTraceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             repo = Path(raw)
             (repo / ".git").mkdir()
-            cases = repo / "AutoTest/modules/diet/profile/cases"
+            cases = repo / "AutoTest/modules/demo/feat/cases"
             cases.mkdir(parents=True)
             with (cases / "manual-test-cases-cn.csv").open("w", newline="", encoding="utf-8") as fh:
                 writer = csv.writer(fh)
                 writer.writerow(self.HEADER)
                 for i, (req, note) in enumerate(notes, 1):
-                    writer.writerow([f"DIET-PRF-{i:03d}", req] + [""] * 2 + [f"场景{i}"] + [""] * 10 + [note])
+                    writer.writerow([f"DEMO-FT-{i:03d}", req] + [""] * 2 + [f"场景{i}"] + [""] * 10 + [note])
             plan = repo / "docs/work/plans/2026-11-13-epic-1.md"
             plan.parent.mkdir(parents=True)
             plan.write_text(
-                PLAN_FIXTURE.replace("date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/diet"),
+                PLAN_FIXTURE.replace("date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/demo"),
                 encoding="utf-8",
             )
             return self.module.check(plan, repo)

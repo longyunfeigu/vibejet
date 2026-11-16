@@ -32,7 +32,7 @@ export const BACKEND_UNIT_CN = '后端单测';
 // concrete test file name (test_x.py / x_test.py).
 const BACKEND_TEST_POINTER = /后端单测|\btest_\w+\.py\b|\b\w+_test\.py\b/;
 
-/** Collect every case-ID tag (e.g. @DIET-PRF-001 -> DIET-PRF-001) in a .feature source. */
+/** Collect every case-ID tag (e.g. @DEMO-FT-001 -> DEMO-FT-001) in a .feature source. */
 export function collectFeatureCaseIds(content) {
   const ids = new Set();
   for (const m of content.matchAll(/@([A-Z]{2,5}-[A-Z0-9]+-\d{3,4})\b/g)) ids.add(m[1]);
