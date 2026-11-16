@@ -1,0 +1,17 @@
+{
+  "src/components/layout/AppShell.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/auth/components/BrandPanel.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  },
+  "src/features/auth/components/OAuthRedirectButton.tsx": {
+    "no-restricted-syntax": {
+      "count": 1
+    }
+  }
+}
