@@ -12,10 +12,10 @@ Feature: Auth — Login
     And the login form should show the "用户名或邮箱" and "密码" fields
 
   @AUTH-LGN-002 @regression
-  Scenario: The test account signs in and lands on the home page greeting
+  Scenario: The test account signs in and lands in the app
     Given I am signed out
     When I sign in as the test account
-    Then the home page should greet the test account
+    Then the top bar should offer "退出"
     And the account API should report the test account as signed in
 
   @AUTH-LGN-003 @negative
@@ -34,7 +34,7 @@ Feature: Auth — Login
     And the field message "请输入密码" should be shown
     And I should be on the login page
 
-  @AUTH-LGN-005 @regression
+  @AUTH-LGN-005 @smoke
   Scenario: Signing out returns to the login page and protects the home page
     When I open the home page
     And I sign out from the top bar

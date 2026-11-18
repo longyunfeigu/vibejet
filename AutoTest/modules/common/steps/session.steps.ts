@@ -1,7 +1,6 @@
 import { createBdd } from 'playwright-bdd';
 import { LoginPage } from '../../auth/login/pages/LoginPage';
 import { HomePage } from '../../home/dashboard/pages/HomePage';
-import { getE2EConfig } from '../../../config/env-config';
 
 const { Given, When, Then } = createBdd();
 
@@ -20,8 +19,8 @@ Then('I should be on the login page', async ({ page }) => {
   await new LoginPage(page).expectOnLoginPage();
 });
 
-Then('the home page should greet the test account', async ({ page }) => {
-  await new HomePage(page).expectGreeting(getE2EConfig().username);
+Then('the top bar should offer {string}', async ({ page }, label: string) => {
+  await new HomePage(page).expectTopBarButton(label);
 });
 
 Then('no session should be stored', async ({ page }) => {

@@ -95,8 +95,10 @@ export default async function globalSetup(_config: FullConfig) {
     await page.getByLabel('密码', { exact: true }).fill(password);
     await page.getByRole('button', { name: '登录', exact: true }).click();
 
+    // 登录成功 = 前端存下了会话并离开登录页。不看首页内容：首页是占位页，下游产品会换掉它
     try {
-      await expect(page.getByRole('heading', { level: 1, name: /^你好，/ })).toBeVisible({ timeout: 30000 });
+      await page.waitForFunction((key) => localStorage.getItem(key) !== null, SESSION_STORAGE_KEY, { timeout: 30000 });
+      await expect(page).not.toHaveURL(/\/login$/, { timeout: 30000 });
     } catch {
       throw new Error(
         `[e2e] 自动登录失败，当前页面：${page.url()}\n` +

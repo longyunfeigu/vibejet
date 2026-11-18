@@ -1,7 +1,7 @@
 # language: en
 Feature: Home — Dashboard
 
-  @HOME-DSH-001 @smoke
+  @HOME-DSH-001 @regression
   Scenario: A signed-in user sees the greeting and the dashboard sections
     When I open the home page
     Then the home page should greet the test account
