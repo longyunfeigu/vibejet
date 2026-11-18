@@ -1,36 +1,31 @@
 """
 统一的Redis客户端实现 - 支持完整数据结构和高级功能
+
+错误语义：客户端不吞错。连接/超时类故障统一抛 ``CacheUnavailableError``，
+其余 Redis 错误（WRONGTYPE 等用法错误）原样上抛；要"缓存挂了就降级"的调用方
+自己 catch ``CacheUnavailableError``（见 ``CachePatterns``），而不是从返回值里猜。
 """
 
 from __future__ import annotations
 
 import asyncio
+import builtins
 import json
 import random
 import socket
 import time
 from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager, suppress
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager, suppress
 from datetime import datetime
 from enum import Enum
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Any, TypeVar
 from urllib.parse import urlsplit
 
 from redis import asyncio as aioredis
 from redis.asyncio.lock import Lock
-from redis.exceptions import RedisError
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from core.config import settings
 from core.logging_config import get_logger
@@ -38,6 +33,18 @@ from core.logging_config import get_logger
 logger = get_logger(__name__)
 
 _T = TypeVar("_T")
+
+
+class CacheUnavailableError(Exception):
+    """Redis 连不上或超时。调用方据此决定降级还是上抛。"""
+
+
+@contextmanager
+def _connection_errors_as_unavailable() -> Iterator[None]:
+    try:
+        yield
+    except (RedisConnectionError, RedisTimeoutError) as exc:
+        raise CacheUnavailableError(str(exc)) from exc
 
 
 # ============= 枚举和数据类 =============
@@ -75,7 +82,7 @@ class CacheMetrics:
         self.total_get = 0
         self.total_set = 0
         self.total_delete = 0
-        self.operation_times: List[float] = []
+        self.operation_times: list[float] = []
 
     @property
     def hit_rate(self) -> float:
@@ -116,7 +123,7 @@ class CacheInterface(ABC):
         pass
 
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """设置缓存值"""
         pass
 
@@ -159,8 +166,8 @@ class RedisClient(CacheInterface):
         namespace: str = "",
         enable_metrics: bool = True,
         enable_logging: bool = True,
-        serializer: Optional[Callable] = None,
-        deserializer: Optional[Callable] = None,
+        serializer: Callable | None = None,
+        deserializer: Callable | None = None,
     ):
         self._client = client
         self._namespace = namespace.strip(":")
@@ -190,7 +197,7 @@ class RedisClient(CacheInterface):
             logger.error(f"序列化失败: {e}")
             raise
 
-    def _default_deserializer(self, value: Optional[str], as_json: bool = True) -> Any:
+    def _default_deserializer(self, value: str | None, as_json: bool = True) -> Any:
         """默认反序列化方法"""
         if value is None:
             return None
@@ -204,20 +211,17 @@ class RedisClient(CacheInterface):
     async def _execute_with_metrics(
         self, operation: Callable[..., Awaitable[_T]], *args: Any, **kwargs: Any
     ) -> _T:
-        """带指标统计的操作执行"""
+        """带指标统计的操作执行；连接/超时故障转成 ``CacheUnavailableError``"""
         if not self._enable_metrics:
-            return await operation(*args, **kwargs)
+            with _connection_errors_as_unavailable():
+                return await operation(*args, **kwargs)
 
         start_time = time.time()
         try:
-            result = await operation(*args, **kwargs)
-            duration = time.time() - start_time
-            self._metrics.record_operation_time(duration)
-            return result
-        except Exception:
-            duration = time.time() - start_time
-            self._metrics.record_operation_time(duration)
-            raise
+            with _connection_errors_as_unavailable():
+                return await operation(*args, **kwargs)
+        finally:
+            self._metrics.record_operation_time(time.time() - start_time)
 
     # ============= String 操作 =============
 
@@ -226,555 +230,378 @@ class RedisClient(CacheInterface):
         formatted_key = self._format_key(key)
         try:
             value = await self._execute_with_metrics(self._client.get, formatted_key)
-
-            if self._enable_metrics:
-                status = CacheStatus.HIT if value is not None else CacheStatus.MISS
-                self._metrics.record_get(status)
-
-            if self._enable_logging and value is None:
-                logger.debug(f"缓存未命中: {formatted_key}")
-
-            return self._deserializer(value) if value is not None else default
-
-        except RedisError as e:
+        except CacheUnavailableError:
             if self._enable_metrics:
                 self._metrics.record_get(CacheStatus.ERROR)
-            logger.error(f"获取缓存失败 [{formatted_key}]: {e}")
-            return default
+            raise
+
+        if self._enable_metrics:
+            status = CacheStatus.HIT if value is not None else CacheStatus.MISS
+            self._metrics.record_get(status)
+
+        if self._enable_logging and value is None:
+            logger.debug(f"缓存未命中: {formatted_key}")
+
+        return self._deserializer(value) if value is not None else default
 
     async def set(
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
         nx: bool = False,  # 仅当key不存在时设置
         xx: bool = False,  # 仅当key存在时设置
         keepttl: bool = False,  # 保持原有TTL
         get: bool = False,  # 返回旧值
-    ) -> Union[bool, Any]:
+    ) -> bool | Any:
         """设置字符串值，支持多种选项"""
         formatted_key = self._format_key(key)
-        try:
-            payload = self._serializer(value)
-            expire = ttl if ttl is not None else settings.redis.default_ttl
+        payload = self._serializer(value)
+        expire = ttl if ttl is not None else settings.redis.default_ttl
 
-            result = await self._execute_with_metrics(
-                self._client.set,
-                formatted_key,
-                payload,
-                ex=expire if expire and expire > 0 else None,
-                nx=nx,
-                xx=xx,
-                keepttl=keepttl,
-                get=get,
-            )
+        result = await self._execute_with_metrics(
+            self._client.set,
+            formatted_key,
+            payload,
+            ex=expire if expire and expire > 0 else None,
+            nx=nx,
+            xx=xx,
+            keepttl=keepttl,
+            get=get,
+        )
 
-            if self._enable_metrics:
-                self._metrics.total_set += 1
+        if self._enable_metrics:
+            self._metrics.total_set += 1
 
-            if self._enable_logging:
-                logger.debug(f"缓存设置成功: {formatted_key}, TTL: {expire}")
+        if self._enable_logging:
+            logger.debug(f"缓存设置成功: {formatted_key}, TTL: {expire}")
 
-            if get:
-                return self._deserializer(result) if result else None
-            return bool(result)
-
-        except RedisError as e:
-            logger.error(f"设置缓存失败 [{formatted_key}]: {e}")
-            return False if not get else None
+        if get:
+            return self._deserializer(result) if result else None
+        return bool(result)
 
     async def getset(self, key: str, value: Any) -> Any:
         """设置新值并返回旧值"""
         formatted_key = self._format_key(key)
-        try:
-            old_value = await self._execute_with_metrics(
-                self._client.getset, formatted_key, self._serializer(value)
-            )
-            return self._deserializer(old_value) if old_value else None
-        except RedisError as e:
-            logger.error(f"getset操作失败: {e}")
-            return None
+        old_value = await self._execute_with_metrics(
+            self._client.getset, formatted_key, self._serializer(value)
+        )
+        return self._deserializer(old_value) if old_value else None
 
-    async def mget(self, keys: List[str]) -> Dict[str, Any]:
+    async def mget(self, keys: list[str]) -> dict[str, Any]:
         """批量获取"""
         if not keys:
             return {}
 
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            values = await self._execute_with_metrics(self._client.mget, formatted_keys)
-            return {
-                key: self._deserializer(value)
-                for key, value in zip(keys, values)
-                if value is not None
-            }
-        except RedisError as e:
-            logger.error(f"批量获取失败: {e}")
-            return {}
+        values = await self._execute_with_metrics(self._client.mget, formatted_keys)
+        return {
+            key: self._deserializer(value) for key, value in zip(keys, values) if value is not None
+        }
 
-    async def mset(self, mapping: Dict[str, Any], ttl: Optional[int] = None) -> bool:
+    async def mset(self, mapping: dict[str, Any], ttl: int | None = None) -> bool:
         """批量设置"""
         if not mapping:
             return True
 
-        try:
-            # 序列化所有值
-            formatted_mapping = {
-                self._format_key(k): self._serializer(v) for k, v in mapping.items()
-            }
+        # 序列化所有值
+        formatted_mapping = {self._format_key(k): self._serializer(v) for k, v in mapping.items()}
 
-            # 使用pipeline提高性能
-            async with self._client.pipeline() as pipe:
-                expire = ttl if ttl is not None else settings.redis.default_ttl
+        # 使用pipeline提高性能
+        async with self._client.pipeline() as pipe:
+            expire = ttl if ttl is not None else settings.redis.default_ttl
 
-                for key, value in formatted_mapping.items():
-                    if expire and expire > 0:
-                        pipe.set(key, value, ex=expire)
-                    else:
-                        pipe.set(key, value)
+            for key, value in formatted_mapping.items():
+                if expire and expire > 0:
+                    pipe.set(key, value, ex=expire)
+                else:
+                    pipe.set(key, value)
 
-                results = await pipe.execute()
+            results = await self._execute_with_metrics(pipe.execute)
 
-                if self._enable_metrics:
-                    self._metrics.total_set += len(mapping)
+            if self._enable_metrics:
+                self._metrics.total_set += len(mapping)
 
-                return all(results)
+            return all(results)
 
-        except RedisError as e:
-            logger.error(f"批量设置失败: {e}")
-            return False
-
-    async def incr(self, key: str, amount: int = 1, ttl: Optional[int] = None) -> Optional[int]:
+    async def incr(self, key: str, amount: int = 1, ttl: int | None = None) -> int:
         """自增计数器"""
         formatted_key = self._format_key(key)
-        try:
-            value = await self._execute_with_metrics(self._client.incrby, formatted_key, amount)
+        value = await self._execute_with_metrics(self._client.incrby, formatted_key, amount)
 
-            expire = ttl if ttl is not None else settings.redis.default_ttl
-            if expire and expire > 0:
-                await self._client.expire(formatted_key, expire)
+        expire = ttl if ttl is not None else settings.redis.default_ttl
+        if expire and expire > 0:
+            await self._execute_with_metrics(self._client.expire, formatted_key, expire)
 
-            return value
+        return value
 
-        except RedisError as e:
-            logger.error(f"自增计数器失败 [{formatted_key}]: {e}")
-            return None
-
-    async def decr(self, key: str, amount: int = 1) -> Optional[int]:
+    async def decr(self, key: str, amount: int = 1) -> int:
         """自减计数器"""
         formatted_key = self._format_key(key)
-        try:
-            return await self._execute_with_metrics(self._client.decrby, formatted_key, amount)
-        except RedisError as e:
-            logger.error(f"自减计数器失败 [{formatted_key}]: {e}")
-            return None
+        return await self._execute_with_metrics(self._client.decrby, formatted_key, amount)
 
     # ============= Hash 操作 =============
 
     async def hget(self, key: str, field: str) -> Any:
         """获取Hash字段值"""
-        try:
-            value = await self._execute_with_metrics(
-                self._client.hget, self._format_key(key), field
-            )
-            return self._deserializer(value) if value else None
-        except RedisError as e:
-            logger.error(f"获取Hash字段失败: {e}")
-            return None
+        value = await self._execute_with_metrics(self._client.hget, self._format_key(key), field)
+        return self._deserializer(value) if value else None
 
     async def hset(
         self,
         key: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        mapping: Optional[Dict[str, Any]] = None,
+        field: str | None = None,
+        value: Any | None = None,
+        mapping: dict[str, Any] | None = None,
     ) -> int:
         """设置Hash字段值，支持单个或批量设置"""
         formatted_key = self._format_key(key)
-        try:
-            if mapping:
-                # 批量设置
-                serialized_mapping = {k: self._serializer(v) for k, v in mapping.items()}
-                return await self._execute_with_metrics(
-                    self._client.hset, formatted_key, mapping=serialized_mapping
-                )
-            elif field is not None and value is not None:
-                # 单个设置
-                return await self._execute_with_metrics(
-                    self._client.hset, formatted_key, field, self._serializer(value)
-                )
-            else:
-                raise ValueError("必须提供field和value，或者mapping参数")
-        except RedisError as e:
-            logger.error(f"设置Hash字段失败: {e}")
-            return 0
+        if mapping:
+            # 批量设置
+            serialized_mapping = {k: self._serializer(v) for k, v in mapping.items()}
+            return await self._execute_with_metrics(
+                self._client.hset, formatted_key, mapping=serialized_mapping
+            )
+        elif field is not None and value is not None:
+            # 单个设置
+            return await self._execute_with_metrics(
+                self._client.hset, formatted_key, field, self._serializer(value)
+            )
+        else:
+            raise ValueError("必须提供field和value，或者mapping参数")
 
-    async def hmset(self, key: str, mapping: Dict[str, Any]) -> bool:
+    async def hmset(self, key: str, mapping: dict[str, Any]) -> bool:
         """批量设置Hash字段（兼容旧API）"""
         return await self.hset(key, mapping=mapping) > 0
 
-    async def hgetall(self, key: str) -> Dict[str, Any]:
+    async def hgetall(self, key: str) -> dict[str, Any]:
         """获取Hash所有字段"""
-        try:
-            data = await self._execute_with_metrics(self._client.hgetall, self._format_key(key))
-            return {field: self._deserializer(value) for field, value in data.items()}
-        except RedisError as e:
-            logger.error(f"获取Hash所有字段失败: {e}")
-            return {}
+        data = await self._execute_with_metrics(self._client.hgetall, self._format_key(key))
+        return {field: self._deserializer(value) for field, value in data.items()}
 
     async def hdel(self, key: str, *fields: str) -> int:
         """删除Hash字段"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.hdel, self._format_key(key), *fields
-            )
-        except RedisError as e:
-            logger.error(f"删除Hash字段失败: {e}")
-            return 0
+        return await self._execute_with_metrics(self._client.hdel, self._format_key(key), *fields)
 
     async def hexists(self, key: str, field: str) -> bool:
         """检查Hash字段是否存在"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.hexists, self._format_key(key), field
-            )
-        except RedisError as e:
-            logger.error(f"检查Hash字段失败: {e}")
-            return False
+        return await self._execute_with_metrics(self._client.hexists, self._format_key(key), field)
 
     async def hincrby(self, key: str, field: str, amount: int = 1) -> int:
         """Hash字段自增"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.hincrby, self._format_key(key), field, amount
-            )
-        except RedisError as e:
-            logger.error(f"Hash字段自增失败: {e}")
-            return 0
+        return await self._execute_with_metrics(
+            self._client.hincrby, self._format_key(key), field, amount
+        )
 
     # ============= List 操作 =============
 
     async def lpush(self, key: str, *values: Any) -> int:
         """从左侧推入列表"""
         formatted_key = self._format_key(key)
-        try:
-            serialized_values = [self._serializer(v) for v in values]
-            return await self._execute_with_metrics(
-                self._client.lpush, formatted_key, *serialized_values
-            )
-        except RedisError as e:
-            logger.error(f"列表左侧推入失败: {e}")
-            return 0
+        serialized_values = [self._serializer(v) for v in values]
+        return await self._execute_with_metrics(
+            self._client.lpush, formatted_key, *serialized_values
+        )
 
     async def rpush(self, key: str, *values: Any) -> int:
         """从右侧推入列表"""
         formatted_key = self._format_key(key)
-        try:
-            serialized_values = [self._serializer(v) for v in values]
-            return await self._execute_with_metrics(
-                self._client.rpush, formatted_key, *serialized_values
-            )
-        except RedisError as e:
-            logger.error(f"列表右侧推入失败: {e}")
-            return 0
+        serialized_values = [self._serializer(v) for v in values]
+        return await self._execute_with_metrics(
+            self._client.rpush, formatted_key, *serialized_values
+        )
 
-    async def lpop(self, key: str, count: Optional[int] = None) -> Any:
+    async def lpop(self, key: str, count: int | None = None) -> Any:
         """从左侧弹出元素"""
-        try:
-            result = await self._execute_with_metrics(
-                self._client.lpop, self._format_key(key), count
-            )
-            if count:
-                return [self._deserializer(v) for v in result] if result else []
-            else:
-                return self._deserializer(result) if result else None
-        except RedisError as e:
-            logger.error(f"列表左侧弹出失败: {e}")
-            return [] if count else None
+        result = await self._execute_with_metrics(self._client.lpop, self._format_key(key), count)
+        if count:
+            return [self._deserializer(v) for v in result] if result else []
+        else:
+            return self._deserializer(result) if result else None
 
-    async def rpop(self, key: str, count: Optional[int] = None) -> Any:
+    async def rpop(self, key: str, count: int | None = None) -> Any:
         """从右侧弹出元素"""
-        try:
-            result = await self._execute_with_metrics(
-                self._client.rpop, self._format_key(key), count
-            )
-            if count:
-                return [self._deserializer(v) for v in result] if result else []
-            else:
-                return self._deserializer(result) if result else None
-        except RedisError as e:
-            logger.error(f"列表右侧弹出失败: {e}")
-            return [] if count else None
+        result = await self._execute_with_metrics(self._client.rpop, self._format_key(key), count)
+        if count:
+            return [self._deserializer(v) for v in result] if result else []
+        else:
+            return self._deserializer(result) if result else None
 
-    async def lrange(self, key: str, start: int = 0, stop: int = -1) -> List[Any]:
+    async def lrange(self, key: str, start: int = 0, stop: int = -1) -> list[Any]:
         """获取列表范围元素"""
-        try:
-            values = await self._execute_with_metrics(
-                self._client.lrange, self._format_key(key), start, stop
-            )
-            return [self._deserializer(v) for v in values]
-        except RedisError as e:
-            logger.error(f"获取列表范围失败: {e}")
-            return []
+        values = await self._execute_with_metrics(
+            self._client.lrange, self._format_key(key), start, stop
+        )
+        return [self._deserializer(v) for v in values]
 
     async def llen(self, key: str) -> int:
         """获取列表长度"""
-        try:
-            return await self._execute_with_metrics(self._client.llen, self._format_key(key))
-        except RedisError as e:
-            logger.error(f"获取列表长度失败: {e}")
-            return 0
+        return await self._execute_with_metrics(self._client.llen, self._format_key(key))
 
     async def ltrim(self, key: str, start: int, stop: int) -> bool:
         """修剪列表，保留指定范围"""
-        try:
-            await self._execute_with_metrics(self._client.ltrim, self._format_key(key), start, stop)
-            return True
-        except RedisError as e:
-            logger.error(f"修剪列表失败: {e}")
-            return False
+        await self._execute_with_metrics(self._client.ltrim, self._format_key(key), start, stop)
+        return True
 
-    async def blpop(
-        self, keys: Union[str, List[str]], timeout: int = 0
-    ) -> Optional[Tuple[str, Any]]:
+    async def blpop(self, keys: str | list[str], timeout: int = 0) -> tuple[str, Any] | None:
         """阻塞式左侧弹出"""
         if isinstance(keys, str):
             keys = [keys]
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            result = await self._execute_with_metrics(self._client.blpop, formatted_keys, timeout)
-            if result:
-                # 移除命名空间前缀
-                key = result[0]
-                if self._namespace and key.startswith(f"{self._namespace}:"):
-                    key = key[len(self._namespace) + 1 :]
-                return (key, self._deserializer(result[1]))
-            return None
-        except RedisError as e:
-            logger.error(f"阻塞式弹出失败: {e}")
-            return None
+        result = await self._execute_with_metrics(self._client.blpop, formatted_keys, timeout)
+        if result:
+            # 移除命名空间前缀
+            key = result[0]
+            if self._namespace and key.startswith(f"{self._namespace}:"):
+                key = key[len(self._namespace) + 1 :]
+            return (key, self._deserializer(result[1]))
+        return None
 
     # ============= Set 操作 =============
 
     async def sadd(self, key: str, *members: Any) -> int:
         """添加集合成员"""
         formatted_key = self._format_key(key)
-        try:
-            serialized_members = [self._serializer(m) for m in members]
-            return await self._execute_with_metrics(
-                self._client.sadd, formatted_key, *serialized_members
-            )
-        except RedisError as e:
-            logger.error(f"添加集合成员失败: {e}")
-            return 0
+        serialized_members = [self._serializer(m) for m in members]
+        return await self._execute_with_metrics(
+            self._client.sadd, formatted_key, *serialized_members
+        )
 
     async def srem(self, key: str, *members: Any) -> int:
         """移除集合成员"""
         formatted_key = self._format_key(key)
-        try:
-            serialized_members = [self._serializer(m) for m in members]
-            return await self._execute_with_metrics(
-                self._client.srem, formatted_key, *serialized_members
-            )
-        except RedisError as e:
-            logger.error(f"移除集合成员失败: {e}")
-            return 0
+        serialized_members = [self._serializer(m) for m in members]
+        return await self._execute_with_metrics(
+            self._client.srem, formatted_key, *serialized_members
+        )
 
-    async def smembers(self, key: str) -> Set[Any]:
+    async def smembers(self, key: str) -> builtins.set[Any]:
         """获取集合所有成员"""
-        try:
-            members = await self._execute_with_metrics(self._client.smembers, self._format_key(key))
-            return {self._deserializer(m) for m in members}
-        except RedisError as e:
-            logger.error(f"获取集合成员失败: {e}")
-            return set()
+        members = await self._execute_with_metrics(self._client.smembers, self._format_key(key))
+        return {self._deserializer(m) for m in members}
 
     async def sismember(self, key: str, member: Any) -> bool:
         """检查是否为集合成员"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.sismember, self._format_key(key), self._serializer(member)
-            )
-        except RedisError as e:
-            logger.error(f"检查集合成员失败: {e}")
-            return False
+        return await self._execute_with_metrics(
+            self._client.sismember, self._format_key(key), self._serializer(member)
+        )
 
     async def scard(self, key: str) -> int:
         """获取集合大小"""
-        try:
-            return await self._execute_with_metrics(self._client.scard, self._format_key(key))
-        except RedisError as e:
-            logger.error(f"获取集合大小失败: {e}")
-            return 0
+        return await self._execute_with_metrics(self._client.scard, self._format_key(key))
 
-    async def sunion(self, *keys: str) -> Set[Any]:
+    async def sunion(self, *keys: str) -> builtins.set[Any]:
         """集合并集"""
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            members = await self._execute_with_metrics(self._client.sunion, *formatted_keys)
-            return {self._deserializer(m) for m in members}
-        except RedisError as e:
-            logger.error(f"集合并集操作失败: {e}")
-            return set()
+        members = await self._execute_with_metrics(self._client.sunion, *formatted_keys)
+        return {self._deserializer(m) for m in members}
 
-    async def sinter(self, *keys: str) -> Set[Any]:
+    async def sinter(self, *keys: str) -> builtins.set[Any]:
         """集合交集"""
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            members = await self._execute_with_metrics(self._client.sinter, *formatted_keys)
-            return {self._deserializer(m) for m in members}
-        except RedisError as e:
-            logger.error(f"集合交集操作失败: {e}")
-            return set()
+        members = await self._execute_with_metrics(self._client.sinter, *formatted_keys)
+        return {self._deserializer(m) for m in members}
 
-    async def sdiff(self, *keys: str) -> Set[Any]:
+    async def sdiff(self, *keys: str) -> builtins.set[Any]:
         """集合差集"""
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            members = await self._execute_with_metrics(self._client.sdiff, *formatted_keys)
-            return {self._deserializer(m) for m in members}
-        except RedisError as e:
-            logger.error(f"集合差集操作失败: {e}")
-            return set()
+        members = await self._execute_with_metrics(self._client.sdiff, *formatted_keys)
+        return {self._deserializer(m) for m in members}
 
     # ============= Sorted Set 操作 =============
 
     async def zadd(
         self,
         key: str,
-        mapping: Dict[Any, float],
+        mapping: dict[Any, float],
         nx: bool = False,
         xx: bool = False,
         ch: bool = False,
         incr: bool = False,
-    ) -> Union[int, float, None]:
+    ) -> int | float | None:
         """添加有序集合成员"""
         formatted_key = self._format_key(key)
-        try:
-            serialized_mapping = {
-                self._serializer(member): score for member, score in mapping.items()
-            }
-            return await self._execute_with_metrics(
-                self._client.zadd, formatted_key, serialized_mapping, nx=nx, xx=xx, ch=ch, incr=incr
-            )
-        except RedisError as e:
-            logger.error(f"添加有序集合成员失败: {e}")
-            return None
+        serialized_mapping = {self._serializer(member): score for member, score in mapping.items()}
+        return await self._execute_with_metrics(
+            self._client.zadd, formatted_key, serialized_mapping, nx=nx, xx=xx, ch=ch, incr=incr
+        )
 
     async def zrange(
         self, key: str, start: int = 0, stop: int = -1, withscores: bool = False, desc: bool = False
-    ) -> Union[List[Any], List[Tuple[Any, float]]]:
+    ) -> list[Any] | list[tuple[Any, float]]:
         """获取有序集合范围成员"""
-        try:
-            if desc:
-                result = await self._execute_with_metrics(
-                    self._client.zrevrange,
-                    self._format_key(key),
-                    start,
-                    stop,
-                    withscores=withscores,
-                )
-            else:
-                result = await self._execute_with_metrics(
-                    self._client.zrange, self._format_key(key), start, stop, withscores=withscores
-                )
+        if desc:
+            result = await self._execute_with_metrics(
+                self._client.zrevrange,
+                self._format_key(key),
+                start,
+                stop,
+                withscores=withscores,
+            )
+        else:
+            result = await self._execute_with_metrics(
+                self._client.zrange, self._format_key(key), start, stop, withscores=withscores
+            )
 
-            if withscores:
-                return [(self._deserializer(m), score) for m, score in result]
-            else:
-                return [self._deserializer(m) for m in result]
-        except RedisError as e:
-            logger.error(f"获取有序集合范围失败: {e}")
-            return []
+        if withscores:
+            return [(self._deserializer(m), score) for m, score in result]
+        else:
+            return [self._deserializer(m) for m in result]
 
-    async def zrank(self, key: str, member: Any) -> Optional[int]:
+    async def zrank(self, key: str, member: Any) -> int | None:
         """获取成员排名（从0开始）"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.zrank, self._format_key(key), self._serializer(member)
-            )
-        except RedisError as e:
-            logger.error(f"获取成员排名失败: {e}")
-            return None
+        return await self._execute_with_metrics(
+            self._client.zrank, self._format_key(key), self._serializer(member)
+        )
 
-    async def zscore(self, key: str, member: Any) -> Optional[float]:
+    async def zscore(self, key: str, member: Any) -> float | None:
         """获取成员分数"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.zscore, self._format_key(key), self._serializer(member)
-            )
-        except RedisError as e:
-            logger.error(f"获取成员分数失败: {e}")
-            return None
+        return await self._execute_with_metrics(
+            self._client.zscore, self._format_key(key), self._serializer(member)
+        )
 
     async def zincrby(self, key: str, amount: float, member: Any) -> float:
         """增加成员分数"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.zincrby, self._format_key(key), amount, self._serializer(member)
-            )
-        except RedisError as e:
-            logger.error(f"增加成员分数失败: {e}")
-            return 0.0
+        return await self._execute_with_metrics(
+            self._client.zincrby, self._format_key(key), amount, self._serializer(member)
+        )
 
     # ============= 通用操作 =============
 
     async def delete(self, *keys: str) -> int:
         """删除键"""
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            result = await self._execute_with_metrics(self._client.delete, *formatted_keys)
-            if self._enable_metrics:
-                self._metrics.total_delete += result
-            return result
-        except RedisError as e:
-            logger.error(f"删除键失败: {e}")
-            return 0
+        result = await self._execute_with_metrics(self._client.delete, *formatted_keys)
+        if self._enable_metrics:
+            self._metrics.total_delete += result
+        return result
 
     async def exists(self, *keys: str) -> int:
         """检查键是否存在"""
         formatted_keys = [self._format_key(k) for k in keys]
-        try:
-            return await self._execute_with_metrics(self._client.exists, *formatted_keys)
-        except RedisError as e:
-            logger.error(f"检查键存在性失败: {e}")
-            return 0
+        return await self._execute_with_metrics(self._client.exists, *formatted_keys)
 
     async def expire(self, key: str, seconds: int) -> bool:
         """设置过期时间"""
-        try:
-            return await self._execute_with_metrics(
-                self._client.expire, self._format_key(key), seconds
-            )
-        except RedisError as e:
-            logger.error(f"设置过期时间失败: {e}")
-            return False
+        return await self._execute_with_metrics(self._client.expire, self._format_key(key), seconds)
 
     async def ttl(self, key: str) -> int:
         """获取剩余生存时间（秒）"""
-        try:
-            return await self._execute_with_metrics(self._client.ttl, self._format_key(key))
-        except RedisError as e:
-            logger.error(f"获取TTL失败: {e}")
-            return -2
+        return await self._execute_with_metrics(self._client.ttl, self._format_key(key))
 
     async def type(self, key: str) -> str:
         """获取键类型"""
-        try:
-            return await self._execute_with_metrics(self._client.type, self._format_key(key))
-        except RedisError as e:
-            logger.error(f"获取键类型失败: {e}")
-            return "none"
+        return await self._execute_with_metrics(self._client.type, self._format_key(key))
 
-    async def keys(self, pattern: str = "*") -> List[str]:
+    async def keys(self, pattern: str = "*") -> list[str]:
         """查找匹配的键（使用 SCAN 迭代，避免 KEYS 阻塞）"""
-        try:
-            if self._namespace:
-                formatted_pattern = self._format_key(pattern if pattern != "*" else "*")
-            else:
-                formatted_pattern = pattern
+        if self._namespace:
+            formatted_pattern = self._format_key(pattern if pattern != "*" else "*")
+        else:
+            formatted_pattern = pattern
 
-            collected: List[str] = []
+        collected: list[str] = []
+        with _connection_errors_as_unavailable():
             async for k in self._client.scan_iter(match=formatted_pattern):
                 if self._namespace:
                     prefix = f"{self._namespace}:"
@@ -784,39 +611,33 @@ class RedisClient(CacheInterface):
                         collected.append(k)
                 else:
                     collected.append(k)
-            return collected
-        except RedisError as e:
-            logger.error(f"查找键失败: {e}")
-            return []
+        return collected
 
     async def clear_namespace(self) -> int:
         """清理当前命名空间下的所有键"""
         pattern = f"{self._namespace}:*" if self._namespace else "*"
         deleted_count = 0
 
-        try:
-            # 使用pipeline批量删除
-            cursor = 0
-            while True:
-                cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
+        # 使用pipeline批量删除
+        cursor = 0
+        while True:
+            cursor, keys = await self._execute_with_metrics(
+                self._client.scan, cursor, match=pattern, count=100
+            )
 
-                if keys:
-                    async with self._client.pipeline() as pipe:
-                        for key in keys:
-                            # Async pipeline commands are enqueued synchronously; only execute() is awaited
-                            pipe.delete(key)
-                        results = await pipe.execute()
-                        deleted_count += sum(results)
+            if keys:
+                async with self._client.pipeline() as pipe:
+                    for key in keys:
+                        # Async pipeline commands are enqueued synchronously; only execute() is awaited
+                        pipe.delete(key)
+                    results = await self._execute_with_metrics(pipe.execute)
+                    deleted_count += sum(results)
 
-                if cursor == 0:
-                    break
+            if cursor == 0:
+                break
 
-            logger.info(f"清理命名空间 [{self._namespace}], 删除 {deleted_count} 个键")
-            return deleted_count
-
-        except RedisError as e:
-            logger.error(f"清理命名空间失败: {e}")
-            return deleted_count
+        logger.info(f"清理命名空间 [{self._namespace}], 删除 {deleted_count} 个键")
+        return deleted_count
 
     # ============= 高级功能 =============
 
@@ -828,9 +649,9 @@ class RedisClient(CacheInterface):
         blocking_timeout: int = 5,
         thread_local: bool = True,
         *,
-        auto_renew: Optional[bool] = None,
-        renew_interval: Optional[float] = None,
-        jitter: Optional[float] = None,
+        auto_renew: bool | None = None,
+        renew_interval: float | None = None,
+        jitter: float | None = None,
     ):
         """
         分布式锁上下文管理器，支持可选自动续租。
@@ -863,12 +684,13 @@ class RedisClient(CacheInterface):
         )
 
         cancel = asyncio.Event()
-        task: Optional[asyncio.Task] = None
+        task: asyncio.Task | None = None
 
         # 没拿到锁（acquire 返回 False 或抛错）就不调 release：redis-py 只在 acquire 成功后
         # 才记下 token，此时 release 必然失败，只会多记一条误导性的错误日志。
         # acquire 的 SET 已落到服务端但回包丢失的极端情况，由锁的 timeout 过期兜底。
-        acquired = await lock.acquire()
+        with _connection_errors_as_unavailable():
+            acquired = await lock.acquire()
         if not acquired:
             raise TimeoutError(f"获取锁失败: {lock_key}")
         try:
@@ -892,7 +714,7 @@ class RedisClient(CacheInterface):
         lock: Lock,
         lock_key: str,
         timeout: int,
-        renew_interval: Optional[float],
+        renew_interval: float | None,
         ratio: float,
         jitter_ratio: float,
         cancel: asyncio.Event,
@@ -916,7 +738,7 @@ class RedisClient(CacheInterface):
                 try:
                     await asyncio.wait_for(cancel.wait(), timeout=interval)
                     break  # cancel set
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
                 try:
                     await lock.extend(timeout)
@@ -924,7 +746,7 @@ class RedisClient(CacheInterface):
                     logger.warning(f"锁续租失败 [{lock_key}]: {e}")
 
     @staticmethod
-    async def _stop_lock_renewal(task: Optional[asyncio.Task]) -> None:
+    async def _stop_lock_renewal(task: asyncio.Task | None) -> None:
         """取消续租任务并等它结束。
 
         用 asyncio.wait 而不是 await task：被我们自己取消的续租任务不该把 CancelledError
@@ -956,7 +778,7 @@ class RedisClient(CacheInterface):
         pipe = self._client.pipeline(transaction=transaction)
         try:
             yield pipe
-            await pipe.execute()
+            await self._execute_with_metrics(pipe.execute)
         except Exception as e:
             logger.error(f"管道/事务执行失败: {e}")
             raise
@@ -973,15 +795,11 @@ class RedisClient(CacheInterface):
             接收消息的订阅者数量
         """
         formatted_channel = self._format_key(channel)
-        try:
-            return await self._execute_with_metrics(
-                self._client.publish, formatted_channel, self._serializer(message)
-            )
-        except RedisError as e:
-            logger.error(f"发布消息失败: {e}")
-            return 0
+        return await self._execute_with_metrics(
+            self._client.publish, formatted_channel, self._serializer(message)
+        )
 
-    async def subscribe(self, *channels: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def subscribe(self, *channels: str) -> AsyncGenerator[dict[str, Any], None]:
         """
         订阅频道，返回消息生成器
 
@@ -995,26 +813,27 @@ class RedisClient(CacheInterface):
         pubsub = self._client.pubsub()
 
         try:
-            await pubsub.subscribe(*formatted_channels)
+            with _connection_errors_as_unavailable():
+                await pubsub.subscribe(*formatted_channels)
 
-            async for message in pubsub.listen():
-                if message["type"] in ("message", "pmessage"):
-                    # 处理消息
-                    channel = message["channel"]
-                    if self._namespace and channel.startswith(f"{self._namespace}:"):
-                        channel = channel[len(self._namespace) + 1 :]
+                async for message in pubsub.listen():
+                    if message["type"] in ("message", "pmessage"):
+                        # 处理消息
+                        channel = message["channel"]
+                        if self._namespace and channel.startswith(f"{self._namespace}:"):
+                            channel = channel[len(self._namespace) + 1 :]
 
-                    processed_message = {
-                        "channel": channel,
-                        "data": self._deserializer(message["data"]),
-                        "pattern": message.get("pattern"),
-                    }
-                    yield processed_message
+                        processed_message = {
+                            "channel": channel,
+                            "data": self._deserializer(message["data"]),
+                            "pattern": message.get("pattern"),
+                        }
+                        yield processed_message
         finally:
             await pubsub.unsubscribe(*formatted_channels)
             await pubsub.close()
 
-    async def psubscribe(self, pattern: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def psubscribe(self, pattern: str) -> AsyncGenerator[dict[str, Any], None]:
         """
         模式订阅（psubscribe），返回消息生成器。
 
@@ -1029,26 +848,27 @@ class RedisClient(CacheInterface):
         pubsub = self._client.pubsub()
 
         try:
-            await pubsub.psubscribe(formatted_pattern)
+            with _connection_errors_as_unavailable():
+                await pubsub.psubscribe(formatted_pattern)
 
-            async for message in pubsub.listen():
-                if message["type"] in ("pmessage", "message"):
-                    channel = message.get("channel")
-                    data = message.get("data")
-                    # 还原去掉命名空间前缀的频道名
-                    if (
-                        isinstance(channel, str)
-                        and self._namespace
-                        and channel.startswith(f"{self._namespace}:")
-                    ):
-                        channel = channel[len(self._namespace) + 1 :]
+                async for message in pubsub.listen():
+                    if message["type"] in ("pmessage", "message"):
+                        channel = message.get("channel")
+                        data = message.get("data")
+                        # 还原去掉命名空间前缀的频道名
+                        if (
+                            isinstance(channel, str)
+                            and self._namespace
+                            and channel.startswith(f"{self._namespace}:")
+                        ):
+                            channel = channel[len(self._namespace) + 1 :]
 
-                    processed_message = {
-                        "channel": channel,
-                        "data": self._deserializer(data),
-                        "pattern": message.get("pattern"),
-                    }
-                    yield processed_message
+                        processed_message = {
+                            "channel": channel,
+                            "data": self._deserializer(data),
+                            "pattern": message.get("pattern"),
+                        }
+                        yield processed_message
         finally:
             try:
                 await pubsub.punsubscribe(formatted_pattern)
@@ -1056,7 +876,7 @@ class RedisClient(CacheInterface):
                 await pubsub.close()
 
     async def health_check(self) -> bool:
-        """健康检查"""
+        """健康探针：失败返回 False（探针的职责就是报告状态，不抛错）"""
         try:
             return await self._client.ping()
         except Exception as e:
@@ -1064,7 +884,7 @@ class RedisClient(CacheInterface):
             return False
 
     @property
-    def metrics(self) -> Optional[CacheMetrics]:
+    def metrics(self) -> CacheMetrics | None:
         """获取指标统计"""
         return self._metrics
 
@@ -1078,62 +898,73 @@ class RedisClient(CacheInterface):
 
 
 class CachePatterns:
-    """常用缓存模式实现"""
+    """常用缓存模式实现。
+
+    降级策略在这里显式决定：读路径（cache_aside / refresh_ahead）和 write_through
+    的缓存写在 Redis 不可用时降级为直连数据源；write_behind 以缓存为主写入，
+    不可用时上抛，否则数据会静默丢失。
+    """
 
     def __init__(self, cache: RedisClient):
         self.cache = cache
 
-    async def cache_aside(self, key: str, fetch_func: Callable, ttl: Optional[int] = None) -> Any:
+    async def _get_or_none(self, key: str) -> Any:
+        try:
+            return await self.cache.get(key)
+        except CacheUnavailableError as exc:
+            logger.warning("cache_read_degraded", key=key, error=str(exc))
+            return None
+
+    async def _set_quietly(self, key: str, value: Any, ttl: int | None) -> None:
+        try:
+            await self.cache.set(key, value, ttl=ttl)
+        except CacheUnavailableError as exc:
+            logger.warning("cache_write_degraded", key=key, error=str(exc))
+
+    async def cache_aside(self, key: str, fetch_func: Callable, ttl: int | None = None) -> Any:
         """
         Cache-Aside模式（最常用）
         1. 先从缓存读取
         2. 缓存未命中时从数据源获取
         3. 将结果写入缓存
         """
-        # 尝试从缓存获取
-        value = await self.cache.get(key)
+        value = await self._get_or_none(key)
         if value is not None:
             return value
 
-        # 缓存未命中，从数据源获取
         value = await fetch_func()
-
-        # 写入缓存
         if value is not None:
-            await self.cache.set(key, value, ttl=ttl)
+            await self._set_quietly(key, value, ttl)
 
         return value
 
     async def write_through(
-        self, key: str, value: Any, write_func: Callable, ttl: Optional[int] = None
+        self, key: str, value: Any, write_func: Callable, ttl: int | None = None
     ) -> bool:
         """
         Write-Through模式
         1. 同时写入缓存和数据源
         2. 保证数据一致性
         """
-        # 写入数据源
         success: bool = await write_func(value)
 
         if success:
-            # 写入缓存
-            await self.cache.set(key, value, ttl=ttl)
+            await self._set_quietly(key, value, ttl)
 
         return success
 
     async def write_behind(
-        self, key: str, value: Any, queue_key: str = "write_queue", ttl: Optional[int] = None
+        self, key: str, value: Any, queue_key: str = "write_queue", ttl: int | None = None
     ) -> bool:
         """
         Write-Behind模式（异步写入）
         1. 先写入缓存
         2. 异步写入数据源（通过队列）
         """
-        # 立即写入缓存
+        # 缓存是主写入：Redis 不可用时 CacheUnavailableError 直接上抛
         cache_success = await self.cache.set(key, value, ttl=ttl)
 
         if cache_success:
-            # 加入写入队列（后台任务处理）
             await self.cache.rpush(
                 queue_key, {"key": key, "value": value, "timestamp": datetime.now().isoformat()}
             )
@@ -1147,33 +978,36 @@ class CachePatterns:
         Refresh-Ahead模式
         在TTL即将过期时主动刷新缓存
         """
-        value = await self.cache.get(key)
-        remaining_ttl = await self.cache.ttl(key)
+        try:
+            value = await self.cache.get(key)
+            remaining_ttl = await self.cache.ttl(key)
+        except CacheUnavailableError as exc:
+            logger.warning("cache_read_degraded", key=key, error=str(exc))
+            return await fetch_func()
 
         # 如果剩余时间少于阈值，主动刷新
         if remaining_ttl > 0 and remaining_ttl < ttl * (1 - refresh_ratio):
-            # 异步刷新（可以放入任务队列）
             new_value = await fetch_func()
-            await self.cache.set(key, new_value, ttl=ttl)
+            await self._set_quietly(key, new_value, ttl)
             return new_value
 
         # 缓存未命中或不需要刷新
         if value is None:
             value = await fetch_func()
-            await self.cache.set(key, value, ttl=ttl)
+            await self._set_quietly(key, value, ttl)
 
         return value
 
 
 # ============= 单例模式管理 =============
 
-_redis_client: Optional[aioredis.Redis] = None
-_cache_instance: Optional[RedisClient] = None
+_redis_client: aioredis.Redis | None = None
+_cache_instance: RedisClient | None = None
 _lock = asyncio.Lock()
 
 
 async def init_redis_client(
-    namespace: Optional[str] = None,
+    namespace: str | None = None,
     enable_metrics: bool = True,
     enable_logging: bool = True,
     **kwargs,
@@ -1229,7 +1063,8 @@ async def init_redis_client(
             )
 
             # 测试连接
-            await client.ping()
+            with _connection_errors_as_unavailable():
+                await client.ping()
 
             _redis_client = client
             _cache_instance = RedisClient(
@@ -1304,6 +1139,7 @@ async def create_redis_client(namespace: str, **kwargs) -> RedisClient:
         **kwargs,
     )
 
-    await client.ping()
+    with _connection_errors_as_unavailable():
+        await client.ping()
 
     return RedisClient(client=client, namespace=namespace, enable_metrics=True, enable_logging=True)
