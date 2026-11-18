@@ -24,7 +24,15 @@ allowed-tools: |
 
 # Run Test
 
-Working directory: `AutoTest/`. The app under test must be running first (`AutoTest/AGENTS.md`, 「前置」).
+Working directory: `AutoTest/`. The app under test must be running first. If nothing is running, start an
+isolated one with the `verify` skill and target it as env `verify` (the `*:local` npm scripts assume a
+hand-started app on 5173):
+
+```bash
+python3 .agents/skills/verify/scripts/verify.py up --level ui      # from the repo root
+eval "$(python3 .agents/skills/verify/scripts/verify.py env)"
+cd AutoTest && HEADLESS=true ./core/runner/run-bdd.sh <all|smoke|auth|home> verify
+```
 
 ## Step 1: Parse User Input
 

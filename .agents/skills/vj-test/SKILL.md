@@ -34,8 +34,8 @@ description: 在 vj-work 做完一份计划后，为它做全自动跨层 E2E �
 | 缓存 | 项目使用时检测连接 | 跳过缓存断言，报告写"缓存层未覆盖" |
 | 前端驱动 | 用 `invoke_skill` 加载 `web-access`（全局 skill，不按项目路径猜） | 前端降级，报告写"前端未自动覆盖" |
 
-前端可用时启动后端和前端 dev server（自动探测 `pnpm dev` / `uv run`），记录 URL，测完关闭。
-起不来就换启动命令重试一次，仍失败则前端降级并写明原因。任何降级都要写进报告，不能悄悄不测。
+前端可用时用 `verify` 起隔离环境（`verify.py up --level ui`），URL 从 `verify.py status` 取，测完 `verify.py down`。
+起不来先按 verify 报告里失败的那一步修环境；仍失败则前端降级并写明原因。任何降级都要写进报告，不能悄悄不测。
 
 ## Phase 2：风险驱动规划
 

@@ -7,8 +7,8 @@
 
 ```text
 vj router
-  Patch -> 复现/断言 -> 窄改动 -> 定向验证 -> 按风险 review
-  Story -> 回复里写几行意图 -> 实现/验证 -> 按风险 review
+  Patch -> 复现/断言 -> 窄改动 -> 定向验证 -> verify（影响运行行为时）-> 按风险 review
+  Story -> 回复里写几行意图 -> 实现/定向测试 -> verify -> 按风险 review
   Plan  -> vj-plan（一份计划文档，整份给人审）-> vj-work（读代码、验收变测试、按执行顺序做完）-> E2E/review/QA（按风险）
 ```
 
@@ -66,7 +66,7 @@ PRD 定稿后想先看整个产品长什么样，可以插一步 `vj-mock-board`
 
 ### 执行
 
-`vj-work` 开工时一次问完挡路的决定，起好运行环境并跑一遍基线，读真实代码，把验收项对应到测试（计划末尾"验收对应的测试"，
+`vj-work` 开工时一次问完挡路的决定，用 `verify` 起好隔离的运行环境并跑一遍基线，读真实代码，把验收项对应到测试（计划末尾"验收对应的测试"，
 过 `plan_lint.py --for-execution`）。然后按执行顺序的切片派子任务：一个切片一个干净会话的子代理，交代里附上前面切片的产出和
 写成明确句子的硬要求，先写测试、看到它失败再实现，回来交"给下一个切片的交接"；子代理说做完不算，它自己重跑检查命令，
 通过才记进执行记录。加迁移或改同一个注册文件的切片串行，其余并行；有接口约定时先落接口数据结构，前端用模拟数据和后端并行。
@@ -76,6 +76,7 @@ PRD 定稿后想先看整个产品长什么样，可以插一步 `vj-mock-board`
 
 ### 收口（按需）
 
+0. [verify](../../../.agents/skills/verify/SKILL.md) — 每次改动都跑：按改动面检查、起隔离环境、冒烟、出证据和 `Verified:` trailer；其余需要跑着的应用的 skill 也由它起
 1. [vj-test](../../../.agents/skills/vj-test/SKILL.md) — 跨任务的端到端测试（断言 DB / API / 前端真实状态 + 变异自检）
 2. [review](../../../.agents/skills/review/SKILL.md) — 结构化 pre-landing 审查
 3. [diff-aware-qa](../../../.agents/skills/diff-aware-qa/SKILL.md) — 这次改动还波及了哪些页面 / 路由 / 接口
@@ -147,7 +148,7 @@ vj-design-md-matcher -> docs/project/DESIGN.md + docs/reference/research/designs
 
 - `frontend/src/` 可编辑，前端实现按 `AGENTS.md` 的 React + TypeScript + Vite + Tailwind + shadcn 约束执行。
 - 需要真实前端改动时，先确认计划里的页面入口、交互路径和设计来源齐备。
-- 运行时验证和截图检查（`vj-work` 内置、`diff-aware-qa`）不替代缺失的前端源码。
+- 运行时验证和截图检查（`verify`、`vj-work` 内置、`diff-aware-qa`）不替代缺失的前端源码。
 
 ## 8. 一句话决策表
 

@@ -8,18 +8,18 @@ vibejet 的 E2E 测试框架（Playwright + playwright-bdd）和 Release-Check �
 
 ## 前置：先把被测应用跑起来
 
+用 `verify` skill 起隔离环境（独立 postgres 容器、随机端口的后端和前端，不碰本机已有的容器和端口），再让 AutoTest 打它：
+
 ```bash
-SECRET_KEY=$(openssl rand -hex 32) docker compose up -d postgres   # 仓库根目录；SECRET_KEY 只为通过 compose 的变量检查
-cd backend
-uv sync --extra dev --python 3.11        # 不指定会选到 3.13，asyncpg 0.29 在 3.13 上编译失败
-uv pip install greenlet                  # Apple Silicon：uv.lock 里 greenlet 的平台条件不含 arm64，缺它 alembic 跑不了
-uv run pybabel compile -d locales/       # 不编译，接口返回原始 key（如 auth.password.invalid）
-uv run alembic upgrade head
-uv run uvicorn main:app --port 8010      # 前端 dev server 把 /api 代理到 8010
-cd ../frontend && pnpm dev               # 5173；不要设 VITE_API_URL（设了就直连后端，要 CORS）
-cd ../AutoTest && npm install && npx playwright install chromium
-cp config/environments.example.json config/environments.json   # 填测试账号密码（不提交）
+python3 .agents/skills/verify/scripts/verify.py up --level ui   # 仓库根目录；首次会装依赖和 Playwright 浏览器
+eval "$(python3 .agents/skills/verify/scripts/verify.py env)"  # E2E_BASE_URL / E2E_USERNAME / E2E_PASSWORD
+cd AutoTest && HEADLESS=true ./core/runner/run-bdd.sh <all|smoke|auth|home> verify
+python3 .agents/skills/verify/scripts/verify.py down            # 用完关掉
 ```
+
+起环境的坑（Python 3.11、arm64 缺 greenlet、翻译目录要编译、不要设 `VITE_API_URL`）都编码在
+`.agents/skills/verify/scripts/verify.py` 里，在那里维护。打自己手动起的环境（后端 8010 + 前端 5173）时，
+照旧从 `config/environments.example.json` 复制出 `config/environments.json` 填测试账号密码（不提交），用 `npm run test:*:local`。
 
 测试账号 `e2e-fixture-user-a` 不存在时，`config/global-setup.ts` 先调注册接口建它，再走真实登录页登录，把登录态（前端存在 localStorage 的 `vibejet.session`）保存为 `config/auth-state-<env>.json`。
 

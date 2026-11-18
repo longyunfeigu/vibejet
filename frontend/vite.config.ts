@@ -23,7 +23,9 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:8010',
+          // API_PROXY_TARGET 只改代理目标、不暴露给浏览器（verify 起隔离环境时用它指向随机端口的后端）；
+          // VITE_API_URL 会同时让 apiClient 直连后端，需要 CORS
+          target: env.API_PROXY_TARGET || env.VITE_API_URL || 'http://localhost:8010',
           changeOrigin: true,
         },
       },

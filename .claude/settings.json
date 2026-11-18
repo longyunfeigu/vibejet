@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "input=$(cat); case \"$input\" in *'git commit'*) printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Reminder: 若本次 commit 涉及设计取舍,追加 trailers(Constraint:/Rejected:/Confidence:/Scope-risk:/Not-tested:);trivial commit 跳过。见 AGENTS.md Commit & PR Guidelines。\"}}';; esac"
+            "command": "input=$(cat); case \"$input\" in *'git commit'*) printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Reminder: 若本次 commit 涉及设计取舍,追加 trailers(Constraint:/Rejected:/Confidence:/Scope-risk:/Not-tested:);trivial commit 跳过;改动影响运行行为时带上 verify 报告末行的 Verified: trailer。见 AGENTS.md Commit & PR Guidelines。\"}}';; esac"
           }
         ]
       }

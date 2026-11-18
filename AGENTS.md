@@ -255,6 +255,7 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 
 - Commits: imperative, present tense, concise (e.g., "add user routes")
 - PRs: clear description, linked issues, steps to test, migration notes, and screenshots or curl examples for new endpoints
+- 改动影响运行行为时，commit 前跑 `verify`，带上它给的 `Verified:` trailer（没跑也如实写 `none`，以便查出未验证的提交）。
 - 涉及设计取舍的 commit 追加结构化 trailers（trivial commit 全部跳过；`.claude/settings.json`
   的 PreToolUse hook 会在 `git commit` 时提醒）：
 
@@ -265,6 +266,7 @@ silently change) unrelated dead code; run minimal verification (lint/test/build)
 | `Confidence:` | Certainty level about this approach | `high \| medium \| low` |
 | `Scope-risk:` | Blast radius of this change | `narrow \| moderate \| broad` |
 | `Not-tested:` | Edge cases not covered by tests | `Concurrent updates to same profile` |
+| `Verified:` | How the change was run before commit — copy the last line of the `verify` report; write `none (reason)` when it wasn't | `smoke-ui` \| `smoke-api` \| `checks` \| `none (no docker)` |
 
 ### Interaction Guidelines
 
