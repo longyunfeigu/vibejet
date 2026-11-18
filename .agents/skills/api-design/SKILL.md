@@ -134,5 +134,4 @@ docs/project/api/
 - `vj-plan` / `vj-work`：计划的关键设计写这次的接口变化；`vj-work` 做完后按本目录契约更新模块文档
 - `vj-work`：主实现 workflow。它不会自动强制运行本 skill；只有命中 API 契约变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 研究/适配 workflow。只有当参考实现引入新的接口契约时，才补 API delta。
-- `story-verify-fix`：验证实现是否符合验收标准，不替代 API 契约设计。
 - `review`：审查契约实现是否一致，但不负责先生成契约。

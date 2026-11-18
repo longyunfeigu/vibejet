@@ -12,7 +12,7 @@ golden screen references.
 This is the low-frequency product/brand direction step. Once `DESIGN.md` exists and is confirmed,
 downstream work (`vj-plan`, `vj-work`) consumes it; do not run this skill
 during execution to pick a temporary style. Single-screen structure and states belong to
-`ui-page-goal-structure` / `ui-state-coverage`, not here.
+the plan's page-interaction section (`vj-plan`), not here.
 
 Run it only when: `DESIGN.md` is missing or explicitly obsolete; product/brand direction is
 unclear; a front-of-house screen (login, signup, landing, onboarding, first-run empty state) has
@@ -24,7 +24,7 @@ tone; generate a system that fits this PRD.
 
 ## Inputs
 
-In order of preference: a product-level brief (ideally from `ui-requirement-brief`), a PRD or
+In order of preference: a product-level brief, a PRD or
 brief path the user names, `docs/product/requirements.md`, the conversation. Optional: a local
 library mirror, an output path, explicit constraints ("avoid dark UI", "mobile first"). Single-screen
 briefs are examples of key archetypes, not the product identity.
@@ -76,8 +76,8 @@ prose and look completely different. Do not skip this phase.
    Follow `references/direction-candidate-craft.md`: each candidate is a committed visual thesis
    (mood + material + energy), not a skin-swap. Operational candidates stay calm and dense within the
    token system and are written inline. Front-of-house candidates may extend palette, type and depth
-   within brand DNA, and are produced through `high-end-visual-design` / `design-taste-frontend`
-   (or one focused design subagent) against a named reference bar (the site the user names, else
+   within brand DNA, and are produced by one focused design subagent (fresh context, design only)
+   against a named reference bar (the site the user names, else
    Linear / Stripe / Resend), iterating to that bar; prose in this skill does not substitute for that pass.
 3. Never render UI candidates with an image-generation model. Verified failures: garbled small text,
    direction collapsing toward a generic mean, AI-template look.

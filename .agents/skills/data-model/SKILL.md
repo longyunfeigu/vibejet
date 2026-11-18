@@ -134,5 +134,4 @@ docs/project/data/
 - `vj-plan` / `vj-work`：计划的关键设计写这次的数据变化；`vj-work` 做完后按本目录契约更新模块文档
 - `vj-work`：主实现 workflow。它不会自动强制运行本 skill；只有命中持久化模型变化时才应调用本 skill。
 - `story-reference-impl`：复杂 Story 适配时，如果引入新的模型或一致性策略，再补 model delta。
-- `story-verify-fix`：验证行为是否通过，不替代模型设计说明。
 - `review`：审查 migration、事务和分层问题，但不负责先生成模型文档。

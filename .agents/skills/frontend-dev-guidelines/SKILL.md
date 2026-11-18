@@ -9,7 +9,7 @@ description: Frontend development guidelines for vibejet's React + Vite + TypeSc
 
 vibejet 前端的统一规范。栈是当前最适合 AI coding 的组合：**React 19 + Vite + TypeScript(strict) + Tailwind v4 + shadcn/ui(Radix) + TanStack Router/Query + RHF/Zod**。样式用 Tailwind utility class + shadcn 组件，**不用 MUI / emotion / `sx`**。
 
-设计 token 唯一来源 = `docs/project/DESIGN.md`，编译进 `frontend/src/index.css` 的 CSS 变量（`@theme` + `:root`）。改设计先改 DESIGN.md → index.css，**不在组件里硬编码颜色/圆角**。
+设计 token 唯一来源 = `docs/project/DESIGN.md`，编译进 `frontend/src/index.css` 的 CSS 变量（`@theme` + `:root`）。基座本身不带 `DESIGN.md`（它是具体产品的设计合同，新产品开始时生成）；没有时以 `frontend/src/index.css` 现有 token 为准，文中引用 DESIGN.md 各节的要求在有产品后才适用。改设计先改 DESIGN.md → index.css，**不在组件里硬编码颜色/圆角**。
 
 ## Canonical Stack（不要偏离）
 
@@ -68,7 +68,7 @@ routes/<name>/index.tsx  # createFileRoute（vite autoCodeSplitting 自动拆包
 
 1. **屏归型**：列表/控制台、仪表盘、详情、表单/向导、设置、空态——套该范式的标准富组成（控制台 = 工具条[筛选+搜索+主操作] + 密集表格 + 批量 + 统计摘要 + 行操作 + 全状态）。
 2. **吃满「页面体验地图」**：把 epic 里该屏的 职责/主操作/次操作/关键状态/信息优先级 全建出来。
-3. **品味工具按屏型选**：**front-of-house**（login/landing/营销）→ `design-taste-frontend` / `high-end-visual-design` 当"内化的高级标准"。**operational**（dashboard/table-list/审核台/detail/form/设置）→ **不调** `design-taste-frontend`（其 §13 明确 out-of-scope: dashboards/admin），改用 **`resources/dense-ui-craft.md`（operational 屏的 craft 真相源：间距分层/字重色阶层次/边框克制/对齐/微态/accent 预算）** + `DESIGN.md` §Richness Floor 对应屏型 + §Reference Skeletons + §Spacing Hierarchy + 一个密集后台参考（Linear/Airtable/Retool/Carbon）。两个方向都违规：marketing 留白（巨型空框、半屏 hero）和 wall-to-wall 挤死（页框/区块层用组件内间距）。
+3. **审美方向按屏型取**：模型不缺审美，缺的是具体方向——不给方向时会收敛到训练数据里最安全的样子（默认字体、紫色渐变、通用卡片），一眼就是"AI 做的"。所以方向从本项目的具体值来，不从通用品味规则来。**front-of-house**（login/landing/营销）→ `DESIGN.md` 的 token 与 §Reference Skeletons + 一个同类参考，刻意做出有辨识度的组成，不走默认安全路线。**operational**（dashboard/table-list/审核台/detail/form/设置）→ **`resources/dense-ui-craft.md`（operational 屏的 craft 真相源：间距分层/字重色阶层次/边框克制/对齐/微态/accent 预算）** + `DESIGN.md` §Richness Floor 对应屏型 + §Reference Skeletons + §Spacing Hierarchy + 一个密集后台参考（Linear/Airtable/Retool/Carbon）。两个方向都违规：marketing 留白（巨型空框、半屏 hero）和 wall-to-wall 挤死（页框/区块层用组件内间距）。
 
 ### 数据规则（不许空屏）
 

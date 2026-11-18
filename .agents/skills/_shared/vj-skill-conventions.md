@@ -68,7 +68,7 @@
 | strict 触发条件 | `AGENTS.md`「Plan 规范」 |
 | 设计方向用的 UI 合同（屏型、双轨） | `_shared/ui-planning-contract.md` |
 | 实现期前端出口闸（富度 R / 工艺 C / A/B 轨） | `.claude/rules/frontend.md` |
-| 设计 token 数值 | `docs/project/DESIGN.md` |
+| 设计 token 数值 | `docs/project/DESIGN.md`（产品开始时生成；基座没有时以 `frontend/src/index.css` 为准） |
 | 当前数据 / 接口 / 页面的样子（跨计划） | `docs/project/api|data|ui/`，`vj-work` 收尾时更新 |
 | 一块工作的计划、进度和验收说明 | 那份计划文件（`docs/work/plans/{date}-{slug}.md`）的 frontmatter 状态和末尾的执行记录、验收说明 |
 | 学习沉淀 | 写端 `vj-compound`（`docs/solutions/`）；读端是 `vj-plan/scripts/scout.py` 列出的候选 |

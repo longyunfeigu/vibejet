@@ -180,7 +180,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 - Frontend 变更先读 `.agents/skills/frontend-dev-guidelines/SKILL.md`；canonical 数据流参考
   `frontend/src/features/home/`，复杂 feature 参考 `frontend/src/features/auth/`。
 - 外部服务：application port -> infrastructure adapter -> composition root injection。
-- 需要 UI/联调验证走 `story-verify-fix` / `web-access`，不在仓库引入另一套浏览器依赖。
+- 需要 UI/联调验证走 `vj-work` 内置的端到端验证或 `diff-aware-qa` / `web-access`，不在仓库引入另一套浏览器依赖。
 
 ## Development Guidelines
 
@@ -193,7 +193,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 | **Complex** | Architecture changes, multiple modules, high risk, or external references needed | `vj-plan` 计划文档（policy 通常为 strict）→ `vj-work` |
 
 Complex workflow: RESEARCH → PLAN（`vj-plan`，需要外部参考时先 `story-reference-impl`）→ EXECUTE →
-VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ REGRESSION QA
+VERIFY（`vj-work` 内置的端到端验证，或最小定向验证）→ REVIEW（`review`）→ REGRESSION QA
 （变更涉及 UI、路由、共享组件或高风险流程时跑 `diff-aware-qa`）。
 
 动手前先回答：真问题还是过度设计？成功判据是什么（可观察的测试/接口响应/UI 行为）？
@@ -204,7 +204,7 @@ VERIFY（`story-verify-fix` 或最小定向验证）→ REVIEW（`review`）→ 
 - **默认 TDD**: 测试用例从计划的验收清单推导，不从 AI 生成的代码推导
 - **后端**: 在 `backend/` 内运行 pytest；测试放 `backend/tests/` 下的 `test_*.py`；
   异步测试用 `pytest-asyncio`，API 测试优先 `httpx.AsyncClient`；隔离副作用（事务 fixture 或清理 DB 状态）
-- **联调 / UI**: 用 `story-verify-fix`；页面交互/截图验证走全局 `web-access` skill
+- **联调 / UI**: 计划内由 `vj-work` 激活并跑端到端用例；计划外改动用 `diff-aware-qa`；页面交互/截图验证走全局 `web-access` skill
 - **跳过条件**: 配置文件、生成代码、纯类型定义可跳过 TDD，需注释说明
 
 人工审查分级：🔴 数据库操作/认证/核心业务规则 → 人工逐行；🟡 API 路由/服务编排/错误处理 →

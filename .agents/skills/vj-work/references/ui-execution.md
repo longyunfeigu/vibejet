@@ -48,7 +48,7 @@
    客观找图差。
 4. 实现 subagent 自写 "passes" 不构成过闸；无对照的主观 pass 不接受。
    不过闸不得标该 Screen done、不得 commit 该屏。
-5. admin/后台屏几乎都是 operational：不调 `design-taste-frontend`（对后台 out-of-scope），
+5. admin/后台屏几乎都是 operational：
    craft 真相源 = `frontend-dev-guidelines/resources/dense-ui-craft.md`，出口走 B 轨客观硬线。
 
 ## 多屏一致性检查（收尾前）

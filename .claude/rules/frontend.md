@@ -9,7 +9,7 @@ paths:
 > 这些是**非协商**的硬规则，按路径自动注入，不依赖 skill 是否加载。
 > 详细 how-to（剧本 A/B、参考技法）见 `.agents/skills/frontend-dev-guidelines/SKILL.md`；
 > 密屏工艺细则见 `frontend-dev-guidelines/resources/dense-ui-craft.md`。
-> **数值唯一来源 = `docs/project/DESIGN.md`**（间距层级、token、字阶）；本文件只定义"闸怎么过"，不复制具体数字——数值冲突时以 DESIGN.md 为准。
+> **数值唯一来源 = `docs/project/DESIGN.md`**（间距层级、token、字阶）；本文件只定义"闸怎么过"，不复制具体数字——数值冲突时以 DESIGN.md 为准。基座本身不带 `DESIGN.md`（它是具体产品的设计合同，新产品开始时生成）；没有时以 `frontend/src/index.css` 现有 token 为准，文中引用 DESIGN.md 各节的要求在有产品后才适用。
 
 ## 富度（避免"像 demo"）
 
@@ -37,16 +37,16 @@ paths:
 
 ### A 轨 · front-of-house（login / landing / 空首屏 / 营销页）
 
-- **A1 品味 skill 已真跑**：实现前已调 `design-taste-frontend`（或 `high-end-visual-design`），变更叙事**写明应用了哪几条**启发式，不是空喊"调了"。
+- **A1 方向先定**：实现前写明这屏的具体方向——取 DESIGN.md 哪些 token、对照哪个同类参考、刻意的视觉锚是什么。不给方向，模型会落回默认的安全样式。
 - **A2 建到富度地板**：按 DESIGN.md §Richness Floor（front-of-house 行）+ §Reference Skeletons 建整屏（产品身份/版面结构/层次/三态），显式不做 AC 最小薄屏。
 - **A3 截图对照 + 主观三问**：桌面+移动截图，与一个同类参考**并排对照**版面结构与层次；再自问「像被设计过的产品还是 demo？」「资深设计师直接发版还是打回？」「有无刻意的组成与视觉锚？」任一"否"→迭代。
 - **A4 正向存在性判据（空了就 FAIL）**：自评 checklist 只查"没犯禁"（无渐变/glass/色块/裸 hex），**不计入通过**——它抓不住"空/丑"。done 判据是正向的：品牌区有刻意构图（mark + 产品名 + ≥2 价值点 + 克制几何/纹理，不是一行字飘空白）/ 主 CTA 默认可操作态（非禁用发灰）/ 无 >~30% 空白死区或裸居中卡 / 有视觉锚点与层次重量。
-- **A5 判定权独立（与 B5 同罪同罚）**：截图后必须过一道**独立** gate——跑 `ui-visual-consistency-audit` 或新开 fresh-eyes 子代理，对桌面+移动截图按 DESIGN.md §Richness Floor / §Reference Skeletons 与 Screen Contract 的 richness floor / forbidden patterns 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
+- **A5 判定权独立（与 B5 同罪同罚）**：截图后必须过一道**独立** gate——新开 fresh-eyes 子代理（不带实现上下文），对桌面+移动截图按 DESIGN.md §Richness Floor / §Reference Skeletons 与 Screen Contract 的 richness floor / forbidden patterns 强制产出具体缺陷 + pass/fail；红了迭代到过。"我觉得可以了"不算 done。
 - **A6 登录页硬线**：`/login`、`/signup`、认证空首屏不得交付为单一居中表单卡。除非 Screen Contract 明确批准极简方案，否则必须有产品身份区、至少 2 个价值/信任点或等价品牌表达、表单区、错误/loading/disabled 状态和桌面+移动截图证据。
 
 ### B 轨 · operational（dashboard / table-list / 审核台 / detail / form / 设置）— 客观硬线
 
-> `design-taste-frontend` / `high-end-visual-design` 对 operational 屏 **OUT OF SCOPE**（前者 §13 明确排除 dashboards / admin）。B 轨真相源 = DESIGN.md §Richness Floor + §Reference Skeletons + §Spacing Hierarchy + `dense-ui-craft.md` + 一个密集后台参考。
+> B 轨真相源 = DESIGN.md §Richness Floor + §Reference Skeletons + §Spacing Hierarchy + `dense-ui-craft.md` + 一个密集后台参考。
 
 标 done 前**逐条勾对照、缺一不过**，变更叙事**列出每条对应的实际组件名 / `data-testid` / 实测值**（只写"做了"不算）：
 
@@ -63,5 +63,5 @@ paths:
 
 ## 样式与栈（与 frontend-dev-guidelines 一致）
 
-- **S1** 样式 token 唯一来源 = `docs/project/DESIGN.md` → 编译进 `src/index.css`。**不写裸 hex，不用 MUI/emotion/`sx`**；用 Tailwind class + shadcn 组件 + `cn()`。
+- **S1** 样式 token 唯一来源 = `docs/project/DESIGN.md` → 编译进 `src/index.css`（基座没有 DESIGN.md 时以 `src/index.css` 为准）。**不写裸 hex，不用 MUI/emotion/`sx`**；用 Tailwind class + shadcn 组件 + `cn()`。
 - **S2** 数据用 `useSuspenseQuery` + `<SuspenseLoader>`，不写 early-return loading。

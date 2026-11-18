@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* 设计 token 唯一来源 = docs/project/DESIGN.md。组件不写裸 hex/裸间距，只用语义 token。 */
+/* 设计 token 唯一来源 = docs/project/DESIGN.md（产品开始时生成；基座没有时以本文件为准）。组件不写裸 hex/裸间距，只用语义 token。 */
 
 @custom-variant dark (&:is(.dark *));
 

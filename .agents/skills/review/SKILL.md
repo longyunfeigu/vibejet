@@ -192,15 +192,12 @@ Review: No issues found.
 - `delivery-code-review`
   - 实验链里配合 `design.md` 使用的另一套审查；两者共用本清单作为检查标准
 - `story-reference-impl`
-  - 复杂 Story 在 verify-fix 通过后，再用本 skill 做结构化审查
-- `story-verify-fix`
-  - 先验证功能和联调，再用本 skill 找结构性风险和缺失测试
+  - 复杂 Story 实现并验证通过后，再用本 skill 做结构化审查
 
 推荐顺序：
 
-1. 实现
-2. verify-fix
-3. review
+1. 实现并验证（vj-work 内含端到端验证）
+2. review
 
 ## Common Rationalizations
 

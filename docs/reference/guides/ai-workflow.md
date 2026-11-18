@@ -77,10 +77,9 @@ PRD 定稿后想先看整个产品长什么样，可以插一步 `vj-mock-board`
 ### 收口（按需）
 
 1. [vj-test](../../../.agents/skills/vj-test/SKILL.md) — 跨任务的端到端测试（断言 DB / API / 前端真实状态 + 变异自检）
-2. [story-verify-fix](../../../.agents/skills/story-verify-fix/SKILL.md) — 启动前后端做联调验证与视觉对齐
-3. [review](../../../.agents/skills/review/SKILL.md) — 结构化 pre-landing 审查
-4. [diff-aware-qa](../../../.agents/skills/diff-aware-qa/SKILL.md) — 这次改动还波及了哪些页面 / 路由 / 接口
-5. [vj-compound](../../../.agents/skills/vj-compound/SKILL.md) — 踩了坑或定了非平凡决策后沉淀到 `docs/solutions/`
+2. [review](../../../.agents/skills/review/SKILL.md) — 结构化 pre-landing 审查
+3. [diff-aware-qa](../../../.agents/skills/diff-aware-qa/SKILL.md) — 这次改动还波及了哪些页面 / 路由 / 接口
+4. [vj-compound](../../../.agents/skills/vj-compound/SKILL.md) — 踩了坑或定了非平凡决策后沉淀到 `docs/solutions/`
 
 复杂实现需要参考开源项目时，在出计划前或执行中用
 [story-reference-impl](../../../.agents/skills/story-reference-impl/SKILL.md)：研究参考实现 → DDD 适配设计 → 分层实现。
@@ -112,7 +111,7 @@ strict 多两件事：出计划后派独立审查；`vj-work` 收尾一律跑完
 或用户明确要"整体更好看、更有品牌感"时，先补方向：
 
 ```text
-产品级 ui-requirement-brief -> vj-design-md-matcher -> docs/project/DESIGN.md + docs/reference/research/designs/golden/
+vj-design-md-matcher -> docs/project/DESIGN.md + docs/reference/research/designs/golden/
 ```
 
 这一轨回答"这个产品应该长什么样"，不在每个计划里跑，也不在 `vj-work` 执行期临时跑。
@@ -124,14 +123,8 @@ strict 多两件事：出计划后派独立审查；`vj-work` 收尾一律跑完
 
 | 缺口 | 补齐方式 |
 |------|----------|
-| 产品 / 品牌方向、登录 / 落地页 golden 缺失 | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
+| 产品 / 品牌方向、登录 / 落地页 golden 缺失 | `vj-design-md-matcher` |
 | PRD 已定稿但整体长相没对齐过 | `vj-mock-board` |
-| 单屏目标、模块顺序、信息层级不清 | `ui-page-goal-structure` |
-| loading / empty / error / disabled / permission 等状态不清 | `ui-state-coverage` |
-| 复杂操作流需要更细的旅程审查 | `ui-user-journey-audit` |
-| 截图完成后视觉不稳定 | `ui-visual-consistency-audit` |
-| 可复用组件需要沉淀规格 | `ui-component-spec-audit` |
-| 交付研发 / QA 前规格不完整 | `ui-handoff-readiness-check` |
 
 ### 5.3 稳定合同
 
@@ -154,7 +147,7 @@ strict 多两件事：出计划后派独立审查；`vj-work` 收尾一律跑完
 
 - `frontend/src/` 可编辑，前端实现按 `AGENTS.md` 的 React + TypeScript + Vite + Tailwind + shadcn 约束执行。
 - 需要真实前端改动时，先确认计划里的页面入口、交互路径和设计来源齐备。
-- `story-verify-fix` 做运行时验证和视觉检查，不替代缺失的前端源码。
+- 运行时验证和截图检查（`vj-work` 内置、`diff-aware-qa`）不替代缺失的前端源码。
 
 ## 8. 一句话决策表
 
@@ -164,9 +157,8 @@ strict 多两件事：出计划后派独立审查；`vj-work` 收尾一律跑完
 | 已有项目加一个功能 | `vj-plan` → `vj-work` |
 | 只有产品想法 | `vj-product-requirements` → `vj-plan`（一次一个 Epic） |
 | PRD 定稿了，想先看产品长什么样 | `vj-mock-board`（缺 `DESIGN.md` 先走 `vj-design-md-matcher`） |
-| 项目整体缺品牌 / 视觉方向 | 产品级 `ui-requirement-brief -> vj-design-md-matcher` |
+| 项目整体缺品牌 / 视觉方向 | `vj-design-md-matcher` |
 | 复杂实现，需要参考开源 | `story-reference-impl` |
 | 做完后跑端到端测试 | `vj-test` |
-| 做完后联调 / 视觉对齐验证 | `story-verify-fix` |
 | 代码审查 / 查回归风险 | `review` / `diff-aware-qa` |
 | 沉淀踩坑 / 决策 | `vj-compound` |

@@ -18,7 +18,7 @@ description: 根据产品需求文档（PRD）生成单文件 UI mock board（mo
 |----|------|
 | 板 | `docs/reference/research/designs/prd-{slug}/ui-mock-board.html`，单文件自包含 |
 | 清单 | 同目录 `screen-inventory.md`，格式见 `references/screen-inventory.template.md` |
-| 状态 | P0 屏（核心旅程）按 `ui-state-coverage` 的必补清单画全；其余屏只画默认态 |
+| 状态 | P0 屏（核心旅程）按必补清单（默认/加载/空/失败/禁用/完成/异常）画全；其余屏只画默认态 |
 | 设备框 | 手机 390px 或桌面，按 PRD 使用场景定；不确定标 `⚠️ 推断` |
 
 板是 PRD 的快照：板头写来源 PRD 版本和生成日期；它属于研究产物，不承载跨 Epic 合同。
@@ -63,9 +63,9 @@ python3 .agents/skills/vj-mock-board/scripts/validate_mock_board.py \
 失败只重写出问题的分区；重写一次还失败就自己修。
 
 **P5 收尾**：用 `web-access` 打开板，按分区截图，对同一批截图过一遍：不滥用渐变、不堆 emoji 项目符号、
-状态可辨、不空屏，以及 `ui-visual-consistency-audit` 的九维一致性（色彩、字体、间距、圆角、阴影、图标、
+状态可辨、不空屏，以及九维一致性（色彩、字体、间距、圆角、阴影、图标、
 卡片、按钮层级、装饰；每屏实心 accent 不超过 1 个）。要改的就地改，再跑 P4。这一步是建议性的，P4 机检才是硬闸；
-用户可说"跳过审查"或要求用 `ui-visual-consistency-audit` 深审。`web-access` 不可用就跳过，板头注明"未做浏览器视觉验证"。
+用户可说"跳过审查"或要求派一个不带上下文的子代理对截图深审。`web-access` 不可用就跳过，板头注明"未做浏览器视觉验证"。
 最后报告产物绝对路径和打开方式。
 
 `DESIGN.md` 缺失且 `vj-design-md-matcher` 跑不了（没网或用户拒绝）时，用 `--wireframe` 出中性灰线框板，

@@ -9,10 +9,10 @@ description: 基于当前分支、工作区或指定 diff 推导受影响页面�
 
 这个 skill 关注的是：**这次改动影响了哪些页面、路由、接口和相邻功能，是否引入了回归。**
 
-它不是 `story-verify-fix` 的替代品。
+它不是 `vj-work` 验收的替代品。
 
-- `story-verify-fix`
-  - 回答当前 Story 自己是否通过验收，失败时是否需要继续修
+- `vj-work`（含它激活并跑的端到端用例）
+  - 回答这块工作自己是否通过验收，失败时是否需要继续修
 - `diff-aware-qa`
   - 回答这次 diff 还可能影响了什么，哪里出现了回归或隐藏问题
 
@@ -26,7 +26,7 @@ description: 基于当前分支、工作区或指定 diff 推导受影响页面�
 ## 不适用场景
 
 - 当前任务还没有明确实现完成
-- 用户要做 Story 验收或自动修复闭环，此时优先用 `story-verify-fix`
+- 用户要做计划验收或自动修复闭环，此时走 `vj-work`
 - 仓库没有运行中的应用，也无法确定启动方式或目标 URL
 - 用户只是想 review 代码结构，不需要运行层 QA
 
@@ -188,17 +188,16 @@ Residual risk:
 
 ## 与其他 skills 的关系
 
-- `story-verify-fix`
-  - 先确认 Story 自己通过，再用本 skill 看 diff 是否带来回归
+- `vj-work`
+  - 先确认这块工作自己通过验收，再用本 skill 看 diff 是否带来回归；没走计划的小改动没有端到端兜底，更需要本 skill
 - `review`
   - 本 skill 看运行层问题，`review` 看结构性问题；两者互补，不替代
 
 推荐顺序：
 
-1. 实现
-2. `story-verify-fix`
-3. `review`
-4. `diff-aware-qa`
+1. 实现并验证（`vj-work`，或小改动直接改）
+2. `review`
+3. `diff-aware-qa`
 
 ## 示例
 
@@ -216,9 +215,9 @@ Residual risk:
 使用 diff-aware-qa，重点检查当前 diff 对文件列表页、上传页和权限相关流程的影响。
 ```
 
-在 Story 验证后继续做第二层 QA：
+在验收通过后继续做第二层 QA：
 
 ```text
-story-verify-fix 已通过。
+vj-work 已收尾。
 继续使用 diff-aware-qa，检查这次改动是否影响了相邻页面或共享组件。
 ```

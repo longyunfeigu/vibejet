@@ -4,7 +4,7 @@
 > **计划不用这套术语**：`vj-plan` 里页面只用大白话写交互（主流程 / 备选 / 出错路径 + 状态），规则在
 > `vj-plan/SKILL.md`「页面怎么交互」，不在这里。
 > 分工：实现期出口闸（富度 R0–R4、工艺 C1–C5、A/B 轨截图审查）真相源 = `.claude/rules/frontend.md`；
-> 样式 token 数值真相源 = `docs/project/DESIGN.md`。
+> 样式 token 数值真相源 = `docs/project/DESIGN.md`。基座本身不带 `DESIGN.md`（它是具体产品的设计合同，新产品开始时生成）；没有时以 `frontend/src/index.css` 现有 token 为准，文中引用 DESIGN.md 各节的要求在有产品后才适用。
 
 ## 1. 屏型判定（每个 UI Screen 必判）
 
@@ -20,18 +20,17 @@
 ## 2. 双轨触发（先方向，后单屏）
 
 - **产品/品牌方向轨（低频）**：`docs/project/DESIGN.md` 缺失/明显过期、品牌方向不清、
-  front-of-house 屏无 golden reference、或用户要求整体视觉升级 → 先产品级
-  `ui-requirement-brief` → `vj-design-md-matcher`（产出 `DESIGN.md` + golden screens）。
+  front-of-house 屏无 golden reference、或用户要求整体视觉升级 → 先跑
+  `vj-design-md-matcher`（产出 `DESIGN.md` + golden screens）。
   不得在 plan / story 文案里临时发明风格。
 - **单屏体验轨（高频）**：方向源已稳定、只是新增/重做具体 Screen → 检查页面体验地图完整度；
-  缺单屏目标/结构 → `ui-page-goal-structure`；缺状态覆盖 → `ui-state-coverage`；
-  复杂操作流（§3）需要更细审查时 → `ui-user-journey-audit`（可选）。
+  缺单屏目标/结构或状态覆盖 → 在计划的"页面怎么交互"里补齐（目标、主流程、备选/出错、要覆盖的状态）。
 - 两轨可以都需要（如新产品第一次做登录页：先定 DESIGN.md/golden，再做单屏结构与状态）。
 
 ## 3. 复杂操作流
 
 用户要连续走 2 步以上、中途有资格 / 余额 / 审核这类判断、有删除 / 提交这类不可轻易撤销的动作、或要能重试 / 撤销 /
-返回时，把主流程、备选和出错路径都走一遍。需要更细的旅程审查时可以用 `ui-user-journey-audit`，不强制。
+返回时，把主流程、备选和出错路径都走一遍。
 
 ## 4. 屏型要求与禁止项（实现期截图验证用）
 

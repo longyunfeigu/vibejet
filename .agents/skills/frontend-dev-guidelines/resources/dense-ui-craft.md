@@ -1,6 +1,6 @@
 # Dense-UI Craft — operational 屏的工艺标准
 
-> 填补 B 轨的品味真空：`design-taste-frontend` 对 dashboards/admin out-of-scope，本文是
+> 本文是
 > operational 屏（dashboard / table-list / 审核台 / detail / form / 设置）的 craft 真相源。
 > 蒸馏自 Linear / Airtable 这类"密而高级"的后台。数值硬范围以 `docs/project/DESIGN.md`
 > §Spacing Hierarchy 为准；出口闸（C1–C5 / B1–B5）见 `.claude/rules/frontend.md`。

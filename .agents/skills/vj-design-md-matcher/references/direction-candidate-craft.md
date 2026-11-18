@@ -81,11 +81,10 @@ Prose in this file does **not** substitute for design craft. This is empirical, 
 front-of-house candidates hand-authored by an agent following §1–§6 inline come out *competent but
 not high-end*; the same brief run through a dedicated craft pass comes out genuinely high-end. So §1–§6
 are the *bar to check against*, not a recipe to execute by hand. For front-of-house, two things are
-**required** (operational candidates ignore this section — stay inline, no taste skill, dense-admin craft only):
+**required** (operational candidates ignore this section — stay inline, dense-admin craft only):
 
-1. **Generate via the dedicated craft engine — not inline.** Produce front-of-house candidates by
-   invoking `high-end-visual-design` (or `design-taste-frontend`), or by dispatching one focused design
-   subagent that invokes it in a fresh context devoted only to the design. Do not hand-author them from
+1. **Generate in a dedicated pass — not inline.** Produce front-of-house candidates by dispatching one
+   focused design subagent in a fresh context devoted only to the design. Do not hand-author them from
    §1–§6.
 2. **Anchor to a concrete reference — never to the word "高级".** "高级" is unactionable as a word; every
    guess misses. Before generating, obtain a reference target: a real login/site the user names as 高级
