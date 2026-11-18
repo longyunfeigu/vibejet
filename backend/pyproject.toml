@@ -315,11 +315,6 @@ Homepage = "https://github.com/yourusername/vibejet"
 Documentation = "https://github.com/yourusername/vibejet/docs"
 Repository = "https://github.com/yourusername/vibejet"
 
-[[tool.uv.index]]
-name = "tsinghua"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-default = true
-
 [tool.setuptools.packages.find]
 include = [
     "api*",

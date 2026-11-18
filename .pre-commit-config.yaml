@@ -127,6 +127,8 @@ repos:
 # Configuration for specific runs
 default_language_version:
   python: python3.11
+  # 用本机 node（前端开发本来就要装）：不写时 nodeenv 去下"最新版"，遇到 alpha 版号会解析崩溃
+  node: system
 
 ci:
   autofix_commit_msg: |
@@ -134,8 +136,8 @@ ci:
 
     for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_branch: ''
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
-  skip: [mypy]  # Skip mypy in CI (too slow). TODO: consider --incremental instead of full skip
+  skip: [mypy] # Skip mypy in CI (too slow). TODO: consider --incremental instead of full skip
   submodules: false
