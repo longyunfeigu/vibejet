@@ -5,17 +5,17 @@ ORM：`backend/infrastructure/models/conversation.py`。
 
 ## conversations 列
 
-| 列 | 类型 | 约束 | 说明 |
-|----|------|------|------|
-| `id` | Integer | PK, autoincrement | 主键 |
-| `title` | String(255) | not null | 对话标题 |
-| `owner_id` | Integer | nullable | 归属用户（逻辑外键，未强制约束，与 file_assets/documents 一致；NULL 为归属列引入前的遗留孤儿行，对所有用户不可见） |
-| `system_prompt` | Text | nullable | 系统提示词 |
-| `model` | String(100) | nullable | 默认模型 |
-| `status` | String(20) | not null, default `'active'`, CHECK `ck_conversations_status` | 应用只写 `active`（软删只看 `deleted_at`，无归档态）；CHECK 仍保留 init 时的旧取值，收紧需单独迁移 |
-| `extra_metadata` | JSON | nullable | 扩展元数据（JSON） |
-| `created_at` / `updated_at` | DateTime(tz) | not null, server_default now() | 时间戳 |
-| `deleted_at` | DateTime(tz) | nullable | 软删除标记 |
+| 列                          | 类型         | 约束                                                          | 说明                                                                                                               |
+| --------------------------- | ------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `id`                        | Integer      | PK, autoincrement                                             | 主键                                                                                                               |
+| `title`                     | String(255)  | not null                                                      | 对话标题                                                                                                           |
+| `owner_id`                  | Integer      | nullable                                                      | 归属用户（逻辑外键，未强制约束，与 file_assets/documents 一致；NULL 为归属列引入前的遗留孤儿行，对所有用户不可见） |
+| `system_prompt`             | Text         | nullable                                                      | 系统提示词                                                                                                         |
+| `model`                     | String(100)  | nullable                                                      | 默认模型                                                                                                           |
+| `status`                    | String(20)   | not null, default `'active'`, CHECK `ck_conversations_status` | 应用只写 `active`（软删只看 `deleted_at`，无归档态）；CHECK 仍保留 init 时的旧取值，收紧需单独迁移                 |
+| `extra_metadata`            | JSON         | nullable                                                      | 扩展元数据（JSON）                                                                                                 |
+| `created_at` / `updated_at` | DateTime(tz) | not null, server_default now()                                | 时间戳                                                                                                             |
+| `deleted_at`                | DateTime(tz) | nullable                                                      | 软删除标记                                                                                                         |
 
 ## conversations 索引
 
@@ -32,7 +32,7 @@ ORM：`backend/infrastructure/models/conversation.py`。
 - llm_runs：仅 `ix_llm_runs_conversation_created` (conversation_id, created_at)，对齐
   list_by_conversation 的 filter+sort；`status` 无查询使用不建索引
 
-## 归属语义（Epic-1）
+## 归属语义
 
 - 创建即写 `owner_id`；application service 的 route-facing 方法用 `Conversation.belongs_to(owner_id)` 断言归属。
 - 可空、不回填是刻意决策：基础库无生产数据，下游各有回填策略；被拒绝的替代方案是

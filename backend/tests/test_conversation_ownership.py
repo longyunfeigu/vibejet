@@ -1,4 +1,4 @@
-"""Ownership tests for the conversation aggregate (Epic 1, Story 1.1 + 1.2).
+"""Ownership tests for the conversation aggregate.
 
 覆盖：实体 owner 字段与 belongs_to、仓储 owner 过滤、遗留 NULL 行语义、
 CONVERSATION_NOT_FOUND / DOCUMENT_NOT_FOUND 的 404 渲染。
@@ -17,7 +17,7 @@ from domain.document.exceptions import DocumentNotFoundException
 from infrastructure.repositories.conversation_repository import SQLAlchemyConversationRepository
 
 # ---------------------------------------------------------------------------
-# Story 1.1 — entity
+# entity
 # ---------------------------------------------------------------------------
 
 
@@ -34,7 +34,7 @@ def test_entity_legacy_null_owner_belongs_to_nobody() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Story 1.1 — repository owner filter (in-memory sqlite)
+# repository owner filter (in-memory sqlite)
 # ---------------------------------------------------------------------------
 
 
@@ -92,7 +92,7 @@ async def test_repo_roundtrips_owner_id(sqlite_session) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Story 1.1 — not-found business codes render as HTTP 404 (was default 400)
+# not-found business codes render as HTTP 404 (was default 400)
 # ---------------------------------------------------------------------------
 
 
@@ -129,7 +129,7 @@ async def test_document_not_found_404() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Story 1.2 — service-level ownership（fake UoW，套 test_chat_service_stream 模式）
+# service-level ownership（fake UoW，套 test_chat_service_stream 模式）
 # ---------------------------------------------------------------------------
 
 
@@ -275,7 +275,7 @@ async def test_service_missing_id_same_404_as_non_owner() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Story 1.2 — route wiring（真实路由 + 覆盖 service/current_user 依赖）
+# route wiring（真实路由 + 覆盖 service/current_user 依赖）
 # ---------------------------------------------------------------------------
 
 

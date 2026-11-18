@@ -1,4 +1,4 @@
-"""Document ownership tests (Epic 1, Story 1.4)."""
+"""Document ownership tests."""
 
 from __future__ import annotations
 

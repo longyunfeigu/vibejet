@@ -1,9 +1,8 @@
-"""File asset ownership tests (Epic 1, Story 1.3)."""
+"""File asset ownership tests."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import pytest
 from fastapi import FastAPI
@@ -101,7 +100,7 @@ class _Meta:
     size: int = 10
     etag: str = "etag"
     content_type: str = "text/plain"
-    custom_metadata: Optional[dict] = None
+    custom_metadata: dict | None = None
 
 
 class _FakeStorage:
@@ -155,7 +154,7 @@ async def test_non_owner_404_service_level() -> None:
 
 
 async def test_by_key_non_owner_404_matches_not_found_details() -> None:
-    # I2：非 owner 与不存在的 404 必须同 details，不泄露资产存在性/内部 asset_id
+    # 非 owner 与不存在的 404 必须同 details，不泄露资产存在性/内部 asset_id
     service, repo = _service()
     asset = repo.seed(owner_id=1, status="active", key="uploads/secret.pdf")
 

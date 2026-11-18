@@ -1,13 +1,13 @@
-"""Chat ownership tests (Epic 1, Story 1.2).
+"""Chat ownership tests.
 
-关键不变量 I3：非 owner 的 chat 请求（stream 与 sync）在任何写库副作用
+关键不变量：非 owner 的 chat 请求（stream 与 sync）在任何写库副作用
 （用户消息、Run）与 LLM 调用之前被 404 拦截；stream 形态下异常发生在
 StreamingResponse 构造之前（await 阶段），不会 200 后断流。
 """
 
 from __future__ import annotations
 
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import pytest
 
@@ -20,10 +20,10 @@ from domain.conversation.exceptions import ConversationNotFoundException
 
 
 class _FakeConversationRepo:
-    def __init__(self, conversation: Optional[Conversation]):
+    def __init__(self, conversation: Conversation | None):
         self._conversation = conversation
 
-    async def get_by_id(self, conversation_id: int) -> Optional[Conversation]:
+    async def get_by_id(self, conversation_id: int) -> Conversation | None:
         return self._conversation
 
     async def update(self, conversation: Conversation) -> Conversation:
@@ -56,7 +56,7 @@ class _FakeRunRepo:
         self.created.append(run)
         return run
 
-    async def get_by_id(self, run_id: int) -> Optional[Run]:
+    async def get_by_id(self, run_id: int) -> Run | None:
         return next((r for r in self.created if r.id == run_id), None)
 
     async def update(self, run: Run) -> Run:
@@ -64,7 +64,7 @@ class _FakeRunRepo:
 
 
 class _FakeUoW:
-    def __init__(self, conversation: Optional[Conversation]):
+    def __init__(self, conversation: Conversation | None):
         self.conversation_repository = _FakeConversationRepo(conversation)
         self.message_repository = _FakeMessageRepo()
         self.run_repository = _FakeRunRepo()
@@ -97,7 +97,7 @@ class _CountingLLM:
         yield LLMChunk(content="hi")
 
 
-def _setup(owner_id: Optional[int]):
+def _setup(owner_id: int | None):
     now = utcnow()
     conv = Conversation(
         id=1, title="t", status="active", owner_id=owner_id, created_at=now, updated_at=now

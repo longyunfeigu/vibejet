@@ -87,7 +87,7 @@ TRANSPORT_STATUS: dict[BusinessCode, TransportStatus] = {
     BusinessCode.DOCUMENT_ALREADY_PROCESSING: TransportStatus(
         HTTPStatus.BAD_REQUEST, "FAILED_PRECONDITION"
     ),
-    # 越权访问伪装为 404（Epic-1 D1）：not-found 类业务码必须真渲染 404，
+    # 越权访问伪装为 404：not-found 类业务码必须真渲染 404，
     # 否则"真不存在=400 / 越权=404"反而泄露存在性
     BusinessCode.NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),
     BusinessCode.USER_NOT_FOUND: TransportStatus(HTTPStatus.NOT_FOUND, "NOT_FOUND"),

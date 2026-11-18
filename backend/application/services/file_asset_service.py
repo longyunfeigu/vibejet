@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Callable
 from os.path import splitext
-from typing import Any, AsyncIterator, Callable, Optional, Protocol, Tuple
+from typing import Any, Protocol
 
 from application.dto import FileAssetDTO, FileAssetSummaryDTO, StorageUploadResponseDTO
 from application.ports.storage import (
@@ -38,14 +39,14 @@ class FileAssetUnitOfWork(Protocol):
     @property
     def file_asset_repository(self) -> FileAssetRepository: ...
 
-    async def __aenter__(self) -> "FileAssetUnitOfWork": ...
+    async def __aenter__(self) -> FileAssetUnitOfWork: ...
 
     async def __aexit__(self, exc_type, exc, tb) -> None: ...
 
     async def commit(self) -> None: ...
 
 
-def _sanitize_filename_for_header(filename: Optional[str], *, fallback: str) -> str:
+def _sanitize_filename_for_header(filename: str | None, *, fallback: str) -> str:
     if not filename:
         return fallback
     cleaned = filename.replace("\r", " ").replace("\n", " ").strip()
@@ -53,23 +54,23 @@ def _sanitize_filename_for_header(filename: Optional[str], *, fallback: str) -> 
     return cleaned or fallback
 
 
-def _build_content_disposition(mode: str, filename: Optional[str], *, fallback: str) -> str:
+def _build_content_disposition(mode: str, filename: str | None, *, fallback: str) -> str:
     safe = _sanitize_filename_for_header(filename, fallback=fallback)
     return f'{mode}; filename="{safe}"'
 
 
-def _user_id_for_key(user_id: Optional[int]) -> Optional[str]:
+def _user_id_for_key(user_id: int | None) -> str | None:
     return str(user_id) if user_id is not None else None
 
 
-def _declared_size(size: Any) -> Optional[int]:
+def _declared_size(size: Any) -> int | None:
     """客户端声明的大小；0/缺失/非整数视为未声明（与 presign 校验口径一致）。"""
     if isinstance(size, int) and not isinstance(size, bool) and size > 0:
         return size
     return None
 
 
-def _media_type(content_type: Optional[str]) -> Optional[str]:
+def _media_type(content_type: str | None) -> str | None:
     """``text/plain; charset=utf-8`` → ``text/plain``：存储回报的类型可能带参数。"""
     if not content_type:
         return None
@@ -77,8 +78,8 @@ def _media_type(content_type: Optional[str]) -> Optional[str]:
 
 
 def _direct_upload_violation(
-    meta: ObjectMetadata, *, expected_size: Any, fallback_content_type: Optional[str]
-) -> Optional[BusinessException]:
+    meta: ObjectMetadata, *, expected_size: Any, fallback_content_type: str | None
+) -> BusinessException | None:
     """按 presign 同一套策略校验存储里的真实对象；合规返回 None。
 
     presign 只校验客户端声明的 size/type，真实上传内容由客户端决定，必须在确认时
@@ -164,15 +165,15 @@ class FileAssetApplicationService:
     async def create_pending_asset(
         self,
         *,
-        owner_id: Optional[int],
+        owner_id: int | None,
         storage_type: str,
-        bucket: Optional[str],
-        region: Optional[str],
+        bucket: str | None,
+        region: str | None,
         key: str,
-        original_filename: Optional[str],
-        content_type: Optional[str],
-        kind: Optional[str],
-        metadata: Optional[dict[str, Any]] = None,
+        original_filename: str | None,
+        content_type: str | None,
+        kind: str | None,
+        metadata: dict[str, Any] | None = None,
     ) -> FileAssetSummaryDTO:
         now = utcnow()
         asset = FileAsset(
@@ -203,8 +204,8 @@ class FileAssetApplicationService:
     async def confirm_direct_upload(
         self,
         *,
-        asset_id: Optional[int] = None,
-        key: Optional[str] = None,
+        asset_id: int | None = None,
+        key: str | None = None,
         owner_id: int,
     ) -> FileAssetDTO:
         """Confirm client direct upload by reconciling metadata from storage."""
@@ -240,11 +241,11 @@ class FileAssetApplicationService:
         )
 
     async def _load_owned_for_confirm(
-        self, *, asset_id: Optional[int], key: Optional[str], owner_id: int
+        self, *, asset_id: int | None, key: str | None, owner_id: int
     ) -> FileAsset:
         async with self._uow_factory(readonly=True) as uow:
             repo = uow.file_asset_repository
-            asset: Optional[FileAsset] = None
+            asset: FileAsset | None = None
             if asset_id is not None:
                 asset = await repo.get_by_id(asset_id)
             if asset is None and key:
@@ -260,10 +261,10 @@ class FileAssetApplicationService:
         self,
         asset: FileAsset,
         meta: ObjectMetadata,
-        public_url: Optional[str],
+        public_url: str | None,
         *,
-        asset_id: Optional[int],
-        key: Optional[str],
+        asset_id: int | None,
+        key: str | None,
         owner_id: int,
     ) -> FileAssetDTO:
         async with self._uow_factory() as uow:
@@ -287,7 +288,7 @@ class FileAssetApplicationService:
             try:
                 updated = await repo.update_if_not_deleted(current)
             except FileAssetNotFoundException:
-                # 与本方法其他 404 分支同标识构造（D1：不泄露 asset_id）
+                # 与本方法其他 404 分支同标识构造（不泄露 asset_id）
                 raise FileAssetNotFoundException(asset_id, key=key) from None
             return self._to_dto(updated)
 
@@ -311,8 +312,8 @@ class FileAssetApplicationService:
         self,
         *,
         key: str,
-        content_type: Optional[str],
-        filename: Optional[str],
+        content_type: str | None,
+        filename: str | None,
         expires_in: int,
         disposition_mode: str = "inline",
     ) -> dict[str, int | str]:
@@ -340,7 +341,7 @@ class FileAssetApplicationService:
         *,
         asset: FileAsset,
         expires_in: int,
-        filename: Optional[str],
+        filename: str | None,
         disposition_mode: str,
     ) -> dict[str, int | str]:
         """Generate public or signed URL for a specific asset."""
@@ -374,9 +375,9 @@ class FileAssetApplicationService:
     async def presign_upload(
         self,
         *,
-        user_id: Optional[int],
+        user_id: int | None,
         filename: str,
-        mime_type: Optional[str],
+        mime_type: str | None,
         size_bytes: int,
         kind: str,
         method: str = "PUT",
@@ -494,12 +495,12 @@ class FileAssetApplicationService:
     async def relay_upload_stream(
         self,
         *,
-        user_id: Optional[int],
+        user_id: int | None,
         file_stream: AsyncIterator[bytes],
         filename: str,
         kind: str,
-        content_type: Optional[str] = None,
-        size_hint: Optional[int] = None,
+        content_type: str | None = None,
+        size_hint: int | None = None,
     ) -> StorageUploadResponseDTO:
         """Server-side relay upload with streaming body to reduce peak memory usage."""
         if self._storage is None:
@@ -585,18 +586,18 @@ class FileAssetApplicationService:
     async def upsert_active_asset(
         self,
         *,
-        owner_id: Optional[int],
+        owner_id: int | None,
         storage_type: str,
-        bucket: Optional[str],
-        region: Optional[str],
+        bucket: str | None,
+        region: str | None,
         key: str,
-        original_filename: Optional[str],
-        content_type: Optional[str],
-        kind: Optional[str],
+        original_filename: str | None,
+        content_type: str | None,
+        kind: str | None,
         size: int,
-        etag: Optional[str],
-        url: Optional[str],
-        metadata: Optional[dict[str, Any]] = None,
+        etag: str | None,
+        url: str | None,
+        metadata: dict[str, Any] | None = None,
     ) -> FileAssetDTO:
         async with self._uow_factory() as uow:
             repo = uow.file_asset_repository
@@ -648,7 +649,7 @@ class FileAssetApplicationService:
     def _ensure_owned(
         asset: FileAsset, owner_id: int, *, not_found: FileAssetNotFoundException
     ) -> None:
-        """越权与不存在同 404（Epic-1 D1）。not_found 必须与调用方的"不存在"分支
+        """越权与不存在同 404。not_found 必须与调用方的"不存在"分支
         用相同标识（asset_id vs key）构造，否则两种 404 的 details 不同，泄露资产
         存在性与内部 asset_id。"""
         if not asset.belongs_to(owner_id):
@@ -674,11 +675,11 @@ class FileAssetApplicationService:
         self,
         *,
         owner_id: int,
-        kind: Optional[str],
-        status: Optional[str],
+        kind: str | None,
+        status: str | None,
         skip: int,
         limit: int,
-    ) -> Tuple[list[FileAssetDTO], int]:
+    ) -> tuple[list[FileAssetDTO], int]:
         async with self._uow_factory(readonly=True) as uow:
             repo = uow.file_asset_repository
             items = await repo.list(

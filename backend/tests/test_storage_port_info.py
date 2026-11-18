@@ -10,15 +10,13 @@ from __future__ import annotations
 import pytest
 
 from infrastructure.adapters.storage_port import StorageProviderPortAdapter
-from infrastructure.external.storage.utils import LoggingMiddleware, apply_middleware
 from infrastructure.external.storage.config import StorageConfig, StorageType
 from infrastructure.external.storage.providers.local import LocalProvider
+from infrastructure.external.storage.utils import LoggingMiddleware, apply_middleware
 
 
 def _local_provider(tmp_path) -> LocalProvider:
-    return LocalProvider(
-        StorageConfig(type=StorageType.LOCAL, local_base_path=str(tmp_path))
-    )
+    return LocalProvider(StorageConfig(type=StorageType.LOCAL, local_base_path=str(tmp_path)))
 
 
 def test_info_reads_type_through_middleware_wrapper(tmp_path) -> None:

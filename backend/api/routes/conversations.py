@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Query
 
 from api.dependencies import get_conversation_service, get_current_user
@@ -27,7 +25,7 @@ from core.response import Response as ApiResponse
 from core.response import paginated_response, success_response
 
 # 认证闸门：所有端点要求登录；conversation 端点强制 owner 归属（越权 404），
-# agent-configs 维持共享资源现状（Epic-1 D5）
+# agent-configs 是共享配置资源，不做 owner 归属（见 docs/project/data/conversation.md「归属语义」）
 router = APIRouter(tags=["对话管理"], dependencies=[Depends(get_current_user)])
 
 
@@ -56,7 +54,7 @@ async def create_conversation(
 async def list_conversations(
     page: int = Query(1, ge=1),
     size: int = Query(default=settings.DEFAULT_PAGE_SIZE, ge=1, le=settings.MAX_PAGE_SIZE),
-    status: Optional[str] = Query(default=None),
+    status: str | None = Query(default=None),
     current_user: UserDTO = Depends(get_current_user),
     service: ConversationApplicationService = Depends(get_conversation_service),
 ):

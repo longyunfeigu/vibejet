@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
-from typing import AsyncIterator, Callable, Optional, Protocol
+from typing import Protocol
 
 from application.dto import ChatRequestDTO, MessageDTO_Agent, RunDTO
 from application.ports.llm import LLMMessage, LLMPort, LLMResponse
@@ -34,7 +35,7 @@ class ChatUnitOfWork(Protocol):
     @property
     def run_repository(self) -> RunRepository: ...
 
-    async def __aenter__(self) -> "ChatUnitOfWork": ...
+    async def __aenter__(self) -> ChatUnitOfWork: ...
 
     async def __aexit__(self, exc_type, exc, tb) -> None: ...
 
@@ -47,7 +48,7 @@ class _StartedRun:
 
     run_id: int
     user_message_id: int
-    model: Optional[str]
+    model: str | None
     llm_messages: list[LLMMessage]
 
 
@@ -79,7 +80,7 @@ class ChatApplicationService:
         """Phase 1: validate conversation + ownership, persist user message, create run."""
         async with self._uow_factory() as uow:
             conv = await uow.conversation_repository.get_by_id(conversation_id)
-            # 归属断言必须先于任何写库：越权与不存在同 404（Epic-1 I3）
+            # 归属断言必须先于任何写库：越权与不存在同 404
             if conv is None or not conv.belongs_to(owner_id):
                 raise ConversationNotFoundException(conversation_id)
 
@@ -134,7 +135,7 @@ class ChatApplicationService:
         prompt_tokens: int,
         completion_tokens: int,
         total_tokens: int,
-    ) -> tuple[Message, Optional[Run]]:
+    ) -> tuple[Message, Run | None]:
         """Phase 3: persist assistant message and mark run completed."""
         async with self._uow_factory() as uow:
             assistant_msg = Message(
