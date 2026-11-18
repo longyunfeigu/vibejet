@@ -10,13 +10,12 @@ import json
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404 - 本脚本的职责就是编排 git 和 agent CLI
 import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
-
 
 EVAL_RESULT = re.compile(r"VJ_EVAL_RESULT:\s*(\{.*\})")
 INTERVENTION_MARKERS = re.compile(
@@ -31,7 +30,7 @@ RUNNER_INFRA_FAILURE = re.compile(
 
 
 def repo_root() -> Path:
-    proc = subprocess.run(
+    proc = subprocess.run(  # nosec B603 B607 - 固定的 git 命令
         ["git", "rev-parse", "--show-toplevel"],
         check=True,
         capture_output=True,
@@ -99,6 +98,13 @@ def find_case(suite: dict[str, Any], case_id: str) -> dict[str, Any]:
     raise SystemExit(f"unknown case: {case_id}")
 
 
+def as_text(value: bytes | str | None) -> str:
+    """TimeoutExpired 的 stdout / stderr 不管 text=True 与否都是 bytes（见 subprocess 文档）。"""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value or ""
+
+
 def run_command(
     args: list[str],
     *,
@@ -106,7 +112,7 @@ def run_command(
     timeout: int | None = None,
     stdin: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # nosec B603 - 命令由 runner 定义和 case 文件拼出，都在仓库内
         args,
         cwd=cwd,
         input=stdin,
@@ -131,7 +137,7 @@ def overlay_candidate(source: Path, target: Path) -> None:
         for value in excludes:
             cmd.extend(["--exclude", value])
         cmd.extend([f"{source}/", f"{target}/"])
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True)  # nosec B603 B607 - 固定的 rsync 命令，路径来自本脚本
         return
 
     def ignored(directory: str, names: list[str]) -> set[str]:
@@ -139,10 +145,7 @@ def overlay_candidate(source: Path, target: Path) -> None:
         blocked: set[str] = set()
         for name in names:
             candidate = str(rel / name) if str(rel) != "." else name
-            if any(
-                candidate == item or candidate.startswith(f"{item}/")
-                for item in excludes
-            ):
+            if any(candidate == item or candidate.startswith(f"{item}/") for item in excludes):
                 blocked.add(name)
         return blocked
 
@@ -157,7 +160,7 @@ def prepare_worktree(
     baseline_root: Path | None,
 ) -> None:
     if destination.exists():
-        subprocess.run(
+        subprocess.run(  # nosec B603 B607 - 固定的 git 命令
             ["git", "worktree", "remove", "--force", str(destination)],
             cwd=root,
             capture_output=True,
@@ -165,7 +168,11 @@ def prepare_worktree(
         )
         shutil.rmtree(destination, ignore_errors=True)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    # trial 目录在系统临时目录里，被系统清掉后 git 仍登记着它，同路径再 add 会报 128
     subprocess.run(
+        ["git", "worktree", "prune"], cwd=root, capture_output=True, text=True
+    )  # nosec B603 B607 - 固定的 git 命令
+    subprocess.run(  # nosec B603 B607 - 固定的 git 命令
         ["git", "worktree", "add", "--detach", str(destination), "HEAD"],
         cwd=root,
         check=True,
@@ -247,9 +254,7 @@ def agent_command(
     return command, None
 
 
-def extract_final_message(
-    runner: str, stdout: str
-) -> tuple[str, dict[str, Any] | None]:
+def extract_final_message(runner: str, stdout: str) -> tuple[str, dict[str, Any] | None]:
     if runner == "claude":
         try:
             payload = json.loads(stdout)
@@ -347,9 +352,7 @@ def declared_metrics(final: str) -> dict[str, int | str | None]:
     }
 
 
-def grade_assertion(
-    assertion: dict[str, Any], worktree: Path, final: str
-) -> dict[str, Any]:
+def grade_assertion(assertion: dict[str, Any], worktree: Path, final: str) -> dict[str, Any]:
     kind = assertion["type"]
     passed = False
     evidence = ""
@@ -374,9 +377,7 @@ def grade_assertion(
         matches = glob.glob(str(worktree / assertion["pattern"]))
         minimum = int(assertion.get("min", 0))
         maximum = assertion.get("max")
-        passed = len(matches) >= minimum and (
-            maximum is None or len(matches) <= int(maximum)
-        )
+        passed = len(matches) >= minimum and (maximum is None or len(matches) <= int(maximum))
         evidence = f"matched={len(matches)}, min={minimum}, max={maximum}"
     elif kind == "file_contains":
         path = worktree / assertion["path"]
@@ -386,7 +387,7 @@ def grade_assertion(
         evidence = f"{assertion['path']} {'contains' if passed else 'misses'} {value!r}"
     elif kind == "command_exit":
         command = assertion["command"]
-        proc = subprocess.run(
+        proc = subprocess.run(  # nosec B603 B607 - 断言命令来自仓库内的 eval case 文件
             ["bash", "-lc", command],
             cwd=worktree,
             capture_output=True,
@@ -415,9 +416,7 @@ def run_trial(
     max_budget_usd: float,
 ) -> dict[str, Any]:
     runtime_label = f"{runner}-{model or 'default'}"
-    run_root = (
-        root / ".vj/evals" / case["id"] / variant / runtime_label / f"trial-{trial}"
-    )
+    run_root = root / ".vj/evals" / case["id"] / variant / runtime_label / f"trial-{trial}"
     repo_key = hashlib.sha256(str(root).encode()).hexdigest()[:10]
     worktree = (
         Path(tempfile.gettempdir())
@@ -457,8 +456,8 @@ def run_trial(
         proc = subprocess.CompletedProcess(
             command,
             124,
-            stdout=exc.stdout or "",
-            stderr=exc.stderr or "timeout",
+            stdout=as_text(exc.stdout),
+            stderr=as_text(exc.stderr) or "timeout",
         )
         timed_out = True
     duration_ms = int((time.monotonic() - started) * 1000)
@@ -469,8 +468,7 @@ def run_trial(
     (run_root / "final.txt").write_text(final, encoding="utf-8")
 
     assertions = [
-        grade_assertion(assertion, worktree, final)
-        for assertion in case.get("assertions", [])
+        grade_assertion(assertion, worktree, final) for assertion in case.get("assertions", [])
     ]
     metrics = declared_metrics(final)
     runner_error = proc.returncode != 0 and RUNNER_INFRA_FAILURE.search(
@@ -487,9 +485,7 @@ def run_trial(
         "model": model,
         "max_budget_usd": max_budget_usd,
         "timeout_sec": int(case.get("timeout_sec", 1800)),
-        "passed": proc.returncode == 0
-        and not timed_out
-        and all(x["passed"] for x in assertions),
+        "passed": proc.returncode == 0 and not timed_out and all(x["passed"] for x in assertions),
         "valid_trial": not bool(runner_error),
         "runner_error": runner_error.group(0) if runner_error else None,
         "exit_code": proc.returncode,
@@ -511,9 +507,7 @@ def run_trial(
 
 def summarize(root: Path) -> int:
     suite = load_suite(root)
-    expected_revisions = {
-        case["id"]: int(case.get("revision", 1)) for case in suite["cases"]
-    }
+    expected_revisions = {case["id"]: int(case.get("revision", 1)) for case in suite["cases"]}
     result_paths: list[Path] = []
     paths = list((root / ".vj/evals").glob("*/*/*/trial-*/result.json"))
     # Compatibility with results written by the first runner revision.
@@ -522,9 +516,7 @@ def summarize(root: Path) -> int:
     latest: dict[tuple[Any, ...], tuple[int, dict[str, Any]]] = {}
     for path in result_paths:
         result = json.loads(path.read_text(encoding="utf-8"))
-        if int(result.get("case_revision", 1)) != expected_revisions.get(
-            result["case_id"]
-        ):
+        if int(result.get("case_revision", 1)) != expected_revisions.get(result["case_id"]):
             continue
         if result.get("valid_trial", True) is False:
             continue
@@ -591,38 +583,29 @@ def summarize(root: Path) -> int:
             if (name, runtime, runtime_model, runtime_budget, revision_fingerprint)
             == (variant, runner, model, budget, fingerprint)
         ]
-        pass_at_1 = sum(bool(values[0]["passed"]) for values in case_runs) / len(
-            case_runs
-        )
+        pass_at_1 = sum(bool(values[0]["passed"]) for values in case_runs) / len(case_runs)
         eligible = [values for values in case_runs if len(values) >= 3]
         pass_power_3 = (
-            sum(all(item["passed"] for item in values[:3]) for values in eligible)
-            / len(eligible)
+            sum(all(item["passed"] for item in values[:3]) for values in eligible) / len(eligible)
             if eligible
             else None
         )
         flat = [item for values in case_runs for item in values]
         durations = [item["duration_ms"] for item in flat]
-        tokens = [
-            item["tokens"] for item in flat if isinstance(item.get("tokens"), int)
-        ]
+        token_counts = [item["tokens"] for item in flat if isinstance(item.get("tokens"), int)]
         summary[f"{variant}:{runner}:{model}:budget={budget}:{fingerprint}"] = {
             "cases": len(case_runs),
             "trials": len(flat),
             "pass@1": pass_at_1,
             "pass^3": pass_power_3,
             "avg_duration_ms": int(sum(durations) / len(durations)),
-            "avg_tokens": int(sum(tokens) / len(tokens)) if tokens else None,
-            "human_interventions": sum(
-                item.get("human_interventions") or 0 for item in flat
-            ),
+            "avg_tokens": int(sum(token_counts) / len(token_counts)) if token_counts else None,
+            "human_interventions": sum(item.get("human_interventions") or 0 for item in flat),
             "rework_rounds": sum(item.get("rework_rounds") or 0 for item in flat),
         }
 
     output = root / ".vj/evals/benchmark.json"
-    output.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
@@ -634,9 +617,7 @@ def main() -> int:
 
     run_parser = sub.add_parser("run")
     run_parser.add_argument("--case", required=True)
-    run_parser.add_argument(
-        "--variant", choices=("baseline", "candidate"), required=True
-    )
+    run_parser.add_argument("--variant", choices=("baseline", "candidate"), required=True)
     run_parser.add_argument("--runner", choices=("claude", "codex"), default="claude")
     run_parser.add_argument("--trials", type=int, default=1)
     run_parser.add_argument("--model", default=None)

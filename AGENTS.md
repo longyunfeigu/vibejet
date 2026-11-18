@@ -121,7 +121,7 @@ systems — HTTP calls, SDK, caching, distributed locks, DTO mapping, transactio
 - Names: files/modules/functions/vars `snake_case`; classes `CapWords`
 - DTOs use Pydantic v2 models; validate at boundaries
 - Logging: never `print`; use `core.logging_config.get_logger(__name__)` (structlog)
-  （flake8-print T20 强制；`backend/scripts/` 属 CLI 工具豁免）
+  （flake8-print T20 强制；`backend/scripts/` 与 `.agents/**/scripts/` 属 CLI 工具豁免）
 - Exceptions: domain raises `BusinessException` (`backend/domain/common/exceptions.py`);
   API translates to HTTP responses via handlers in `backend/core/exceptions.py`
 

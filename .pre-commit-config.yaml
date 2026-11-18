@@ -28,8 +28,9 @@ repos:
           - --extend-ignore=E203,E501,W503,B008
           - --exclude=backend/alembic/versions/*,backend/grpc_app/generated/*
           # 与 backend/.flake8 保持一致（pre-commit 从仓库根运行，读不到该文件）：
-          # __init__ 豁免 F401；scripts/ 与 alembic/env.py 属 CLI/迁移工具，print 合法，豁免 T20
-          - --per-file-ignores=*__init__.py:F401 *backend/scripts/*.py:T201,T203 *backend/alembic/env.py:T201,T203
+          # __init__ 豁免 F401；scripts/ 与 alembic/env.py 属 CLI/迁移工具，print 合法，豁免 T20；
+          # .agents 下各 skill 的 scripts/ 同属 CLI 工具
+          - --per-file-ignores=*__init__.py:F401 *backend/scripts/*.py:T201,T203 *backend/alembic/env.py:T201,T203 *.agents/*/scripts/*.py:T201,T203
         additional_dependencies:
           - flake8-bugbear
           - flake8-comprehensions
@@ -92,8 +93,7 @@ repos:
     rev: v3.1.0
     hooks:
       - id: prettier
-        types_or: [yaml, markdown]
-        exclude: ^(CLAUDE\.md|AGENTS\.md|backend/alembic/versions/.*)$
+        types_or: [yaml]
 
   # Dockerfile linting
   - repo: https://github.com/hadolint/hadolint

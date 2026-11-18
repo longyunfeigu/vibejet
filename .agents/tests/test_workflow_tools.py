@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import importlib.util
 import csv
+import importlib.util
 import io
 import json
 import subprocess
@@ -12,7 +12,6 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from types import ModuleType
 from unittest import mock
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -81,6 +80,8 @@ def load_module(name: str, path: Path) -> ModuleType:
 
 
 class WorkflowDoctorTest(unittest.TestCase):
+    module: ModuleType
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.module = load_module(
@@ -115,9 +116,7 @@ class WorkflowDoctorTest(unittest.TestCase):
         proc = subprocess.CompletedProcess([], 0, stdout=output, stderr="")
         with (
             mock.patch.object(self.module, "run_capture", return_value=proc),
-            mock.patch.object(
-                self.module.shutil, "which", return_value="/usr/bin/pnpm"
-            ),
+            mock.patch.object(self.module.shutil, "which", return_value="/usr/bin/pnpm"),
         ):
             report = self.module.Report()
             reporters = self.module.vitest_reporters(ROOT / "frontend", report)
@@ -134,6 +133,7 @@ class WorkflowDoctorTest(unittest.TestCase):
         self.assertTrue(any(item.code == "CMD_CWD" for item in report.errors))
 
     def test_plan_checks_commands_from_test_map(self) -> None:
+        (ROOT / ".vj").mkdir(exist_ok=True)  # 全新 worktree / 克隆里还没有
         with tempfile.TemporaryDirectory(dir=ROOT / ".vj") as raw:
             plan = Path(raw) / "plan.md"
             plan.write_text(
@@ -152,24 +152,20 @@ class WorkflowDoctorTest(unittest.TestCase):
             root = Path(raw)
             skills = root / ".agents/skills"
             (skills / "_shared").mkdir(parents=True)
-            (skills / "_shared/runtime-contract.md").write_text(
-                "# Contract\n", encoding="utf-8"
-            )
+            (skills / "_shared/runtime-contract.md").write_text("# Contract\n", encoding="utf-8")
             (skills / "vj").mkdir()
-            (skills / "vj/SKILL.md").write_text(
-                "Use AskUserQuestion.\n", encoding="utf-8"
-            )
+            (skills / "vj/SKILL.md").write_text("Use AskUserQuestion.\n", encoding="utf-8")
             with redirect_stdout(io.StringIO()):
                 result = self.module.check_runtime(root, as_json=True, strict=True)
             self.assertEqual(result, 1)
 
 
 class PlanLintTest(unittest.TestCase):
+    module: ModuleType
+
     @classmethod
     def setUpClass(cls) -> None:
-        cls.module = load_module(
-            "plan_lint", ROOT / ".agents/skills/_shared/scripts/plan_lint.py"
-        )
+        cls.module = load_module("plan_lint", ROOT / ".agents/skills/_shared/scripts/plan_lint.py")
 
     def test_table_split_preserves_pipe_inside_code_span(self) -> None:
         row = "| C01 | blocking | T001 | use catalog | `docs/project/api|data|ui/` |"
@@ -220,44 +216,75 @@ class PlanLintTest(unittest.TestCase):
         missing_a2 = (PLAN_FIXTURE + TEST_MAP).replace(
             "| A2 | test_edit_portion | `cd backend && uv run pytest tests/test_card.py -q` |\n", ""
         )
-        self.assertTrue(any("A2" in e and "[L13]" in e for e in self.lint(missing_a2, for_execution=True)))
+        self.assertTrue(
+            any("A2" in e and "[L13]" in e for e in self.lint(missing_a2, for_execution=True))
+        )
 
     def test_execution_requires_ready_status(self) -> None:
         text = PLAN_FIXTURE.replace("status: ready", "status: awaiting-approval") + TEST_MAP
         self.assertTrue(any("[L11]" in e for e in self.lint(text, for_execution=True)))
 
     def test_cases_dir_must_exist(self) -> None:
-        text = PLAN_FIXTURE.replace("date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/no-such-dir")
+        text = PLAN_FIXTURE.replace(
+            "date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/no-such-dir"
+        )
         self.assertTrue(any("[L14]" in e for e in self.lint(text)))
 
     def test_overview_only_checks_hygiene(self) -> None:
         self.assertEqual(self.lint("---\ntype: plan-overview\n---\n\n# 总览\n"), [])
 
-    def lint_with_upstream(self, text: str, upstream_status: str, for_execution: bool = False) -> list[str]:
+    def lint_with_upstream(
+        self, text: str, upstream_status: str, for_execution: bool = False
+    ) -> list[str]:
         with tempfile.TemporaryDirectory() as tmp:
             plans = Path(tmp)
-            (plans / "2026-11-13-epic-1.md").write_text(f"---\ntype: plan\nstatus: {upstream_status}\n---\n")
+            (plans / "2026-11-13-epic-1.md").write_text(
+                f"---\ntype: plan\nstatus: {upstream_status}\n---\n"
+            )
             report = self.module.Report()
             self.module.lint(self.module.parse_plan(text), ROOT, for_execution, report, plans)
             return report.errors
 
     def test_execution_waits_for_upstream_plan(self) -> None:
-        text = PLAN_FIXTURE.replace("status: ready", "status: ready\nafter: 2026-11-13-epic-1") + TEST_MAP
-        self.assertTrue(any("[L12]" in e for e in self.lint_with_upstream(text, "in-progress", True)))
+        text = (
+            PLAN_FIXTURE.replace("status: ready", "status: ready\nafter: 2026-11-13-epic-1")
+            + TEST_MAP
+        )
+        self.assertTrue(
+            any("[L12]" in e for e in self.lint_with_upstream(text, "in-progress", True))
+        )
         self.assertEqual(self.lint_with_upstream(text, "done", True), [])
         missing = text.replace("epic-1", "epic-9")
         self.assertTrue(any("[L12]" in e for e in self.lint_with_upstream(missing, "done")))
 
 
 class PlanCaseTraceTest(unittest.TestCase):
+    module: ModuleType
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.module = load_module(
             "plan_case_trace", ROOT / ".agents/skills/_shared/scripts/plan_case_trace.py"
         )
 
-    HEADER = ["用例编号", "需求/缺陷编号", "模块", "功能点", "场景标题", "用例类型", "优先级", "执行方式",
-              "前置条件", "测试数据", "测试步骤", "预期结果", "后置清理", "BDD 标签", "负责人", "备注"]
+    HEADER = [
+        "用例编号",
+        "需求/缺陷编号",
+        "模块",
+        "功能点",
+        "场景标题",
+        "用例类型",
+        "优先级",
+        "执行方式",
+        "前置条件",
+        "测试数据",
+        "测试步骤",
+        "预期结果",
+        "后置清理",
+        "BDD 标签",
+        "负责人",
+        "备注",
+    ]
 
     def run_trace(self, notes: list[tuple[str, str]]) -> tuple[list[str], list[str], int]:
         with tempfile.TemporaryDirectory() as raw:
@@ -269,40 +296,55 @@ class PlanCaseTraceTest(unittest.TestCase):
                 writer = csv.writer(fh)
                 writer.writerow(self.HEADER)
                 for i, (req, note) in enumerate(notes, 1):
-                    writer.writerow([f"DEMO-FT-{i:03d}", req] + [""] * 2 + [f"场景{i}"] + [""] * 10 + [note])
+                    writer.writerow(
+                        [f"DEMO-FT-{i:03d}", req] + [""] * 2 + [f"场景{i}"] + [""] * 10 + [note]
+                    )
             plan = repo / "docs/work/plans/2026-11-13-epic-1.md"
             plan.parent.mkdir(parents=True)
             plan.write_text(
-                PLAN_FIXTURE.replace("date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/demo"),
+                PLAN_FIXTURE.replace(
+                    "date: 2026-11-13", "date: 2026-11-13\ncases: AutoTest/modules/demo"
+                ),
                 encoding="utf-8",
             )
             return self.module.check(plan, repo)
 
     def test_every_acceptance_item_traced(self) -> None:
-        missing, extras, total = self.run_trace([
-            ("2026-11-13-epic-1", "对应验收：A1、A2"),
-            ("2026-11-13-epic-1", "对应验收：A3"),
-        ])
+        missing, extras, total = self.run_trace(
+            [
+                ("2026-11-13-epic-1", "对应验收：A1、A2"),
+                ("2026-11-13-epic-1", "对应验收：A3"),
+            ]
+        )
         self.assertEqual((missing, extras, total), ([], [], 2))
 
     def test_missing_item_and_backfill_candidate_reported(self) -> None:
-        missing, extras, total = self.run_trace([
-            ("2026-11-13-epic-1", "对应验收：A1"),
-            ("2026-11-13-epic-1", "PRD 兜底：访客跳登录"),
-            ("other-plan", "对应验收：A2、A3"),
-        ])
+        missing, extras, total = self.run_trace(
+            [
+                ("2026-11-13-epic-1", "对应验收：A1"),
+                ("2026-11-13-epic-1", "PRD 兜底：访客跳登录"),
+                ("other-plan", "对应验收：A2、A3"),
+            ]
+        )
         self.assertEqual(missing, ["A2", "A3"])
         self.assertEqual(len(extras), 1)
         self.assertEqual(total, 2)
 
 
 class EvalParserTest(unittest.TestCase):
+    module: ModuleType
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.module = load_module(
             "vj_eval",
             ROOT / ".agents/evals/vj-workflow/scripts/vj_eval.py",
         )
+
+    def test_timeout_output_bytes_become_text(self) -> None:
+        self.assertEqual(self.module.as_text(b"partial \xe8\xbe\x93\xe5\x87\xba"), "partial 输出")
+        self.assertEqual(self.module.as_text(None), "")
+        self.assertEqual(self.module.as_text("already text"), "already text")
 
     def test_parses_claude_event_array(self) -> None:
         payload = [
@@ -348,9 +390,7 @@ class EvalParserTest(unittest.TestCase):
         self.assertFalse(result["passed"])
 
     def test_runner_capacity_error_is_detected(self) -> None:
-        self.assertIsNotNone(
-            self.module.RUNNER_INFRA_FAILURE.search("You've hit your usage limit")
-        )
+        self.assertIsNotNone(self.module.RUNNER_INFRA_FAILURE.search("You've hit your usage limit"))
 
     def test_workflow_fingerprint_changes_with_skill_content(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
